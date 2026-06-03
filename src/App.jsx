@@ -138,6 +138,7 @@ export default function App() {
   const [crudites, setCrudites]     = useState(DEFAULT_CRUDITES);
   const [extras, setExtras]         = useState(DEFAULT_EXTRAS);
   const [history, setHistory]       = useState([]);
+  const [payments, setPayments]     = useState({});
   const [tab, setTab]               = useState("order");
   const [status, setStatus]         = useState("connecting");
   const [savedMsg, setSavedMsg]     = useState(false);
@@ -173,7 +174,8 @@ export default function App() {
     const u5 = onSnapshot(doc(db,"config","extras"),  snap=>{if(snap.exists()&&snap.data().list)setExtras(snap.data().list);});
     const u6 = onSnapshot(collection(db,"favorites"), snap=>{const d={};snap.forEach(s=>{d[s.id]=s.data();});setFavorites(d);});
     const u7 = onSnapshot(collection(db,"history"),   snap=>{const days=[];snap.forEach(s=>days.push({id:s.id,...s.data()}));days.sort((a,b)=>b.id.localeCompare(a.id));setHistory(days);});
-    return ()=>{u1();u2();u3();u4();u5();u6();u7();};
+    const u8 = onSnapshot(doc(db,"payments","today"), snap=>{if(snap.exists())setPayments(snap.data());else setPayments({});});
+    return ()=>{u1();u2();u3();u4();u5();u6();u7();u8();};
   },[]);
 
   useEffect(()=>{
@@ -271,6 +273,13 @@ export default function App() {
     await setDoc(doc(db,"orders",name),newOrder);
   };
 
+  const togglePayment = async name => {
+    const current = payments[name] || false;
+    const updated = { ...payments, [name]: !current };
+    setPayments(updated);
+    await setDoc(doc(db,"payments","today"), updated);
+  };
+
   const saveFavorite=async name=>{
     const cur=orders[name];if(!cur?.choice)return;
     await setDoc(doc(db,"favorites",name),{...cur});
@@ -281,8 +290,9 @@ export default function App() {
     const today=new Date().toISOString().slice(0,10);
     const snapshot={};
     members.map(m=>m.username).forEach(n=>{if(orders[n]?.choice)snapshot[n]=orders[n];});
-    if(Object.keys(snapshot).length>0)await setDoc(doc(db,"history",today),{date:today,orders:snapshot});
+    if(Object.keys(snapshot).length>0)await setDoc(doc(db,"history",today),{date:today,orders:snapshot,payments});
     await Promise.all(members.map(m=>deleteDoc(doc(db,"orders",m.username))));
+    await setDoc(doc(db,"payments","today"),{});
   };
   const deleteHistory=async id=>{if(!window.confirm("Supprimer cet historique ?"))return;await deleteDoc(doc(db,"history",id));};
 
@@ -510,20 +520,36 @@ export default function App() {
               {LUNCH_OPTIONS.map(opt=>{
                 const people=names.filter(n=>orders[n]?.choice===opt.id);
                 if(!people.length)return null;
+                const paidCount=people.filter(n=>payments[n]).length;
                 return (
                   <div key={opt.id} style={{background:T.bg2,border:"1px solid "+T.border,borderLeft:"3px solid "+opt.accent,borderRadius:12,padding:"16px 20px"}}>
-                    <h3 style={{fontSize:14,fontWeight:700,color:opt.accent,marginBottom:12,fontFamily:"'Syne',sans-serif"}}>{opt.label}</h3>
-                    {people.map((name,idx)=>(
-                      <div key={name} style={{display:"flex",gap:12,alignItems:"center",padding:"8px 0",borderBottom:"1px solid "+T.border2}}>
-                        <span style={{fontSize:12,fontWeight:700,color:T.textFaint,minWidth:24,textAlign:"right"}}>{idx+1}.</span>
-                        <span style={{fontSize:13,fontWeight:600,minWidth:120,color:T.text}}>{name}</span>
-                        <span style={{fontSize:13,color:T.textMuted,flex:1}}>{formatOrder(orders[name],extras)||<em style={{opacity:0.4}}>Aucun détail</em>}</span>
-                        {name===user&&(
-                          <button style={{background:"transparent",border:"none",fontSize:16,cursor:"pointer",padding:"2px 6px",color:formatOrder(favorites[name],extras)===formatOrder(orders[name],extras)?"#f59e0b":"#aaa",flexShrink:0}}
-                            onClick={()=>saveFavorite(name)} title="Sauvegarder comme favori">⭐</button>
-                        )}
-                      </div>
-                    ))}
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                      <h3 style={{fontSize:14,fontWeight:700,color:opt.accent,fontFamily:"'Syne',sans-serif"}}>{opt.label}</h3>
+                      <span style={{fontSize:12,color:paidCount===people.length?"#22c55e":T.textMuted}}>
+                        💰 {paidCount}/{people.length} payé{paidCount>1?"s":""}
+                      </span>
+                    </div>
+                    {people.map((name,idx)=>{
+                      const paid = payments[name]||false;
+                      return (
+                        <div key={name} style={{display:"flex",gap:12,alignItems:"center",padding:"8px 0",borderBottom:"1px solid "+T.border2,opacity:paid?0.6:1,transition:"opacity 0.2s"}}>
+                          <span style={{fontSize:12,fontWeight:700,color:T.textFaint,minWidth:24,textAlign:"right"}}>{idx+1}.</span>
+                          <span style={{fontSize:13,fontWeight:600,minWidth:120,color:T.text,textDecoration:paid?"line-through":"none"}}>{name}</span>
+                          <span style={{fontSize:13,color:T.textMuted,flex:1}}>{formatOrder(orders[name],extras)||<em style={{opacity:0.4}}>Aucun détail</em>}</span>
+                          {/* Payment toggle */}
+                          <button
+                            onClick={()=>togglePayment(name)}
+                            title={paid?"Marquer non payé":"Marquer payé"}
+                            style={{background:paid?"#22c55e22":"transparent",border:"1px solid "+(paid?"#22c55e55":T.border),borderRadius:8,padding:"3px 10px",fontSize:12,cursor:"pointer",color:paid?"#22c55e":T.textMuted,whiteSpace:"nowrap",flexShrink:0,transition:"all 0.2s"}}>
+                            {paid?"✓ Payé":"À payer"}
+                          </button>
+                          {name===user&&(
+                            <button style={{background:"transparent",border:"none",fontSize:16,cursor:"pointer",padding:"2px 6px",color:formatOrder(favorites[name],extras)===formatOrder(orders[name],extras)?"#f59e0b":"#aaa",flexShrink:0}}
+                              onClick={()=>saveFavorite(name)} title="Sauvegarder comme favori">⭐</button>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })}
@@ -637,13 +663,19 @@ export default function App() {
                     return (
                       <div key={opt.id} style={{marginBottom:12,paddingLeft:12,borderLeft:"3px solid "+opt.accent}}>
                         <div style={{fontSize:13,fontWeight:600,color:opt.accent,marginBottom:6}}>{opt.label}</div>
-                        {people.map(([name,o],idx)=>(
-                          <div key={name} style={{display:"flex",gap:12,padding:"5px 0",borderBottom:"1px solid "+T.border2,alignItems:"center"}}>
-                            <span style={{fontSize:12,fontWeight:700,color:T.textFaint,minWidth:24,textAlign:"right"}}>{idx+1}.</span>
-                            <span style={{fontSize:13,fontWeight:600,minWidth:120,color:T.text}}>{name}</span>
-                            <span style={{fontSize:13,color:T.textMuted}}>{formatOrder(o,extras)||<em style={{opacity:0.4}}>Aucun détail</em>}</span>
-                          </div>
-                        ))}
+                        {people.map(([name,o],idx)=>{
+                          const paid = (day.payments||{})[name]||false;
+                          return (
+                            <div key={name} style={{display:"flex",gap:12,padding:"5px 0",borderBottom:"1px solid "+T.border2,alignItems:"center"}}>
+                              <span style={{fontSize:12,fontWeight:700,color:T.textFaint,minWidth:24,textAlign:"right"}}>{idx+1}.</span>
+                              <span style={{fontSize:13,fontWeight:600,minWidth:120,color:T.text,textDecoration:paid?"line-through":"none"}}>{name}</span>
+                              <span style={{fontSize:13,color:T.textMuted,flex:1}}>{formatOrder(o,extras)||<em style={{opacity:0.4}}>Aucun détail</em>}</span>
+                              <span style={{fontSize:12,padding:"2px 8px",borderRadius:20,background:paid?"#22c55e22":"#f8717122",color:paid?"#22c55e":"#f87171",flexShrink:0}}>
+                                {paid?"✓ Payé":"Non payé"}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     );
                   })}
