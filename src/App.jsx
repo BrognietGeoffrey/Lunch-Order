@@ -108,7 +108,7 @@ function LoginScreen({ onLogin, theme, toggleTheme }) {
           <select style={{ width:"100%", background:T.bg, border:"1px solid "+T.border, borderRadius:10, color:T.text, padding:"10px 14px", fontSize:14, fontFamily:"'DM Sans',sans-serif" }}
             value={username} onChange={e => setUsername(e.target.value)}>
             <option value="">— Choisis ton nom —</option>
-            {USERS.map(u => <option key={u.username} value={u.username}>{u.username}</option>)}
+            {USERS.filter(u => u.username !== "Admin").map(u => <option key={u.username} value={u.username}>{u.username}</option>)}
           </select>
         </div>
 
@@ -142,6 +142,7 @@ export default function App() {
   const [tab, setTab]               = useState("order");
   const [status, setStatus]         = useState("connecting");
   const [savedMsg, setSavedMsg]     = useState(false);
+  const [history, setHistory]       = useState([]);
   const [theme, setTheme]           = useState(() => localStorage.getItem("lunch_theme") || "dark");
   const detailTimers                = useRef({});
   const T = theme === "dark" ? DARK : LIGHT;
@@ -161,7 +162,13 @@ export default function App() {
     const unsubSauces  = onSnapshot(doc(db, "config", "sauces"),  snap => { if (snap.exists() && snap.data().list) setSauces(snap.data().list); });
     const unsubCrudites= onSnapshot(doc(db, "config", "crudites"),snap => { if (snap.exists() && snap.data().list) setCrudites(snap.data().list); });
     const unsubFavs    = onSnapshot(collection(db, "favorites"),  snap => { const d = {}; snap.forEach(s => { d[s.id] = s.data(); }); setFavorites(d); });
-    return () => { unsubOrders(); unsubNames(); unsubSauces(); unsubCrudites(); unsubFavs(); };
+    const unsubHistory = onSnapshot(collection(db, "history"),    snap => {
+      const days = [];
+      snap.forEach(s => days.push({ id: s.id, ...s.data() }));
+      days.sort((a,b) => b.id.localeCompare(a.id));
+      setHistory(days);
+    });
+    return () => { unsubOrders(); unsubNames(); unsubSauces(); unsubCrudites(); unsubFavs(); unsubHistory(); };
   }, []);
 
   useEffect(() => {
@@ -229,7 +236,13 @@ export default function App() {
   };
 
   const resetAll = async () => {
-    if (!window.confirm("Effacer toutes les commandes du jour ?")) return;
+    if (!window.confirm("Archiver et effacer toutes les commandes du jour ?")) return;
+    const today = new Date().toISOString().slice(0,10); // YYYY-MM-DD
+    const snapshot = {};
+    names.forEach(n => { if (orders[n]?.choice) snapshot[n] = orders[n]; });
+    if (Object.keys(snapshot).length > 0) {
+      await setDoc(doc(db, "history", today), { date: today, orders: snapshot });
+    }
     await Promise.all(names.map(n => deleteDoc(doc(db,"orders",n))));
   };
 
@@ -269,7 +282,7 @@ export default function App() {
           </div>
         </div>
         <div style={{ maxWidth:1200, margin:"0 auto", padding:"0 24px", display:"flex" }}>
-          {[["order","📋 Commander"],["summary","📊 Résumé"],["settings","⚙️ Config"]].map(([id,label]) => (
+          {[["order","📋 Commander"],["summary","📊 Résumé"],["history","📅 Historique"],["settings","⚙️ Config"]].map(([id,label]) => (
             <button key={id}
               style={{ background:"transparent", border:"none", color: tab===id ? T.text : T.textMuted, padding:"10px 18px", fontSize:13, fontWeight:600, cursor:"pointer", borderBottom: tab===id ? "2px solid "+T.text : "2px solid transparent", fontFamily:"'DM Sans',sans-serif", transition:"all 0.2s" }}
               onClick={() => setTab(id)}>{label}</button>
@@ -488,6 +501,59 @@ export default function App() {
                 ⭐ Commande sauvegardée comme favori !
               </div>
             )}
+          </div>
+        )}
+
+        {/* ════ HISTORY TAB ════ */}
+        {tab === "history" && (
+          <div style={{ animation:"slideDown 0.3s ease" }}>
+            <h2 style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:18, marginBottom:24, color:T.text }}>📅 Historique des commandes</h2>
+
+            {history.length === 0 && (
+              <p style={{ color:T.textFaint, textAlign:"center", padding:48 }}>Aucun historique pour l'instant.<br/>Les commandes sont archivées lors de la réinitialisation.</p>
+            )}
+
+            {history.map(day => {
+              // filter orders based on role
+              const visibleOrders = user === "Admin"
+                ? Object.entries(day.orders || {})
+                : Object.entries(day.orders || {}).filter(([name]) => name === user);
+
+              if (visibleOrders.length === 0) return null;
+
+              return (
+                <div key={day.id} style={{ background:T.bg2, border:"1px solid "+T.border, borderRadius:14, padding:"20px 24px", marginBottom:16 }}>
+                  {/* Date header */}
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
+                    <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:16, color:T.text }}>
+                      📆 {new Date(day.id).toLocaleDateString("fr-BE", { weekday:"long", day:"numeric", month:"long", year:"numeric" })}
+                    </h3>
+                    <span style={{ background:T.bg3, color:T.textMuted, fontSize:12, padding:"3px 10px", borderRadius:20 }}>
+                      {visibleOrders.length} commande{visibleOrders.length>1?"s":""}
+                    </span>
+                  </div>
+
+                  {/* Group by option */}
+                  {LUNCH_OPTIONS.map(opt => {
+                    const people = visibleOrders.filter(([,o]) => o.choice === opt.id);
+                    if (!people.length) return null;
+                    return (
+                      <div key={opt.id} style={{ marginBottom:12, paddingLeft:12, borderLeft:"3px solid "+opt.accent }}>
+                        <div style={{ fontSize:13, fontWeight:600, color:opt.accent, marginBottom:6 }}>{opt.label}</div>
+                        {people.map(([name, o]) => (
+                          <div key={name} style={{ display:"flex", gap:12, padding:"5px 0", borderBottom:"1px solid "+T.border2 }}>
+                            <span style={{ fontSize:13, fontWeight:600, minWidth:120, color:T.text }}>{name}</span>
+                            <span style={{ fontSize:13, color:T.textMuted }}>
+                              {formatOrder(o) || <em style={{ opacity:0.4 }}>Aucun détail</em>}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
           </div>
         )}
 
