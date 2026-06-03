@@ -50,11 +50,18 @@ const LIGHT = {
 
 function formatOrder(o) {
   if (!o?.choice) return "";
-  const parts = [o.boules, o.snackType, o.frites];
-  if (o.friteSup) parts.push("Frite sup. " + o.friteSup);
-  if (o.crudites?.length) parts.push("Crudités: " + o.crudites.join(", "));
-  if (o.sauces?.length) parts.push(o.sauces.join(", "));
-  if (o.detail) parts.push(o.detail);
+  const parts = [];
+  if (o.choice === "snack-merode") {
+    // Durum/Bicky suivi directement du commentaire
+    if (o.snackType) parts.push(o.snackType + (o.detail ? " " + o.detail : ""));
+    if (o.frites) parts.push(o.frites);
+    if (o.friteSup) parts.push("Frite sup. " + o.friteSup);
+    if (o.crudites?.length) parts.push("Crudités: " + o.crudites.join(", "));
+    if (o.sauces?.length) parts.push(o.sauces.join(", "));
+  } else {
+    if (o.boules) parts.push(o.boules);
+    if (o.detail) parts.push(o.detail);
+  }
   return parts.filter(Boolean).join(" · ");
 }
 
@@ -301,7 +308,7 @@ export default function App() {
           </div>
         </div>
         <div style={{maxWidth:1200,margin:"0 auto",padding:"0 24px",display:"flex"}}>
-          {[["order","📋 Commander"],["summary","📊 Résumé"],["history","📅 Historique"],["settings","⚙️ Config"]].map(([id,label])=>(
+          {[["order","📋 Commander"],["summary","📊 Résumé"],["favorites","⭐ Favoris"],["history","📅 Historique"],["settings","⚙️ Config"]].map(([id,label])=>(
             <button key={id} style={{background:"transparent",border:"none",color:tab===id?T.text:T.textMuted,padding:"10px 18px",fontSize:13,fontWeight:600,cursor:"pointer",borderBottom:tab===id?"2px solid "+T.text:"2px solid transparent",fontFamily:"'DM Sans',sans-serif",transition:"all 0.2s"}}
               onClick={()=>setTab(id)}>{label}</button>
           ))}
@@ -558,6 +565,84 @@ export default function App() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* ════ FAVORITES TAB ════ */}
+        {tab==="favorites" && (
+          <div style={{animation:"slideDown 0.3s ease"}}>
+            <h2 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:18,marginBottom:24,color:T.text}}>⭐ Commandes favorites</h2>
+
+            {/* User view — just own favorite */}
+            {user!=="Admin" && (
+              <div>
+                {favorites[user]?.choice ? (
+                  <div style={{background:T.bg2,border:"1px solid "+T.border,borderRadius:14,padding:"24px"}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+                      <h3 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:16,color:T.text}}>Ta commande favorite</h3>
+                      <button style={{background:"#f59e0b22",border:"1px solid #f59e0b55",color:"#f59e0b",borderRadius:8,padding:"6px 14px",fontSize:13,cursor:"pointer"}}
+                        onClick={async()=>{ await setDoc(doc(db,"orders",user),{...favorites[user]}); setTab("order"); }}>
+                        ↩ Recharger maintenant
+                      </button>
+                    </div>
+                    {LUNCH_OPTIONS.map(opt=>{
+                      if (favorites[user].choice!==opt.id) return null;
+                      return (
+                        <div key={opt.id} style={{paddingLeft:12,borderLeft:"3px solid "+opt.accent}}>
+                          <div style={{fontSize:13,fontWeight:600,color:opt.accent,marginBottom:8}}>{opt.label}</div>
+                          <div style={{fontSize:15,color:T.text,fontWeight:500}}>{formatOrder(favorites[user])}</div>
+                        </div>
+                      );
+                    })}
+                    <div style={{marginTop:16,paddingTop:16,borderTop:"1px solid "+T.border2}}>
+                      <button style={{background:"transparent",border:"1px solid #f8717155",color:"#f87171",borderRadius:8,padding:"6px 14px",fontSize:12,cursor:"pointer"}}
+                        onClick={async()=>{ if(window.confirm("Supprimer ton favori ?")) await deleteDoc(doc(db,"favorites",user)); }}>
+                        🗑 Supprimer ce favori
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{textAlign:"center",color:T.textFaint,padding:60}}>
+                    <div style={{fontSize:40,marginBottom:12}}>⭐</div>
+                    <p>Tu n'as pas encore de favori.</p>
+                    <p style={{fontSize:13,marginTop:8}}>Dans l'onglet Résumé, clique sur ⭐ à côté de ta commande pour la sauvegarder.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Admin view — all favorites */}
+            {user==="Admin" && (
+              <div>
+                {Object.keys(favorites).length===0 ? (
+                  <p style={{color:T.textFaint,textAlign:"center",padding:48}}>Aucun favori enregistré pour l'instant.</p>
+                ) : (
+                  <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                    {LUNCH_OPTIONS.map(opt=>{
+                      const people = Object.entries(favorites).filter(([,f])=>f.choice===opt.id);
+                      if (!people.length) return null;
+                      return (
+                        <div key={opt.id} style={{background:T.bg2,border:"1px solid "+T.border,borderLeft:"3px solid "+opt.accent,borderRadius:12,padding:"16px 20px"}}>
+                          <h3 style={{fontSize:14,fontWeight:700,color:opt.accent,marginBottom:12,fontFamily:"'Syne',sans-serif"}}>{opt.label}</h3>
+                          {people.map(([name,fav])=>(
+                            <div key={name} style={{display:"flex",gap:12,alignItems:"center",padding:"8px 0",borderBottom:"1px solid "+T.border2}}>
+                              <div style={{width:28,height:28,borderRadius:6,background:opt.accent+"28",color:opt.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,flexShrink:0}}>
+                                {name[0].toUpperCase()}
+                              </div>
+                              <span style={{fontSize:13,fontWeight:600,minWidth:120,color:T.text}}>{name}</span>
+                              <span style={{fontSize:13,color:T.textMuted,flex:1}}>{formatOrder(fav)||<em style={{opacity:0.4}}>Aucun détail</em>}</span>
+                              <button style={{background:"transparent",border:"none",color:T.textFaint,cursor:"pointer",fontSize:14,padding:4}}
+                                onClick={async()=>{ if(window.confirm(`Supprimer le favori de ${name} ?`)) await deleteDoc(doc(db,"favorites",name)); }}
+                                title="Supprimer ce favori">🗑</button>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
