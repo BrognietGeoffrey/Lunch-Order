@@ -225,20 +225,22 @@ export default function App() {
         {tab === "order" && (
           <div style={{ animation: "slideDown 0.3s ease" }}>
 
-            {/* Add name */}
-            <section style={S.section}>
-              <h2 style={S.secTitle}>Gérer les noms</h2>
-              <div style={{ display: "flex", gap: 10 }}>
-                <input
-                  style={{ ...S.input, flex: 1 }}
-                  value={newName}
-                  onChange={e => setNewName(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && addName()}
-                  placeholder="Ajouter un nom…"
-                />
-                <button style={S.addBtn} onClick={addName}>+ Ajouter</button>
-              </div>
-            </section>
+            {/* Add name — Admin only */}
+            {user === "Admin" && (
+              <section style={S.section}>
+                <h2 style={S.secTitle}>Gérer les noms</h2>
+                <div style={{ display: "flex", gap: 10 }}>
+                  <input
+                    style={{ ...S.input, flex: 1 }}
+                    value={newName}
+                    onChange={e => setNewName(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && addName()}
+                    placeholder="Ajouter un nom…"
+                  />
+                  <button style={S.addBtn} onClick={addName}>+ Ajouter</button>
+                </div>
+              </section>
+            )}
 
             {/* Table */}
             <section style={S.section}>
@@ -261,6 +263,7 @@ export default function App() {
                     {names.map(name => {
                       const order  = orders[name] || {};
                       const chosen = LUNCH_OPTIONS.find(o => o.id === order.choice);
+                      const canEdit = user === name || user === "Admin";
                       return (
                         <tr key={name} className="datarow">
                           {/* Name */}
@@ -272,6 +275,7 @@ export default function App() {
                                 color:      chosen ? chosen.accent       : "#888",
                               }}>{name[0].toUpperCase()}</div>
                               <span style={{ fontSize: 14, fontWeight: 500 }}>{name}</span>
+                              {user === name && <span style={{ fontSize: 11, color: "#555", marginLeft: 4 }}>● toi</span>}
                             </div>
                           </td>
 
@@ -284,8 +288,9 @@ export default function App() {
                                   ...(order.choice === opt.id
                                     ? { background: opt.accent, color: "#fff", borderColor: opt.accent }
                                     : {}),
+                                  ...(!canEdit ? { opacity: 0.35, cursor: "not-allowed" } : {}),
                                 }}
-                                onClick={() => toggleChoice(name, opt.id)}
+                                onClick={() => canEdit && toggleChoice(name, opt.id)}
                               >
                                 {order.choice === opt.id ? "✓" : "○"}
                               </button>
@@ -298,19 +303,22 @@ export default function App() {
                               style={{
                                 ...S.textarea,
                                 borderColor: chosen ? chosen.accent + "66" : "#2a2a38",
-                                opacity: order.choice ? 1 : 0.4,
+                                opacity: (!order.choice || !canEdit) ? 0.35 : 1,
+                                cursor: !canEdit ? "not-allowed" : "text",
                               }}
                               rows={2}
-                              disabled={!order.choice}
+                              disabled={!order.choice || !canEdit}
                               value={order.detail || ""}
                               onChange={e => handleDetail(name, e.target.value)}
-                              placeholder={order.choice ? "Précise ta commande…" : "Choisis d'abord"}
+                              placeholder={!canEdit ? "🔒 Lecture seule" : order.choice ? "Précise ta commande…" : "Choisis d'abord"}
                             />
                           </td>
 
                           {/* Remove */}
                           <td style={{ ...S.td, textAlign: "center" }}>
-                            <button style={S.removeBtn} onClick={() => removeName(name)}>✕</button>
+                            {user === "Admin" && (
+                              <button style={S.removeBtn} onClick={() => removeName(name)}>✕</button>
+                            )}
                           </td>
                         </tr>
                       );
