@@ -287,7 +287,7 @@ export default function App() {
       {/* Header */}
       <header style={{background:T.bg2,borderBottom:"1px solid "+T.border,position:"sticky",top:0,zIndex:100}}>
         <div style={{maxWidth:1200,margin:"0 auto",padding:"14px 24px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <span style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:20,color:T.text}}>🍽️ EMB - LUNCH ORDER</span>
+          <span style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:20,color:T.text}}>🍽️ Lunch Orders</span>
           <div style={{display:"flex",alignItems:"center",gap:14}}>
             <span style={{fontSize:12,color:status==="live"?"#22c55e":status==="error"?"#f87171":"#f59e0b"}}>
               {status==="live"?"● En direct":status==="error"?"● Erreur":"⟳ Connexion…"}
@@ -393,10 +393,18 @@ export default function App() {
 
                             {order.choice==="snack-merode" && (
                               <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                                {/* Durum / Bicky + commentaire juste après */}
+                                <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
                                   {["Durum","Bicky"].map(opt=>(
                                     <button key={opt} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"snackType",order.snackType===opt?"":opt)} style={pill("#0891b2",order.snackType===opt,!canEdit)}>{opt}</button>
                                   ))}
+                                  <input
+                                    style={{flex:1,minWidth:80,background:T.bg,border:"1px solid #0891b266",borderRadius:8,color:T.text,padding:"4px 8px",fontSize:13,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.35}}
+                                    disabled={!canEdit}
+                                    value={order.detail||""}
+                                    onChange={e=>handleDetail(name,e.target.value)}
+                                    placeholder={canEdit?(order.snackType?"ex: falafel, kefta…":"Précise…"):"🔒"}
+                                  />
                                 </div>
                                 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                                   {["Frite dedans","Frite à part"].map(opt=>(
@@ -422,8 +430,6 @@ export default function App() {
                                     <button key={s} disabled={!canEdit} onClick={()=>canEdit&&toggleMulti(name,"sauces",s)} style={pill("#7c3aed",(order.sauces||[]).includes(s),!canEdit)}>{s}</button>
                                   ))}
                                 </div>
-                                <textarea style={{width:"100%",background:T.bg,border:"1px solid #0891b266",borderRadius:8,color:T.text,padding:"8px 10px",fontSize:13,fontFamily:"'DM Sans',sans-serif",lineHeight:1.5,opacity:canEdit?1:0.35}}
-                                  rows={1} disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?"Commentaire…":"🔒"} />
                               </div>
                             )}
 
