@@ -287,7 +287,7 @@ export default function App() {
       {/* Header */}
       <header style={{background:T.bg2,borderBottom:"1px solid "+T.border,position:"sticky",top:0,zIndex:100}}>
         <div style={{maxWidth:1200,margin:"0 auto",padding:"14px 24px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <span style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:20,color:T.text}}>🍽️ Lunch Orders</span>
+          <span style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:20,color:T.text}}>🍽️ EMB - LUNCH ORDER</span>
           <div style={{display:"flex",alignItems:"center",gap:14}}>
             <span style={{fontSize:12,color:status==="live"?"#22c55e":status==="error"?"#f87171":"#f59e0b"}}>
               {status==="live"?"● En direct":status==="error"?"● Erreur":"⟳ Connexion…"}
