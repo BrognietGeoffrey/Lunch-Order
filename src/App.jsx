@@ -108,7 +108,7 @@ function LoginScreen({ onLogin, theme, toggleTheme }) {
           <select style={{ width:"100%", background:T.bg, border:"1px solid "+T.border, borderRadius:10, color:T.text, padding:"10px 14px", fontSize:14, fontFamily:"'DM Sans',sans-serif" }}
             value={username} onChange={e => setUsername(e.target.value)}>
             <option value="">— Choisis ton nom —</option>
-            {USERS.filter(u => u.username !== "Admin").map(u => <option key={u.username} value={u.username}>{u.username}</option>)}
+            {USERS.map(u => <option key={u.username} value={u.username}>{u.username}</option>)}
           </select>
         </div>
 
