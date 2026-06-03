@@ -173,6 +173,14 @@ export default function App() {
     }, 600);
   };
 
+  const handleSubDetail = async (name, field, value) => {
+    const cur = orders[name] || {};
+    if (!cur.choice) return;
+    const updated = { ...cur, [field]: value };
+    setOrders(prev => ({ ...prev, [name]: updated }));
+    await setDoc(doc(db, "orders", name), updated);
+  };
+
   const resetAll = async () => {
     if (!window.confirm("Effacer toutes les commandes du jour ?")) return;
     await Promise.all(names.map(n => deleteDoc(doc(db, "orders", n))));
@@ -299,19 +307,105 @@ export default function App() {
 
                           {/* Detail */}
                           <td style={S.td}>
-                            <textarea
-                              style={{
-                                ...S.textarea,
-                                borderColor: chosen ? chosen.accent + "66" : "#2a2a38",
-                                opacity: (!order.choice || !canEdit) ? 0.35 : 1,
-                                cursor: !canEdit ? "not-allowed" : "text",
-                              }}
-                              rows={2}
-                              disabled={!order.choice || !canEdit}
-                              value={order.detail || ""}
-                              onChange={e => handleDetail(name, e.target.value)}
-                              placeholder={!canEdit ? "🔒 Lecture seule" : order.choice ? "Précise ta commande…" : "Choisis d'abord"}
-                            />
+                            {!order.choice && (
+                              <span style={{ fontSize: 12, color: "#444" }}>
+                                {!canEdit ? "🔒 Lecture seule" : "Choisis d'abord"}
+                              </span>
+                            )}
+
+                            {/* 🍦 Ice Cream — 1 ou 2 boules */}
+                            {order.choice === "ice-cream" && (
+                              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                <div style={{ display: "flex", gap: 6 }}>
+                                  {["1 boule", "2 boules"].map(opt => {
+                                    const selected = (order.boules || "") === opt;
+                                    return (
+                                      <button
+                                        key={opt}
+                                        disabled={!canEdit}
+                                        onClick={() => canEdit && handleSubDetail(name, "boules", opt)}
+                                        style={{
+                                          ...S.choiceBtn,
+                                          width: "auto", padding: "4px 12px", fontSize: 12,
+                                          ...(selected ? { background: "#ec4899", color: "#fff", borderColor: "#ec4899" } : {}),
+                                          ...(!canEdit ? { opacity: 0.35, cursor: "not-allowed" } : {}),
+                                        }}
+                                      >{opt}</button>
+                                    );
+                                  })}
+                                </div>
+                                <textarea
+                                  style={{ ...S.textarea, borderColor: "#ec489966", opacity: canEdit ? 1 : 0.35 }}
+                                  rows={1}
+                                  disabled={!canEdit}
+                                  value={order.detail || ""}
+                                  onChange={e => handleDetail(name, e.target.value)}
+                                  placeholder={canEdit ? "Parfum(s)…" : "🔒"}
+                                />
+                              </div>
+                            )}
+
+                            {/* 🥪 Snack Merode — Durum/Bicky + frites */}
+                            {order.choice === "snack-merode" && (
+                              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                  {["Durum", "Bicky"].map(opt => {
+                                    const selected = (order.snackType || "") === opt;
+                                    return (
+                                      <button
+                                        key={opt}
+                                        disabled={!canEdit}
+                                        onClick={() => canEdit && handleSubDetail(name, "snackType", opt)}
+                                        style={{
+                                          ...S.choiceBtn,
+                                          width: "auto", padding: "4px 12px", fontSize: 12,
+                                          ...(selected ? { background: "#0891b2", color: "#fff", borderColor: "#0891b2" } : {}),
+                                          ...(!canEdit ? { opacity: 0.35, cursor: "not-allowed" } : {}),
+                                        }}
+                                      >{opt}</button>
+                                    );
+                                  })}
+                                </div>
+                                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                  {["Frite dedans", "Frite à part"].map(opt => {
+                                    const selected = (order.frites || "") === opt;
+                                    return (
+                                      <button
+                                        key={opt}
+                                        disabled={!canEdit}
+                                        onClick={() => canEdit && handleSubDetail(name, "frites", opt)}
+                                        style={{
+                                          ...S.choiceBtn,
+                                          width: "auto", padding: "4px 12px", fontSize: 12,
+                                          ...(selected ? { background: "#f59e0b", color: "#fff", borderColor: "#f59e0b" } : {}),
+                                          ...(!canEdit ? { opacity: 0.35, cursor: "not-allowed" } : {}),
+                                        }}
+                                      >{opt}</button>
+                                    );
+                                  })}
+                                </div>
+                                <textarea
+                                  style={{ ...S.textarea, borderColor: "#0891b266", opacity: canEdit ? 1 : 0.35 }}
+                                  rows={1}
+                                  disabled={!canEdit}
+                                  value={order.detail || ""}
+                                  onChange={e => handleDetail(name, e.target.value)}
+                                  placeholder={canEdit ? "Commentaire…" : "🔒"}
+                                />
+                              </div>
+                            )}
+
+                            {/* 🥙 Libanais — texte libre */}
+                            {order.choice === "libanais" && (
+                              <textarea
+                                style={{ ...S.textarea, borderColor: "#16a34a66", opacity: canEdit ? 1 : 0.35 }}
+                                rows={2}
+                                disabled={!canEdit}
+                                value={order.detail || ""}
+                                onChange={e => handleDetail(name, e.target.value)}
+                                placeholder={canEdit ? "Précise ta commande…" : "🔒"}
+                              />
+                            )}
                           </td>
 
                           {/* Remove */}
@@ -361,14 +455,23 @@ export default function App() {
                       <h3 style={{ fontSize: 14, fontWeight: 700, color: opt.accent, marginBottom: 12, fontFamily: "'Syne',sans-serif" }}>
                         {opt.label}
                       </h3>
-                      {people.map(name => (
-                        <div key={name} style={S.summaryRow}>
-                          <span style={{ fontSize: 13, fontWeight: 600, minWidth: 120, color: "#ccc" }}>{name}</span>
-                          <span style={{ fontSize: 13, color: "#999", flex: 1 }}>
-                            {orders[name]?.detail || <em style={{ opacity: 0.4 }}>Aucun détail</em>}
-                          </span>
-                        </div>
-                      ))}
+                      {people.map(name => {
+                        const o = orders[name] || {};
+                        const subDetail = [
+                          o.boules,
+                          o.snackType,
+                          o.frites,
+                          o.detail,
+                        ].filter(Boolean).join(" · ");
+                        return (
+                          <div key={name} style={S.summaryRow}>
+                            <span style={{ fontSize: 13, fontWeight: 600, minWidth: 120, color: "#ccc" }}>{name}</span>
+                            <span style={{ fontSize: 13, color: "#999", flex: 1 }}>
+                              {subDetail || <em style={{ opacity: 0.4 }}>Aucun détail</em>}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })}
