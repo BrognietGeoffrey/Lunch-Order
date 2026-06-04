@@ -166,6 +166,12 @@ export default function App() {
   const [savedMsg, setSavedMsg]     = useState(false);
   const [favNameInput, setFavNameInput] = useState("");
   const [showFavModal, setShowFavModal] = useState(false);
+  const [newBoissonInput, setNewBoissonInput] = useState({});
+
+  const handleBoissonInput = (name, val) => {
+    setNewBoissonInput(prev=>({...prev,[name]:val}));
+    handleSubDetail(name,"boisson",val);
+  };
   const [theme, setTheme]           = useState(()=>localStorage.getItem("lunch_theme")||"dark");
 
   // member form
@@ -650,9 +656,9 @@ export default function App() {
                                   </div>
                                   <div style={{display:"flex",gap:5,alignItems:"center"}}>
                                     <input style={{flex:1,background:T.bg,border:"1px solid #06b6d466",borderRadius:8,color:T.text,padding:"6px 10px",fontSize:12,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.4}}
-                                      disabled={!canEdit} value={!boissons.includes(order.boisson||"")?(order.boisson||""):""} onChange={e=>handleSubDetail(name,"boisson",e.target.value)} placeholder={canEdit?"Autre boisson…":"🔒"} />
-                                    {canEdit && !boissons.includes(order.boisson||"") && (order.boisson||"").trim() && (
-                                      <button onClick={async()=>{await pb([...boissons,order.boisson]);}} style={{...pill("#06b6d4",false,false),fontSize:11,padding:"4px 8px",whiteSpace:"nowrap"}}>+ Sauvegarder</button>
+                                      disabled={!canEdit} value={newBoissonInput[name]??(!boissons.includes(order.boisson||"")?(order.boisson||""):"")} onChange={e=>handleBoissonInput(name,e.target.value)} placeholder={canEdit?"Autre boisson…":"🔒"} />
+                                    {canEdit && (newBoissonInput[name]||order.boisson||"").trim() && !boissons.includes((newBoissonInput[name]||order.boisson||"").trim()) && (
+                                      <button onClick={async()=>{await pb([...boissons,(newBoissonInput[name]||order.boisson||"").trim()]); setNewBoissonInput(prev=>({...prev,[name]:""}));}} style={{...pill("#06b6d4",false,false),fontSize:11,padding:"4px 8px",whiteSpace:"nowrap"}}>+ Sauvegarder</button>
                                     )}
                                   </div>
                                 </div>
@@ -666,7 +672,7 @@ export default function App() {
                                 <div style={{display:"flex",gap:6,alignItems:"center"}}>
                                   <span style={{fontSize:11,color:T.textFaint,whiteSpace:"nowrap"}}>🥤 Boisson :</span>
                                   <input style={{flex:1,background:T.bg,border:"1px solid #06b6d466",borderRadius:8,color:T.text,padding:"6px 10px",fontSize:12,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.4}}
-                                    disabled={!canEdit} value={!boissons.includes(order.boisson||"")?(order.boisson||""):""} onChange={e=>handleSubDetail(name,"boisson",e.target.value)} placeholder={canEdit?"Autre boisson…":"🔒"} />
+                                    disabled={!canEdit} value={newBoissonInput[name]??(!boissons.includes(order.boisson||"")?(order.boisson||""):"")} onChange={e=>handleBoissonInput(name,e.target.value)} placeholder={canEdit?"Autre boisson…":"🔒"} />
                                 </div>
                               </>
                             )}
@@ -756,9 +762,9 @@ export default function App() {
                                   </div>
                                   <div style={{display:"flex",gap:5,alignItems:"center"}}>
                                     <input style={{flex:1,background:T.bg,border:"1px solid #06b6d466",borderRadius:8,color:T.text,padding:"4px 8px",fontSize:12,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.35}}
-                                      disabled={!canEdit} value={!boissons.includes(order.boisson||"")?(order.boisson||""):""} onChange={e=>handleSubDetail(name,"boisson",e.target.value)} placeholder={canEdit?"Autre…":"🔒"} />
-                                    {canEdit && !boissons.includes(order.boisson||"") && (order.boisson||"").trim() && (
-                                      <button onClick={async()=>{ await pb([...boissons,order.boisson]); }} style={{...pill("#06b6d4",false,false),fontSize:11,padding:"4px 8px",whiteSpace:"nowrap"}}>+ Sauvegarder</button>
+                                      disabled={!canEdit} value={newBoissonInput[name]??(!boissons.includes(order.boisson||"")?(order.boisson||""):"")} onChange={e=>handleBoissonInput(name,e.target.value)} placeholder={canEdit?"Autre…":"🔒"} />
+                                    {canEdit && (newBoissonInput[name]||order.boisson||"").trim() && !boissons.includes((newBoissonInput[name]||order.boisson||"").trim()) && (
+                                      <button onClick={async()=>{ await pb([...boissons,(newBoissonInput[name]||order.boisson||"").trim()]); setNewBoissonInput(prev=>({...prev,[name]:""})); }} style={{...pill("#06b6d4",false,false),fontSize:11,padding:"4px 8px",whiteSpace:"nowrap"}}>+ Sauvegarder</button>
                                     )}
                                   </div>
                                 </div>
@@ -870,11 +876,10 @@ export default function App() {
                                       onChange={e=>handleSubDetail(name,"boisson",e.target.value)}
                                       placeholder={canEdit?"Autre boisson…":"🔒"}
                                     />
-                                    {canEdit && !boissons.includes(order.boisson||"") && (order.boisson||"").trim() && (
+                                    {canEdit && (newBoissonInput[name]||order.boisson||"").trim() && !boissons.includes((newBoissonInput[name]||order.boisson||"").trim()) && (
                                       <button
-                                        onClick={async()=>{ await addBoisson(); }}
-                                        style={{...pill("#06b6d4",false,false),fontSize:11,padding:"4px 8px",whiteSpace:"nowrap"}}
-                                        title="Sauvegarder dans la liste">
+                                        onClick={async()=>{ await pb([...boissons, order.boisson]); }}
+                                        style={{...pill("#06b6d4",false,false),fontSize:11,padding:"4px 8px",whiteSpace:"nowrap"}}>
                                         + Sauvegarder
                                       </button>
                                     )}
@@ -897,9 +902,9 @@ export default function App() {
                                   </div>
                                   <div style={{display:"flex",gap:5,alignItems:"center"}}>
                                     <input style={{flex:1,background:T.bg,border:"1px solid #06b6d466",borderRadius:8,color:T.text,padding:"4px 8px",fontSize:12,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.35}}
-                                      disabled={!canEdit} value={!boissons.includes(order.boisson||"")?(order.boisson||""):""} onChange={e=>handleSubDetail(name,"boisson",e.target.value)} placeholder={canEdit?"Autre boisson…":"🔒"} />
-                                    {canEdit && !boissons.includes(order.boisson||"") && (order.boisson||"").trim() && (
-                                      <button onClick={async()=>{ await pb([...boissons,order.boisson]); }} style={{...pill("#06b6d4",false,false),fontSize:11,padding:"4px 8px",whiteSpace:"nowrap"}}>+ Sauvegarder</button>
+                                      disabled={!canEdit} value={newBoissonInput[name]??(!boissons.includes(order.boisson||"")?(order.boisson||""):"")} onChange={e=>handleBoissonInput(name,e.target.value)} placeholder={canEdit?"Autre boisson…":"🔒"} />
+                                    {canEdit && (newBoissonInput[name]||order.boisson||"").trim() && !boissons.includes((newBoissonInput[name]||order.boisson||"").trim()) && (
+                                      <button onClick={async()=>{ await pb([...boissons,(newBoissonInput[name]||order.boisson||"").trim()]); setNewBoissonInput(prev=>({...prev,[name]:""})); }} style={{...pill("#06b6d4",false,false),fontSize:11,padding:"4px 8px",whiteSpace:"nowrap"}}>+ Sauvegarder</button>
                                     )}
                                   </div>
                                 </div>
