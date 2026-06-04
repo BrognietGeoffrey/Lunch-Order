@@ -44,25 +44,45 @@ const DARK  = { bg:"#0f0f13",bg2:"#16161f",bg3:"#1a1a28",border:"#2a2a38",border
 const LIGHT = { bg:"#f5f5f7",bg2:"#ffffff",bg3:"#f0f0f5",border:"#dddde8",border2:"#e8e8f0",text:"#111118",textMuted:"#666",textFaint:"#aaa",scrollbar:"#ccccdd",rowHover:"#f0f0f8",thBg:"#ebebf5",thColor:"#555",loginGrad:"linear-gradient(135deg,#e8e8f5,#f5f5ff)" };
 
 // ── Format order for summary ──────────────────────────────────────────────────
-function formatOrder(o, extras=[]) {
-  if (!o?.choice) return "";
-  const parts = [];
-  if (o.choice==="snack-merode") {
-    if (o.snackType) parts.push(o.snackType + (o.detail?" "+o.detail:""));
-    if (o.frites) parts.push(o.frites);
-    if (o.friteSup) parts.push("Frite sup. "+o.friteSup);
-    if (o.crudites?.length) parts.push("Crudités: "+o.crudites.join(", "));
-    if (o.sauces?.length) parts.push(o.sauces.join(", "));
-  } else {
-    if (o.boules) parts.push(o.boules);
-    if (o.detail) parts.push(o.detail);
+function formatCrudites(order, allCrudites) {
+  if (!order.crudites?.length) return null;
+  if (order.cruditesTout) {
+    const excl = allCrudites.filter(c => !order.crudites.includes(c));
+    return excl.length > 0 ? "Tout sauf: "+excl.join(", ") : "Toutes crudités";
   }
-  // extra categories
+  return "Crudités: "+order.crudites.join(", ");
+}
+
+function formatOrderFull(o, extras=[], allCrudites=[]) {
+  if (!o?.choice) return [];
+  const lines = [];
+  if (o.choice==="snack-merode") {
+    if (o.snackType) lines.push({ emoji:"🥙", text: o.snackType + (o.detail?" "+o.detail:"") });
+    if (o.frites)    lines.push({ emoji:"🍟", text: o.frites });
+    if (o.friteSup)  lines.push({ emoji:"🍟", text: "Frite sup. "+o.friteSup });
+    if (o.sauceFrite) lines.push({ emoji:"🥣", text: "Sauce frite: "+o.sauceFrite });
+    const cru = formatCrudites(o, allCrudites);
+    if (cru)         lines.push({ emoji:"🥗", text: cru });
+    if (o.sauces?.length) lines.push({ emoji:"🫙", text: o.sauces.join(", ") });
+    if (o.boisson)   lines.push({ emoji:"🥤", text: o.boisson });
+  } else if (o.choice==="ice-cream") {
+    if (o.boules)    lines.push({ emoji:"🍦", text: o.boules });
+    if (o.detail)    lines.push({ emoji:"✨", text: o.detail });
+    if (o.boisson)   lines.push({ emoji:"🥤", text: o.boisson });
+  } else {
+    if (o.detail)    lines.push({ emoji:"🥙", text: o.detail });
+    if (o.boisson)   lines.push({ emoji:"🥤", text: o.boisson });
+  }
   extras.filter(ex=>ex.appliesTo?.includes(o.choice)).forEach(ex=>{
     const sel = (o.extras||{})[ex.id];
-    if (sel?.length) parts.push(ex.label+": "+sel.join(", "));
+    if (sel?.length) lines.push({ emoji:"➕", text: ex.label+": "+sel.join(", ") });
   });
-  return parts.filter(Boolean).join(" · ");
+  return lines;
+}
+
+// compact version for favori banner / history
+function formatOrder(o, extras=[], allCrudites=[]) {
+  return formatOrderFull(o, extras, allCrudites).map(l=>l.text).join(" · ");
 }
 
 function makeCssGlobal(T) {
@@ -247,7 +267,17 @@ export default function App() {
   const toggleChoice=async(name,choice)=>{
     const cur=orders[name]||{};
     if(cur.choice===choice){await deleteDoc(doc(db,"orders",name));}
-    else{await setDoc(doc(db,"orders",name),{choice,detail:"",sauces:[],crudites:[],boules:"",snackType:"",frites:"",friteSup:"",extras:{}});}
+    else{await setDoc(doc(db,"orders",name),{choice,detail:"",sauces:[],crudites:[],cruditesTout:false,boules:"",snackType:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}});}
+  };
+
+  // toggle "tout" for crudites
+  const toggleCruditesTout = async(name)=>{
+    const cur=orders[name]||{};
+    if(!cur.choice)return;
+    const wasTout=cur.cruditesTout||false;
+    const updated={...cur, cruditesTout:!wasTout, crudites:!wasTout?[...crudites]:[]};
+    setOrders(prev=>({...prev,[name]:updated}));
+    await setDoc(doc(db,"orders",name),updated);
   };
   const handleDetail=(name,detail)=>{
     setOrders(prev=>({...prev,[name]:{...prev[name],detail}}));
@@ -435,6 +465,23 @@ export default function App() {
                                 </div>
                                 <input style={{width:"100%",background:T.bg,border:"1px solid #ec489966",borderRadius:8,color:T.text,padding:"8px 12px",fontSize:13,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.4}}
                                   disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?"Parfum(s)…":"🔒"} />
+                                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                                  <span style={{fontSize:11,color:T.textMuted,whiteSpace:"nowrap"}}>🥤 Boisson :</span>
+                                  <input style={{flex:1,background:T.bg,border:"1px solid "+T.border,borderRadius:8,color:T.text,padding:"6px 10px",fontSize:13,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.4}}
+                                    disabled={!canEdit} value={order.boisson||""} onChange={e=>handleSubDetail(name,"boisson",e.target.value)} placeholder={canEdit?"ex: eau, coca…":"🔒"} />
+                                </div>
+                              </>
+                            )}
+
+                            {order.choice==="libanais" && (
+                              <>
+                                <textarea style={{width:"100%",background:T.bg,border:"1px solid #16a34a66",borderRadius:8,color:T.text,padding:"8px 12px",fontSize:13,fontFamily:"'DM Sans',sans-serif",lineHeight:1.5,opacity:canEdit?1:0.4,resize:"none"}}
+                                  rows={2} disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?"Précise ta commande…":"🔒"} />
+                                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                                  <span style={{fontSize:11,color:T.textMuted,whiteSpace:"nowrap"}}>🥤 Boisson :</span>
+                                  <input style={{flex:1,background:T.bg,border:"1px solid "+T.border,borderRadius:8,color:T.text,padding:"6px 10px",fontSize:13,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.4}}
+                                    disabled={!canEdit} value={order.boisson||""} onChange={e=>handleSubDetail(name,"boisson",e.target.value)} placeholder={canEdit?"ex: eau, coca…":"🔒"} />
+                                </div>
                               </>
                             )}
 
@@ -453,22 +500,36 @@ export default function App() {
                                   ))}
                                 </div>
                                 <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
-                                  <span style={{fontSize:11,color:T.textMuted,width:"100%"}}>Frite sup. :</span>
+                                  <span style={{fontSize:11,color:T.textMuted,width:"100%"}}>🍟 Frite sup. :</span>
                                   {["Petite","Moyenne","Grande"].map(opt=>(
                                     <button key={opt} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"friteSup",order.friteSup===opt?"":opt)} style={pill("#f97316",order.friteSup===opt,!canEdit)}>{opt}</button>
                                   ))}
                                 </div>
-                                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                                  <span style={{fontSize:11,color:T.textMuted,width:"100%"}}>Crudités :</span>
-                                  {crudites.map(c=>(
-                                    <button key={c} disabled={!canEdit} onClick={()=>canEdit&&toggleMulti(name,"crudites",c)} style={pill("#16a34a",(order.crudites||[]).includes(c),!canEdit)}>{c}</button>
+                                <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
+                                  <span style={{fontSize:11,color:T.textMuted,width:"100%"}}>🥣 Sauce frite :</span>
+                                  {sauces.map(s=>(
+                                    <button key={s} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"sauceFrite",order.sauceFrite===s?"":s)} style={pill("#f59e0b",order.sauceFrite===s,!canEdit)}>{s}</button>
                                   ))}
                                 </div>
                                 <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                                  <span style={{fontSize:11,color:T.textMuted,width:"100%"}}>Sauces :</span>
+                                  <span style={{fontSize:11,color:T.textMuted,width:"100%"}}>🥗 Crudités :</span>
+                                  <button disabled={!canEdit} onClick={()=>canEdit&&toggleCruditesTout(name)}
+                                    style={{...pill("#16a34a",order.cruditesTout,!canEdit),fontWeight:600}}>Tout</button>
+                                  {crudites.map(c=>(
+                                    <button key={c} disabled={!canEdit} onClick={()=>canEdit&&toggleMulti(name,"crudites",c)}
+                                      style={pill("#16a34a",(order.crudites||[]).includes(c),!canEdit)}>{c}</button>
+                                  ))}
+                                </div>
+                                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                                  <span style={{fontSize:11,color:T.textMuted,width:"100%"}}>🫙 Sauces :</span>
                                   {sauces.map(s=>(
                                     <button key={s} disabled={!canEdit} onClick={()=>canEdit&&toggleMulti(name,"sauces",s)} style={pill("#7c3aed",(order.sauces||[]).includes(s),!canEdit)}>{s}</button>
                                   ))}
+                                </div>
+                                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                                  <span style={{fontSize:11,color:T.textMuted,whiteSpace:"nowrap"}}>🥤 Boisson :</span>
+                                  <input style={{flex:1,background:T.bg,border:"1px solid "+T.border,borderRadius:8,color:T.text,padding:"6px 10px",fontSize:13,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.4}}
+                                    disabled={!canEdit} value={order.boisson||""} onChange={e=>handleSubDetail(name,"boisson",e.target.value)} placeholder={canEdit?"ex: eau, coca…":"🔒"} />
                                 </div>
                               </>
                             )}
@@ -488,10 +549,14 @@ export default function App() {
                               </div>
                             ))}
 
-                            {/* Summary line */}
-                            {formatOrder(order,extras) && (
-                              <div style={{background:T.bg3,borderRadius:8,padding:"8px 10px",fontSize:12,color:T.textMuted,marginTop:4}}>
-                                📝 {formatOrder(order,extras)}
+                            {/* Summary pills */}
+                            {formatOrderFull(order,extras,crudites).length>0 && (
+                              <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:4}}>
+                                {formatOrderFull(order,extras,crudites).map((line,i)=>(
+                                  <span key={i} style={{fontSize:11,color:T.textMuted,background:T.bg3,padding:"2px 8px",borderRadius:20}}>
+                                    {line.emoji} {line.text}
+                                  </span>
+                                ))}
                               </div>
                             )}
                           </div>
@@ -560,6 +625,11 @@ export default function App() {
                                 </div>
                                 <textarea style={{width:"100%",background:T.bg,border:"1px solid #ec489966",borderRadius:8,color:T.text,padding:"8px 10px",fontSize:13,fontFamily:"'DM Sans',sans-serif",lineHeight:1.5,opacity:canEdit?1:0.35}}
                                   rows={1} disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?"Parfum(s)…":"🔒"} />
+                                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                                  <span style={{fontSize:12,color:T.textMuted,whiteSpace:"nowrap"}}>🥤 Boisson :</span>
+                                  <input style={{flex:1,background:T.bg,border:"1px solid "+T.border,borderRadius:8,color:T.text,padding:"4px 8px",fontSize:13,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.35}}
+                                    disabled={!canEdit} value={order.boisson||""} onChange={e=>handleSubDetail(name,"boisson",e.target.value)} placeholder={canEdit?"ex: eau, coca…":"🔒"} />
+                                </div>
                                 {mealExtras.map(ex=>(
                                   <div key={ex.id} style={{display:"flex",flexWrap:"wrap",gap:5}}>
                                     <span style={{fontSize:12,color:T.textMuted,width:"100%"}}>{ex.label} :</span>
@@ -586,22 +656,36 @@ export default function App() {
                                   ))}
                                 </div>
                                 <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
-                                  <span style={{fontSize:12,color:T.textMuted,width:"100%"}}>Frite sup. :</span>
+                                  <span style={{fontSize:12,color:T.textMuted,width:"100%"}}>🍟 Frite sup. :</span>
                                   {["Petite","Moyenne","Grande"].map(opt=>(
                                     <button key={opt} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"friteSup",order.friteSup===opt?"":opt)} style={pill("#f97316",order.friteSup===opt,!canEdit)}>{opt}</button>
                                   ))}
                                 </div>
-                                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                                  <span style={{fontSize:12,color:T.textMuted,width:"100%"}}>Crudités :</span>
-                                  {crudites.map(c=>(
-                                    <button key={c} disabled={!canEdit} onClick={()=>canEdit&&toggleMulti(name,"crudites",c)} style={pill("#16a34a",(order.crudites||[]).includes(c),!canEdit)}>{c}</button>
+                                <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+                                  <span style={{fontSize:12,color:T.textMuted,width:"100%"}}>🥣 Sauce frite :</span>
+                                  {sauces.map(s=>(
+                                    <button key={s} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"sauceFrite",order.sauceFrite===s?"":s)} style={pill("#f59e0b",order.sauceFrite===s,!canEdit)}>{s}</button>
                                   ))}
                                 </div>
                                 <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                                  <span style={{fontSize:12,color:T.textMuted,width:"100%"}}>Sauces :</span>
+                                  <span style={{fontSize:12,color:T.textMuted,width:"100%"}}>🥗 Crudités :</span>
+                                  <button disabled={!canEdit} onClick={()=>canEdit&&toggleCruditesTout(name)}
+                                    style={{...pill("#16a34a",order.cruditesTout,!canEdit),fontWeight:600}}>Tout</button>
+                                  {crudites.map(c=>(
+                                    <button key={c} disabled={!canEdit} onClick={()=>canEdit&&toggleMulti(name,"crudites",c)}
+                                      style={pill("#16a34a",(order.crudites||[]).includes(c),!canEdit)}>{c}</button>
+                                  ))}
+                                </div>
+                                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                                  <span style={{fontSize:12,color:T.textMuted,width:"100%"}}>🫙 Sauces :</span>
                                   {sauces.map(s=>(
                                     <button key={s} disabled={!canEdit} onClick={()=>canEdit&&toggleMulti(name,"sauces",s)} style={pill("#7c3aed",(order.sauces||[]).includes(s),!canEdit)}>{s}</button>
                                   ))}
+                                </div>
+                                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                                  <span style={{fontSize:12,color:T.textMuted,whiteSpace:"nowrap"}}>🥤 Boisson :</span>
+                                  <input style={{flex:1,background:T.bg,border:"1px solid "+T.border,borderRadius:8,color:T.text,padding:"4px 8px",fontSize:13,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.35}}
+                                    disabled={!canEdit} value={order.boisson||""} onChange={e=>handleSubDetail(name,"boisson",e.target.value)} placeholder={canEdit?"ex: eau, coca…":"🔒"} />
                                 </div>
                                 {mealExtras.map(ex=>(
                                   <div key={ex.id} style={{display:"flex",flexWrap:"wrap",gap:5}}>
@@ -618,6 +702,11 @@ export default function App() {
                               <div style={{display:"flex",flexDirection:"column",gap:6}}>
                                 <textarea style={{width:"100%",background:T.bg,border:"1px solid #16a34a66",borderRadius:8,color:T.text,padding:"8px 10px",fontSize:13,fontFamily:"'DM Sans',sans-serif",lineHeight:1.5,opacity:canEdit?1:0.35}}
                                   rows={2} disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?"Précise ta commande…":"🔒"} />
+                                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                                  <span style={{fontSize:12,color:T.textMuted,whiteSpace:"nowrap"}}>🥤 Boisson :</span>
+                                  <input style={{flex:1,background:T.bg,border:"1px solid "+T.border,borderRadius:8,color:T.text,padding:"4px 8px",fontSize:13,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.35}}
+                                    disabled={!canEdit} value={order.boisson||""} onChange={e=>handleSubDetail(name,"boisson",e.target.value)} placeholder={canEdit?"ex: eau, coca…":"🔒"} />
+                                </div>
                                 {mealExtras.map(ex=>(
                                   <div key={ex.id} style={{display:"flex",flexWrap:"wrap",gap:5}}>
                                     <span style={{fontSize:12,color:T.textMuted,width:"100%"}}>{ex.label} :</span>
@@ -676,22 +765,31 @@ export default function App() {
                     </div>
                     {people.map((name,idx)=>{
                       const paid = payments[name]||false;
+                      const lines = formatOrderFull(orders[name],extras,crudites);
                       return (
-                        <div key={name} style={{display:"flex",gap:12,alignItems:"center",padding:"8px 0",borderBottom:"1px solid "+T.border2,opacity:paid?0.6:1,transition:"opacity 0.2s"}}>
-                          <span style={{fontSize:12,fontWeight:700,color:T.textFaint,minWidth:24,textAlign:"right"}}>{idx+1}.</span>
-                          <span style={{fontSize:13,fontWeight:600,minWidth:120,color:T.text,textDecoration:paid?"line-through":"none"}}>{name}</span>
-                          <span style={{fontSize:13,color:T.textMuted,flex:1}}>{formatOrder(orders[name],extras)||<em style={{opacity:0.4}}>Aucun détail</em>}</span>
-                          {/* Payment toggle */}
-                          <button
-                            onClick={()=>togglePayment(name)}
-                            title={paid?"Marquer non payé":"Marquer payé"}
-                            style={{background:paid?"#22c55e22":"transparent",border:"1px solid "+(paid?"#22c55e55":T.border),borderRadius:8,padding:"3px 10px",fontSize:12,cursor:"pointer",color:paid?"#22c55e":T.textMuted,whiteSpace:"nowrap",flexShrink:0,transition:"all 0.2s"}}>
-                            {paid?"✓ Payé":"À payer"}
-                          </button>
-                          {name===user&&(
-                            <button style={{background:"transparent",border:"none",fontSize:16,cursor:"pointer",padding:"2px 6px",color:formatOrder(favorites[name],extras)===formatOrder(orders[name],extras)?"#f59e0b":"#aaa",flexShrink:0}}
-                              onClick={()=>saveFavorite(name)} title="Sauvegarder comme favori">⭐</button>
+                        <div key={name} style={{padding:"10px 0",borderBottom:"1px solid "+T.border2,opacity:paid?0.6:1,transition:"opacity 0.2s"}}>
+                          <div style={{display:"flex",gap:12,alignItems:"center",marginBottom:lines.length?6:0}}>
+                            <span style={{fontSize:12,fontWeight:700,color:T.textFaint,minWidth:24,textAlign:"right"}}>{idx+1}.</span>
+                            <span style={{fontSize:13,fontWeight:600,color:T.text,textDecoration:paid?"line-through":"none",flex:1}}>{name}</span>
+                            <button onClick={()=>togglePayment(name)} title={paid?"Marquer non payé":"Marquer payé"}
+                              style={{background:paid?"#22c55e22":"transparent",border:"1px solid "+(paid?"#22c55e55":T.border),borderRadius:8,padding:"3px 10px",fontSize:12,cursor:"pointer",color:paid?"#22c55e":T.textMuted,whiteSpace:"nowrap",flexShrink:0,transition:"all 0.2s"}}>
+                              {paid?"✓ Payé":"À payer"}
+                            </button>
+                            {name===user&&(
+                              <button style={{background:"transparent",border:"none",fontSize:16,cursor:"pointer",padding:"2px 6px",color:formatOrder(favorites[name],extras,crudites)===formatOrder(orders[name],extras,crudites)?"#f59e0b":"#aaa",flexShrink:0}}
+                                onClick={()=>saveFavorite(name)} title="Sauvegarder comme favori">⭐</button>
+                            )}
+                          </div>
+                          {lines.length>0 && (
+                            <div style={{display:"flex",flexWrap:"wrap",gap:4,paddingLeft:36}}>
+                              {lines.map((line,i)=>(
+                                <span key={i} style={{fontSize:12,color:T.textMuted,background:T.bg3,padding:"2px 8px",borderRadius:20,display:"inline-flex",alignItems:"center",gap:4}}>
+                                  <span>{line.emoji}</span><span>{line.text}</span>
+                                </span>
+                              ))}
+                            </div>
                           )}
+                          {lines.length===0 && <span style={{fontSize:12,color:T.textFaint,paddingLeft:36}}><em>Aucun détail</em></span>}
                         </div>
                       );
                     })}
