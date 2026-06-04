@@ -229,9 +229,7 @@ export default function App() {
     if(!favList.length)return;
     const cur=orders[user];
     if(!cur?.choice) {
-      // auto-load first favorite
-      const first = favList[0];
-      const {id:_,name:_n,...orderData} = first;
+      const {id:_favId, name:_favName, ...orderData} = first;
       setDoc(doc(db,"orders",user),{...orderData});
     }
   },[user,favorites]);
