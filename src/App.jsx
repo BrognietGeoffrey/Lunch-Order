@@ -161,6 +161,14 @@ export default function App() {
   const detailTimers = useRef({});
   const T = theme==="dark" ? DARK : LIGHT;
 
+  // detect mobile
+  const [isMobile, setIsMobile] = useState(()=>window.innerWidth < 768);
+  useEffect(()=>{
+    const handler = ()=>setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handler);
+    return ()=>window.removeEventListener("resize", handler);
+  },[]);
+
   const toggleTheme = () => {
     const next = theme==="dark"?"light":"dark";
     setTheme(next); localStorage.setItem("lunch_theme",next);
@@ -342,13 +350,13 @@ export default function App() {
         </div>
       </header>
 
-      <main style={{maxWidth:1200,margin:"0 auto",padding:"32px 24px"}}>
+      <main style={{maxWidth:1200,margin:"0 auto",padding:isMobile?"16px 12px":"32px 24px"}}>
 
         {/* ════ ORDER TAB ════ */}
         {tab==="order" && (
           <div style={{animation:"slideDown 0.3s ease"}}>
             {user!=="Admin" && favorites[user]?.choice && (
-              <div style={{background:T.bg2,border:"1px solid "+T.border,borderRadius:12,padding:"12px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:24}}>
+              <div style={{background:T.bg2,border:"1px solid "+T.border,borderRadius:12,padding:"12px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:24,flexWrap:"wrap"}}>
                 <span style={{fontSize:13,color:T.textMuted}}>⭐ Ton favori : <strong style={{color:T.text}}>{formatOrder(favorites[user],extras)}</strong></span>
                 <button style={{background:"#f59e0b22",border:"1px solid #f59e0b55",color:"#f59e0b",borderRadius:8,padding:"5px 12px",fontSize:12,cursor:"pointer",whiteSpace:"nowrap"}}
                   onClick={async()=>{await setDoc(doc(db,"orders",user),{...favorites[user]});}}>Recharger</button>
@@ -360,6 +368,142 @@ export default function App() {
                 Commandes du jour
                 <span style={{background:T.bg3,color:T.textMuted,fontSize:12,padding:"3px 10px",borderRadius:20}}>{totalOrdered} / {names.length}</span>
               </h2>
+
+              {/* ── MOBILE VIEW ── */}
+              {isMobile && (
+                <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                  {names.map((name,idx)=>{
+                    const order=orders[name]||{};
+                    const chosen=LUNCH_OPTIONS.find(o=>o.id===order.choice);
+                    const canEdit=user===name||user==="Admin";
+                    const isMe=user===name;
+                    const mealExtras=extrasForMeal(order.choice);
+                    return (
+                      <div key={name} style={{
+                        background: isMe ? T.bg2 : T.bg2,
+                        border: "1px solid "+(isMe ? (chosen?.accent||"#f59e0b") : T.border),
+                        borderRadius:14,
+                        padding:"16px",
+                        boxShadow: isMe ? "0 0 0 2px "+(chosen?.accent||"#f59e0b")+"33" : "none",
+                      }}>
+                        {/* Card header */}
+                        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+                          <div style={{width:36,height:36,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:700,flexShrink:0,background:chosen?chosen.accent+"28":T.bg3,color:chosen?chosen.accent:T.textMuted}}>
+                            {name[0].toUpperCase()}
+                          </div>
+                          <div style={{flex:1}}>
+                            <div style={{display:"flex",alignItems:"center",gap:8}}>
+                              <span style={{fontSize:15,fontWeight:600,color:isMe?"#f59e0b":T.text}}>{name}</span>
+                              {isMe && <span style={{fontSize:10,color:T.textFaint,background:T.bg3,padding:"1px 6px",borderRadius:10}}>toi</span>}
+                              <span style={{fontSize:12,color:T.textFaint,marginLeft:"auto"}}>#{idx+1}</span>
+                            </div>
+                            {chosen && <span style={{fontSize:12,color:chosen.accent}}>{chosen.label}</span>}
+                          </div>
+                          {user==="Admin" && (
+                            <button style={{background:"transparent",border:"none",color:T.textFaint,fontSize:18,cursor:"pointer",padding:4}} onClick={()=>removeMember(name)}>✕</button>
+                          )}
+                        </div>
+
+                        {/* Choice buttons */}
+                        {canEdit && (
+                          <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+                            {LUNCH_OPTIONS.map(opt=>(
+                              <button key={opt.id}
+                                style={{flex:1,minWidth:80,padding:"8px 4px",borderRadius:10,border:"1px solid "+(order.choice===opt.id?opt.accent:T.border),background:order.choice===opt.id?opt.accent:T.bg3,color:order.choice===opt.id?"#fff":T.textMuted,fontSize:12,fontWeight:600,cursor:"pointer",transition:"all 0.18s"}}
+                                onClick={()=>toggleChoice(name,opt.id)}>
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {!canEdit && order.choice && (
+                          <div style={{marginBottom:12}}>
+                            <span style={{fontSize:13,color:chosen?.accent,fontWeight:600}}>{chosen?.label}</span>
+                          </div>
+                        )}
+
+                        {/* Details — only shown when choice made */}
+                        {order.choice && (
+                          <div style={{display:"flex",flexDirection:"column",gap:8,paddingTop:12,borderTop:"1px solid "+T.border2}}>
+
+                            {order.choice==="ice-cream" && (
+                              <>
+                                <div style={{display:"flex",gap:6}}>
+                                  {["1 boule","2 boules"].map(opt=>(
+                                    <button key={opt} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"boules",order.boules===opt?"":opt)} style={pill("#ec4899",order.boules===opt,!canEdit)}>{opt}</button>
+                                  ))}
+                                </div>
+                                <input style={{width:"100%",background:T.bg,border:"1px solid #ec489966",borderRadius:8,color:T.text,padding:"8px 12px",fontSize:13,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.4}}
+                                  disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?"Parfum(s)…":"🔒"} />
+                              </>
+                            )}
+
+                            {order.choice==="snack-merode" && (
+                              <>
+                                <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center"}}>
+                                  {["Durum","Bicky"].map(opt=>(
+                                    <button key={opt} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"snackType",order.snackType===opt?"":opt)} style={pill("#0891b2",order.snackType===opt,!canEdit)}>{opt}</button>
+                                  ))}
+                                  <input style={{flex:1,minWidth:80,background:T.bg,border:"1px solid #0891b266",borderRadius:8,color:T.text,padding:"6px 10px",fontSize:13,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.4}}
+                                    disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?(order.snackType?"ex: falafel…":"Précise…"):"🔒"} />
+                                </div>
+                                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                                  {["Frite dedans","Frite à part"].map(opt=>(
+                                    <button key={opt} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"frites",order.frites===opt?"":opt)} style={pill("#f59e0b",order.frites===opt,!canEdit)}>{opt}</button>
+                                  ))}
+                                </div>
+                                <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center"}}>
+                                  <span style={{fontSize:11,color:T.textMuted,width:"100%"}}>Frite sup. :</span>
+                                  {["Petite","Moyenne","Grande"].map(opt=>(
+                                    <button key={opt} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"friteSup",order.friteSup===opt?"":opt)} style={pill("#f97316",order.friteSup===opt,!canEdit)}>{opt}</button>
+                                  ))}
+                                </div>
+                                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                                  <span style={{fontSize:11,color:T.textMuted,width:"100%"}}>Crudités :</span>
+                                  {crudites.map(c=>(
+                                    <button key={c} disabled={!canEdit} onClick={()=>canEdit&&toggleMulti(name,"crudites",c)} style={pill("#16a34a",(order.crudites||[]).includes(c),!canEdit)}>{c}</button>
+                                  ))}
+                                </div>
+                                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                                  <span style={{fontSize:11,color:T.textMuted,width:"100%"}}>Sauces :</span>
+                                  {sauces.map(s=>(
+                                    <button key={s} disabled={!canEdit} onClick={()=>canEdit&&toggleMulti(name,"sauces",s)} style={pill("#7c3aed",(order.sauces||[]).includes(s),!canEdit)}>{s}</button>
+                                  ))}
+                                </div>
+                              </>
+                            )}
+
+                            {order.choice==="libanais" && (
+                              <textarea style={{width:"100%",background:T.bg,border:"1px solid #16a34a66",borderRadius:8,color:T.text,padding:"8px 12px",fontSize:13,fontFamily:"'DM Sans',sans-serif",lineHeight:1.5,opacity:canEdit?1:0.4,resize:"none"}}
+                                rows={2} disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?"Précise ta commande…":"🔒"} />
+                            )}
+
+                            {/* Extra categories */}
+                            {mealExtras.map(ex=>(
+                              <div key={ex.id} style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                                <span style={{fontSize:11,color:T.textMuted,width:"100%"}}>{ex.label} :</span>
+                                {ex.options.map(o=>(
+                                  <button key={o} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)} style={pill(ex.accent,((order.extras||{})[ex.id]||[]).includes(o),!canEdit)}>{o}</button>
+                                ))}
+                              </div>
+                            ))}
+
+                            {/* Summary line */}
+                            {formatOrder(order,extras) && (
+                              <div style={{background:T.bg3,borderRadius:8,padding:"8px 10px",fontSize:12,color:T.textMuted,marginTop:4}}>
+                                📝 {formatOrder(order,extras)}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* ── DESKTOP VIEW (table) ── */}
+              {!isMobile && (
               <div style={{overflowX:"auto",borderRadius:14,border:"1px solid "+T.border}}>
                 <table style={{width:"100%",borderCollapse:"collapse",minWidth:820}}>
                   <thead>
@@ -497,6 +641,7 @@ export default function App() {
                   </tbody>
                 </table>
               </div>
+              )}
             </div>
           </div>
         )}
