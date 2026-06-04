@@ -513,6 +513,15 @@ export default function App() {
                                     {sauces.map(s=>(
                                       <button key={s} disabled={!canEdit} onClick={()=>canEdit&&toggleMulti(name,"sauces",s)} style={pill("#7c3aed",(order.sauces||[]).includes(s),!canEdit)}>{s}</button>
                                     ))}
+                                    {canEdit && (
+                                      <div style={{display:"flex",gap:5,alignItems:"center",width:"100%",marginTop:4}}>
+                                        <input style={{flex:1,background:T.bg,border:"1px solid #7c3aed66",borderRadius:8,color:T.text,padding:"4px 8px",fontSize:12,fontFamily:"'DM Sans',sans-serif"}}
+                                          placeholder="Autre sauce…"
+                                          onKeyDown={async e=>{if(e.key==="Enter"&&e.target.value.trim()){await ps([...sauces,e.target.value.trim()]);e.target.value="";}}} />
+                                        <button style={{...pill("#7c3aed",false,false),fontSize:11,padding:"4px 8px",whiteSpace:"nowrap"}}
+                                          onClick={async e=>{const inp=e.target.previousSibling;if(inp.value.trim()){await ps([...sauces,inp.value.trim()]);inp.value="";}}}> + Sauvegarder</button>
+                                      </div>
+                                    )}
                                   </div>
                                   {mealExtras.map(ex=>(
                                     <div key={ex.id} style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:5}}>
@@ -536,6 +545,15 @@ export default function App() {
                                     {sauces.map(s=>(
                                       <button key={s} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"sauceFrite",order.sauceFrite===s?"":s)} style={pill("#f59e0b",order.sauceFrite===s,!canEdit)}>{s}</button>
                                     ))}
+                                    {canEdit && (
+                                      <div style={{display:"flex",gap:5,alignItems:"center",width:"100%",marginTop:4}}>
+                                        <input style={{flex:1,background:T.bg,border:"1px solid #f59e0b66",borderRadius:8,color:T.text,padding:"4px 8px",fontSize:12,fontFamily:"'DM Sans',sans-serif"}}
+                                          placeholder="Autre sauce…"
+                                          onKeyDown={async e=>{if(e.key==="Enter"&&e.target.value.trim()){await ps([...sauces,e.target.value.trim()]);e.target.value="";}}} />
+                                        <button style={{...pill("#f59e0b",false,false),fontSize:11,padding:"4px 8px",whiteSpace:"nowrap"}}
+                                          onClick={async e=>{const inp=e.target.previousSibling;if(inp.value.trim()){await ps([...sauces,inp.value.trim()]);inp.value="";}}}> + Sauvegarder</button>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
                                 {/* Section 3: Crudités */}
@@ -568,19 +586,16 @@ export default function App() {
                             )}
 
                             {order.choice==="libanais" && (
-                              <textarea style={{width:"100%",background:T.bg,border:"1px solid #16a34a66",borderRadius:8,color:T.text,padding:"8px 12px",fontSize:13,fontFamily:"'DM Sans',sans-serif",lineHeight:1.5,opacity:canEdit?1:0.4,resize:"none"}}
-                                rows={2} disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?"Précise ta commande…":"🔒"} />
+                              <>
+                                <textarea style={{width:"100%",background:T.bg,border:"1px solid #16a34a66",borderRadius:8,color:T.text,padding:"8px 12px",fontSize:13,fontFamily:"'DM Sans',sans-serif",lineHeight:1.5,opacity:canEdit?1:0.4,resize:"none"}}
+                                  rows={2} disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?"Précise ta commande…":"🔒"} />
+                                <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                                  <span style={{fontSize:11,color:T.textFaint,whiteSpace:"nowrap"}}>🥤 Boisson :</span>
+                                  <input style={{flex:1,background:T.bg,border:"1px solid #06b6d466",borderRadius:8,color:T.text,padding:"6px 10px",fontSize:12,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.4}}
+                                    disabled={!canEdit} value={!boissons.includes(order.boisson||"")?(order.boisson||""):""} onChange={e=>handleSubDetail(name,"boisson",e.target.value)} placeholder={canEdit?"Autre boisson…":"🔒"} />
+                                </div>
+                              </>
                             )}
-
-                            {/* Extra categories */}
-                            {mealExtras.map(ex=>(
-                              <div key={ex.id} style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                                <span style={{fontSize:11,color:T.textMuted,width:"100%"}}>{ex.label} :</span>
-                                {ex.options.map(o=>(
-                                  <button key={o} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)} style={pill(ex.accent,((order.extras||{})[ex.id]||[]).includes(o),!canEdit)}>{o}</button>
-                                ))}
-                              </div>
-                            ))}
 
                             {/* Summary pills */}
                             {formatOrderFull(order,extras,crudites).length>0 && (
@@ -706,6 +721,15 @@ export default function App() {
                                     {sauces.map(s=>(
                                       <button key={s} disabled={!canEdit} onClick={()=>canEdit&&toggleMulti(name,"sauces",s)} style={pill("#7c3aed",(order.sauces||[]).includes(s),!canEdit)}>{s}</button>
                                     ))}
+                                    {canEdit && (
+                                      <div style={{display:"flex",gap:5,alignItems:"center",width:"100%",marginTop:4}}>
+                                        <input id={`sauce-snack-${name}`} style={{flex:1,background:T.bg,border:"1px solid #7c3aed66",borderRadius:8,color:T.text,padding:"3px 8px",fontSize:12,fontFamily:"'DM Sans',sans-serif"}}
+                                          placeholder="Autre sauce…"
+                                          onKeyDown={async e=>{ if(e.key==="Enter"&&e.target.value.trim()){await ps([...sauces,e.target.value.trim()]);e.target.value="";}}} />
+                                        <button style={{...pill("#7c3aed",false,false),fontSize:11,padding:"3px 8px",whiteSpace:"nowrap"}}
+                                          onClick={async e=>{ const inp=e.target.previousSibling; if(inp.value.trim()){await ps([...sauces,inp.value.trim()]);inp.value="";}}}>+ Sauvegarder</button>
+                                      </div>
+                                    )}
                                   </div>
                                   {mealExtras.map(ex=>(
                                     <div key={ex.id} style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:5}}>
@@ -730,6 +754,15 @@ export default function App() {
                                     {sauces.map(s=>(
                                       <button key={s} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"sauceFrite",order.sauceFrite===s?"":s)} style={pill("#f59e0b",order.sauceFrite===s,!canEdit)}>{s}</button>
                                     ))}
+                                    {canEdit && (
+                                      <div style={{display:"flex",gap:5,alignItems:"center",width:"100%",marginTop:4}}>
+                                        <input style={{flex:1,background:T.bg,border:"1px solid #f59e0b66",borderRadius:8,color:T.text,padding:"3px 8px",fontSize:12,fontFamily:"'DM Sans',sans-serif"}}
+                                          placeholder="Autre sauce…"
+                                          onKeyDown={async e=>{ if(e.key==="Enter"&&e.target.value.trim()){await ps([...sauces,e.target.value.trim()]);e.target.value="";}}} />
+                                        <button style={{...pill("#f59e0b",false,false),fontSize:11,padding:"3px 8px",whiteSpace:"nowrap"}}
+                                          onClick={async e=>{ const inp=e.target.previousSibling; if(inp.value.trim()){await ps([...sauces,inp.value.trim()]);inp.value="";}}}>+ Sauvegarder</button>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
 
