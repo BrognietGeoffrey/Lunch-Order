@@ -392,11 +392,45 @@ export default function App() {
         {/* ════ ORDER TAB ════ */}
         {tab==="order" && (
           <div style={{animation:"slideDown 0.3s ease"}}>
+
+            {/* ── Favoris rapides ── */}
             {user!=="Admin" && favorites[user]?.choice && (
-              <div style={{background:T.bg2,border:"1px solid "+T.border,borderRadius:12,padding:"12px 18px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,marginBottom:24,flexWrap:"wrap"}}>
-                <span style={{fontSize:13,color:T.textMuted}}>⭐ Ton favori : <strong style={{color:T.text}}>{formatOrder(favorites[user],extras)}</strong></span>
-                <button style={{background:"#f59e0b22",border:"1px solid #f59e0b55",color:"#f59e0b",borderRadius:8,padding:"5px 12px",fontSize:12,cursor:"pointer",whiteSpace:"nowrap"}}
-                  onClick={async()=>{await setDoc(doc(db,"orders",user),{...favorites[user]});}}>Recharger</button>
+              <div style={{marginBottom:20}}>
+                <div style={{fontSize:12,color:T.textFaint,marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
+                  ⭐ <span>Commande rapide depuis tes favoris</span>
+                </div>
+                <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                  {/* Main favorite */}
+                  {(() => {
+                    const fav = favorites[user];
+                    const opt = LUNCH_OPTIONS.find(o=>o.id===fav.choice);
+                    const isActive = JSON.stringify(orders[user]) === JSON.stringify(fav);
+                    return (
+                      <button
+                        key="main-fav"
+                        onClick={async()=>{ await setDoc(doc(db,"orders",user),{...fav}); }}
+                        style={{
+                          background: isActive ? opt?.accent+"22" : T.bg2,
+                          border: "1px solid "+(isActive ? opt?.accent : T.border),
+                          borderRadius:12, padding:"10px 16px", cursor:"pointer",
+                          textAlign:"left", transition:"all 0.2s",
+                          display:"flex", flexDirection:"column", gap:4,
+                          minWidth: isMobile ? "100%" : 200,
+                          flex: isMobile ? "1" : "0 1 auto",
+                        }}
+                      >
+                        <div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <span style={{fontSize:13,fontWeight:600,color:opt?.accent}}>{opt?.label}</span>
+                          {isActive && <span style={{fontSize:10,background:opt?.accent+"33",color:opt?.accent,padding:"1px 6px",borderRadius:10}}>✓ Actif</span>}
+                        </div>
+                        <div style={{fontSize:12,color:T.textMuted,lineHeight:1.4}}>
+                          {formatOrder(fav,extras,crudites)||"Aucun détail"}
+                        </div>
+                        {!isActive && <div style={{fontSize:11,color:opt?.accent,marginTop:2}}>Cliquer pour commander →</div>}
+                      </button>
+                    );
+                  })()}
+                </div>
               </div>
             )}
 
