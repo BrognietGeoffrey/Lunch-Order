@@ -240,6 +240,7 @@ export default function App() {
     if(!favList.length)return;
     const cur=orders[user];
     if(!cur?.choice) {
+      const first = favList[0];
       const {id:_favId, name:_favName, ...orderData} = first;
       setDoc(doc(db,"orders",user),{...orderData});
     }
