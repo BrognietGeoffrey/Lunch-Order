@@ -58,12 +58,14 @@ function formatOrderFull(o, extras=[], allCrudites=[]) {
   if (!o?.choice) return [];
   const lines = [];
   if (o.choice==="snack-merode") {
-    // Extras merged inline with Durum/Bicky
-    const extraOptions = extras
-      .filter(ex=>ex.appliesTo?.includes("snack-merode"))
-      .flatMap(ex=>(o.extras||{})[ex.id]||[]);
-    const firstParts = [o.snackType, o.detail, ...extraOptions].filter(Boolean);
-    if (firstParts.length) lines.push({ emoji:"🥙", text: firstParts.join(" ") });
+    // Durum/Bicky + detail = 1 pill
+    const firstPart = [o.snackType, o.detail].filter(Boolean).join(" ");
+    if (firstPart) lines.push({ emoji:"🥙", text: firstPart });
+    // Each selected extra = its own pill
+    extras.filter(ex=>ex.appliesTo?.includes("snack-merode")).forEach(ex=>{
+      const sel=(o.extras||{})[ex.id]||[];
+      sel.forEach(opt=>lines.push({ emoji:"➕", text: opt }));
+    });
     if (o.frites)     lines.push({ emoji:"🍟", text: o.frites });
     if (o.friteSup)   lines.push({ emoji:"🍟", text: "Frite sup. "+o.friteSup });
     if (o.sauceFrite) lines.push({ emoji:"🥣", text: "Sauce frite: "+o.sauceFrite });
@@ -76,15 +78,15 @@ function formatOrderFull(o, extras=[], allCrudites=[]) {
     if (o.detail)  lines.push({ emoji:"✨", text: o.detail });
     if (o.boisson) lines.push({ emoji:"🥤", text: o.boisson });
     extras.filter(ex=>ex.appliesTo?.includes("ice-cream")).forEach(ex=>{
-      const sel=(o.extras||{})[ex.id];
-      if (sel?.length) lines.push({ emoji:"➕", text: ex.label+": "+sel.join(", ") });
+      const sel=(o.extras||{})[ex.id]||[];
+      sel.forEach(opt=>lines.push({ emoji:"➕", text: opt }));
     });
   } else {
     if (o.detail)  lines.push({ emoji:"🥙", text: o.detail });
     if (o.boisson) lines.push({ emoji:"🥤", text: o.boisson });
     extras.filter(ex=>ex.appliesTo?.includes("libanais")).forEach(ex=>{
-      const sel=(o.extras||{})[ex.id];
-      if (sel?.length) lines.push({ emoji:"➕", text: ex.label+": "+sel.join(", ") });
+      const sel=(o.extras||{})[ex.id]||[];
+      sel.forEach(opt=>lines.push({ emoji:"➕", text: opt }));
     });
   }
   return lines;
