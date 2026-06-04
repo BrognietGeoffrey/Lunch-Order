@@ -1171,7 +1171,24 @@ export default function App() {
                     </h3>
                     <div style={{display:"flex",gap:10,alignItems:"center"}}>
                       <span style={{background:T.bg3,color:T.textMuted,fontSize:12,padding:"3px 10px",borderRadius:20}}>{visibleOrders.length} commande{visibleOrders.length>1?"s":""}</span>
-                      {user==="Admin"&&<button style={{background:"transparent",border:"1px solid #f8717155",color:"#f87171",borderRadius:8,padding:"4px 10px",fontSize:12,cursor:"pointer"}} onClick={()=>deleteHistory(day.id)}>🗑 Supprimer</button>}
+                      {user==="Admin"&&(
+                        <>
+                          <button
+                            style={{background:"transparent",border:"1px solid #22c55e55",color:"#22c55e",borderRadius:8,padding:"4px 10px",fontSize:12,cursor:"pointer"}}
+                            onClick={async()=>{
+                              if(!window.confirm("Restaurer ces commandes comme commandes du jour ? Les commandes actuelles seront écrasées.")) return;
+                              const restoreOrders = day.orders||{};
+                              await Promise.all(Object.entries(restoreOrders).map(([name,order])=>
+                                setDoc(doc(db,"orders",name), order)
+                              ));
+                              // restore payments too
+                              if(day.payments) await setDoc(doc(db,"payments","today"), day.payments);
+                            }}>
+                            ↩ Restaurer
+                          </button>
+                          <button style={{background:"transparent",border:"1px solid #f8717155",color:"#f87171",borderRadius:8,padding:"4px 10px",fontSize:12,cursor:"pointer"}} onClick={()=>deleteHistory(day.id)}>🗑 Supprimer</button>
+                        </>
+                      )}
                     </div>
                   </div>
                   {LUNCH_OPTIONS.map(opt=>{
