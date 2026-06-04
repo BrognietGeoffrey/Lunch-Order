@@ -632,10 +632,20 @@ export default function App() {
                                 </div>
                                 <textarea style={{width:"100%",background:T.bg,border:"1px solid #ec489966",borderRadius:8,color:T.text,padding:"8px 10px",fontSize:13,fontFamily:"'DM Sans',sans-serif",lineHeight:1.5,opacity:canEdit?1:0.35}}
                                   rows={1} disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?"Parfum(s)…":"🔒"} />
-                                <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                                  <span style={{fontSize:12,color:T.textMuted,whiteSpace:"nowrap"}}>🥤 Boisson :</span>
-                                  <input style={{flex:1,background:T.bg,border:"1px solid "+T.border,borderRadius:8,color:T.text,padding:"4px 8px",fontSize:13,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.35}}
-                                    disabled={!canEdit} value={order.boisson||""} onChange={e=>handleSubDetail(name,"boisson",e.target.value)} placeholder={canEdit?"ex: eau, coca…":"🔒"} />
+                                <div style={{padding:"6px 0",borderTop:"1px dashed "+T.border}}>
+                                  <span style={{fontSize:11,color:T.textFaint,display:"block",marginBottom:5}}>🥤 Boisson :</span>
+                                  <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:5}}>
+                                    {boissons.map(b=>(
+                                      <button key={b} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"boisson",order.boisson===b?"":b)} style={pill("#06b6d4",order.boisson===b,!canEdit)}>{b}</button>
+                                    ))}
+                                  </div>
+                                  <div style={{display:"flex",gap:5,alignItems:"center"}}>
+                                    <input style={{flex:1,background:T.bg,border:"1px solid #06b6d466",borderRadius:8,color:T.text,padding:"4px 8px",fontSize:12,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.35}}
+                                      disabled={!canEdit} value={!boissons.includes(order.boisson||"")?(order.boisson||""):""} onChange={e=>handleSubDetail(name,"boisson",e.target.value)} placeholder={canEdit?"Autre…":"🔒"} />
+                                    {canEdit && !boissons.includes(order.boisson||"") && (order.boisson||"").trim() && (
+                                      <button onClick={async()=>{ await pb([...boissons,order.boisson]); }} style={{...pill("#06b6d4",false,false),fontSize:11,padding:"4px 8px",whiteSpace:"nowrap"}}>+ Sauvegarder</button>
+                                    )}
+                                  </div>
                                 </div>
                                 {mealExtras.map(ex=>(
                                   <div key={ex.id} style={{display:"flex",flexWrap:"wrap",gap:5}}>
@@ -671,6 +681,14 @@ export default function App() {
                                       <button key={s} disabled={!canEdit} onClick={()=>canEdit&&toggleMulti(name,"sauces",s)} style={pill("#7c3aed",(order.sauces||[]).includes(s),!canEdit)}>{s}</button>
                                     ))}
                                   </div>
+                                  {mealExtras.map(ex=>(
+                                    <div key={ex.id} style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:5}}>
+                                      <span style={{fontSize:11,color:ex.accent,width:"100%",fontWeight:500}}>➕ {ex.label} :</span>
+                                      {ex.options.map(o=>(
+                                        <button key={o} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)} style={pill(ex.accent,((order.extras||{})[ex.id]||[]).includes(o),!canEdit)}>{o}</button>
+                                      ))}
+                                    </div>
+                                  ))}
                                 </div>
 
                                 {/* ── Section 2: Frites extra + sauce ── */}
@@ -702,6 +720,16 @@ export default function App() {
                                   </div>
                                 </div>
 
+                                {/* ── Extra categories ── */}
+                                {mealExtras.map(ex=>(
+                                  <div key={ex.id} style={{display:"flex",flexWrap:"wrap",gap:5,padding:"8px 0",borderBottom:"1px dashed "+T.border}}>
+                                    <span style={{fontSize:11,color:ex.accent,width:"100%",fontWeight:500}}>➕ {ex.label} :</span>
+                                    {ex.options.map(o=>(
+                                      <button key={o} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)} style={pill(ex.accent,((order.extras||{})[ex.id]||[]).includes(o),!canEdit)}>{o}</button>
+                                    ))}
+                                  </div>
+                                ))}
+
                                 {/* ── Section 4: Boissons ── */}
                                 <div style={{padding:"8px 0"}}>
                                   <span style={{fontSize:11,color:T.textFaint,display:"block",marginBottom:5}}>🥤 Boisson :</span>
@@ -730,15 +758,6 @@ export default function App() {
                                   </div>
                                 </div>
 
-                                {/* Extra categories */}
-                                {mealExtras.map(ex=>(
-                                  <div key={ex.id} style={{display:"flex",flexWrap:"wrap",gap:5,paddingTop:6,borderTop:"1px dashed "+T.border}}>
-                                    <span style={{fontSize:11,color:T.textFaint,width:"100%"}}>{ex.label} :</span>
-                                    {ex.options.map(o=>(
-                                      <button key={o} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)} style={pill(ex.accent,((order.extras||{})[ex.id]||[]).includes(o),!canEdit)}>{o}</button>
-                                    ))}
-                                  </div>
-                                ))}
                               </div>
                             )}
 
