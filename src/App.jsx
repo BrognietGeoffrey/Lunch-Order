@@ -58,26 +58,35 @@ function formatOrderFull(o, extras=[], allCrudites=[]) {
   if (!o?.choice) return [];
   const lines = [];
   if (o.choice==="snack-merode") {
-    if (o.snackType) lines.push({ emoji:"🥙", text: o.snackType + (o.detail?" "+o.detail:"") });
-    if (o.frites)    lines.push({ emoji:"🍟", text: o.frites });
-    if (o.friteSup)  lines.push({ emoji:"🍟", text: "Frite sup. "+o.friteSup });
+    // Extras merged inline with Durum/Bicky
+    const extraOptions = extras
+      .filter(ex=>ex.appliesTo?.includes("snack-merode"))
+      .flatMap(ex=>(o.extras||{})[ex.id]||[]);
+    const firstParts = [o.snackType, o.detail, ...extraOptions].filter(Boolean);
+    if (firstParts.length) lines.push({ emoji:"🥙", text: firstParts.join(" ") });
+    if (o.frites)     lines.push({ emoji:"🍟", text: o.frites });
+    if (o.friteSup)   lines.push({ emoji:"🍟", text: "Frite sup. "+o.friteSup });
     if (o.sauceFrite) lines.push({ emoji:"🥣", text: "Sauce frite: "+o.sauceFrite });
     const cru = formatCrudites(o, allCrudites);
-    if (cru)         lines.push({ emoji:"🥗", text: cru });
+    if (cru)          lines.push({ emoji:"🥗", text: cru });
     if (o.sauces?.length) lines.push({ emoji:"🫙", text: o.sauces.join(", ") });
-    if (o.boisson)   lines.push({ emoji:"🥤", text: o.boisson });
+    if (o.boisson)    lines.push({ emoji:"🥤", text: o.boisson });
   } else if (o.choice==="ice-cream") {
-    if (o.boules)    lines.push({ emoji:"🍦", text: o.boules });
-    if (o.detail)    lines.push({ emoji:"✨", text: o.detail });
-    if (o.boisson)   lines.push({ emoji:"🥤", text: o.boisson });
+    if (o.boules)  lines.push({ emoji:"🍦", text: o.boules });
+    if (o.detail)  lines.push({ emoji:"✨", text: o.detail });
+    if (o.boisson) lines.push({ emoji:"🥤", text: o.boisson });
+    extras.filter(ex=>ex.appliesTo?.includes("ice-cream")).forEach(ex=>{
+      const sel=(o.extras||{})[ex.id];
+      if (sel?.length) lines.push({ emoji:"➕", text: ex.label+": "+sel.join(", ") });
+    });
   } else {
-    if (o.detail)    lines.push({ emoji:"🥙", text: o.detail });
-    if (o.boisson)   lines.push({ emoji:"🥤", text: o.boisson });
+    if (o.detail)  lines.push({ emoji:"🥙", text: o.detail });
+    if (o.boisson) lines.push({ emoji:"🥤", text: o.boisson });
+    extras.filter(ex=>ex.appliesTo?.includes("libanais")).forEach(ex=>{
+      const sel=(o.extras||{})[ex.id];
+      if (sel?.length) lines.push({ emoji:"➕", text: ex.label+": "+sel.join(", ") });
+    });
   }
-  extras.filter(ex=>ex.appliesTo?.includes(o.choice)).forEach(ex=>{
-    const sel = (o.extras||{})[ex.id];
-    if (sel?.length) lines.push({ emoji:"➕", text: ex.label+": "+sel.join(", ") });
-  });
   return lines;
 }
 
@@ -580,15 +589,30 @@ export default function App() {
                                     ))}
                                     <input style={{flex:1,minWidth:80,background:T.bg,border:"1px solid #0891b266",borderRadius:8,color:T.text,padding:"6px 10px",fontSize:13,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.4}}
                                       disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?(order.snackType?"ex: falafel…":"Précise…"):"🔒"} />
-                                    {mealExtras.map(ex=>(
-                                      ex.options.map(o=>(
-                                        <button key={ex.id+o} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)}
-                                          style={{...pill(ex.accent,((order.extras||{})[ex.id]||[]).includes(o),!canEdit),fontSize:11}}>
-                                          {o}
-                                        </button>
-                                      ))
-                                    ))}
                                   </div>
+                                  <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:6}}>
+                                    <span style={{fontSize:11,color:T.textFaint,width:"100%"}}>🫙 Sauce snack :</span>
+                                    {sauces.map(s=>(
+                                      <button key={s} disabled={!canEdit} onClick={()=>canEdit&&toggleMulti(name,"sauces",s)} style={pill("#7c3aed",(order.sauces||[]).includes(s),!canEdit)}>{s}</button>
+                                    ))}
+                                    {canEdit && (
+                                      <div style={{display:"flex",gap:5,alignItems:"center",width:"100%",marginTop:4}}>
+                                        <input style={{flex:1,background:T.bg,border:"1px solid #7c3aed66",borderRadius:8,color:T.text,padding:"4px 8px",fontSize:12,fontFamily:"'DM Sans',sans-serif"}}
+                                          placeholder="Autre sauce…"
+                                          onKeyDown={async e=>{if(e.key==="Enter"&&e.target.value.trim()){await ps([...sauces,e.target.value.trim()]);e.target.value="";}}} />
+                                        <button style={{...pill("#7c3aed",false,false),fontSize:11,padding:"4px 8px",whiteSpace:"nowrap"}}
+                                          onClick={async e=>{const inp=e.target.previousSibling;if(inp.value.trim()){await ps([...sauces,inp.value.trim()]);inp.value="";}}}> + Sauvegarder</button>
+                                      </div>
+                                    )}
+                                  </div>
+                                  {mealExtras.map(ex=>(
+                                    <div key={ex.id} style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:5}}>
+                                      <span style={{fontSize:11,color:ex.accent,width:"100%",fontWeight:500}}>➕ {ex.label} :</span>
+                                      {ex.options.map(o=>(
+                                        <button key={o} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)} style={pill(ex.accent,((order.extras||{})[ex.id]||[]).includes(o),!canEdit)}>{o}</button>
+                                      ))}
+                                    </div>
+                                  ))}
                                   <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
                                     {["Frite dedans","Frite à part"].map(opt=>(
                                       <button key={opt} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"frites",order.frites===opt?"":opt)} style={pill("#f59e0b",order.frites===opt,!canEdit)}>{opt}</button>
@@ -788,14 +812,6 @@ export default function App() {
                                     ))}
                                     <input style={{flex:1,minWidth:80,background:T.bg,border:"1px solid #0891b266",borderRadius:8,color:T.text,padding:"4px 8px",fontSize:13,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.35}}
                                       disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?(order.snackType?"ex: falafel…":"Précise…"):"🔒"} />
-                                    {mealExtras.map(ex=>(
-                                      ex.options.map(o=>(
-                                        <button key={ex.id+o} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)}
-                                          style={{...pill(ex.accent,((order.extras||{})[ex.id]||[]).includes(o),!canEdit),fontSize:11}}>
-                                          {o}
-                                        </button>
-                                      ))
-                                    ))}
                                   </div>
                                   <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                                     {["Frite dedans","Frite à part"].map(opt=>(
@@ -817,6 +833,14 @@ export default function App() {
                                       </div>
                                     )}
                                   </div>
+                                  {mealExtras.map(ex=>(
+                                    <div key={ex.id} style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:5}}>
+                                      <span style={{fontSize:11,color:ex.accent,width:"100%",fontWeight:500}}>➕ {ex.label} :</span>
+                                      {ex.options.map(o=>(
+                                        <button key={o} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)} style={pill(ex.accent,((order.extras||{})[ex.id]||[]).includes(o),!canEdit)}>{o}</button>
+                                      ))}
+                                    </div>
+                                  ))}
                                 </div>
 
                                 {/* ── Section 2: Frites extra + sauce ── */}
