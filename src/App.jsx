@@ -204,7 +204,17 @@ export default function App() {
     const u4 = onSnapshot(doc(db,"config","crudites"),snap=>{if(snap.exists()&&snap.data().list)setCrudites(snap.data().list);});
     const u4b= onSnapshot(doc(db,"config","boissons"),snap=>{if(snap.exists()&&snap.data().list)setBoissons(snap.data().list);});
     const u5 = onSnapshot(doc(db,"config","extras"),  snap=>{if(snap.exists()&&snap.data().list)setExtras(snap.data().list);});
-    const u6 = onSnapshot(collection(db,"favorites"), snap=>{const d={};snap.forEach(s=>{d[s.id]=s.data();});setFavorites(d);});
+    const u6 = onSnapshot(collection(db,"favorites"), snap=>{
+      const d={};
+      snap.forEach(s=>{
+        const data = s.data();
+        // support both old format (single fav) and new format (list of favs)
+        if (data.list) d[s.id] = data.list;
+        else if (data.choice) d[s.id] = [{ id:"fav_legacy", name:"Mon favori", ...data }];
+        else d[s.id] = [];
+      });
+      setFavorites(d);
+    });
     const u7 = onSnapshot(collection(db,"history"),   snap=>{const days=[];snap.forEach(s=>days.push({id:s.id,...s.data()}));days.sort((a,b)=>b.id.localeCompare(a.id));setHistory(days);});
     const u8 = onSnapshot(doc(db,"payments","today"), snap=>{if(snap.exists())setPayments(snap.data());else setPayments({});});
     return ()=>{u1();u2();u3();u4();u4b();u5();u6();u7();u8();};
@@ -212,10 +222,15 @@ export default function App() {
 
   useEffect(()=>{
     if(!user||user==="Admin")return;
-    const fav=favorites[user];
-    if(!fav?.choice)return;
+    const favList = favorites[user]||[];
+    if(!favList.length)return;
     const cur=orders[user];
-    if(!cur?.choice)setDoc(doc(db,"orders",user),{...fav});
+    if(!cur?.choice) {
+      // auto-load first favorite
+      const first = favList[0];
+      const {id:_,name:_n,...orderData} = first;
+      setDoc(doc(db,"orders",user),{...orderData});
+    }
   },[user,favorites]);
 
   if(!user) return <LoginScreen onLogin={setUser} theme={theme} toggleTheme={toggleTheme} members={members}/>;
@@ -325,10 +340,25 @@ export default function App() {
     await setDoc(doc(db,"payments","today"), updated);
   };
 
-  const saveFavorite=async name=>{
-    const cur=orders[name];if(!cur?.choice)return;
-    await setDoc(doc(db,"favorites",name),{...cur});
-    setSavedMsg(true);setTimeout(()=>setSavedMsg(false),2500);
+  const [favNameInput, setFavNameInput] = useState("");
+  const [showFavModal, setShowFavModal] = useState(false);
+
+  const saveFavorite = async name => {
+    const cur = orders[name];
+    if (!cur?.choice) return;
+    const favName = favNameInput.trim() || formatOrder(cur,extras,crudites).slice(0,30) || "Mon favori";
+    const existing = favorites[name] || [];
+    const newFav = { id:"fav_"+Date.now(), name:favName, ...cur };
+    await setDoc(doc(db,"favorites",name), { list:[...existing, newFav] });
+    setFavNameInput("");
+    setShowFavModal(false);
+    setSavedMsg(true); setTimeout(()=>setSavedMsg(false),2500);
+  };
+
+  const deleteFavorite = async (username, favId) => {
+    const existing = favorites[username] || [];
+    const updated = existing.filter(f=>f.id!==favId);
+    await setDoc(doc(db,"favorites",username), { list:updated });
   };
   const resetAll=async()=>{
     if(!window.confirm("Archiver et effacer toutes les commandes du jour ?"))return;
@@ -394,42 +424,53 @@ export default function App() {
           <div style={{animation:"slideDown 0.3s ease"}}>
 
             {/* ── Favoris rapides ── */}
-            {user!=="Admin" && favorites[user]?.choice && (
+            {user!=="Admin" && (favorites[user]||[]).length > 0 && (
               <div style={{marginBottom:20}}>
                 <div style={{fontSize:12,color:T.textFaint,marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
                   ⭐ <span>Commande rapide depuis tes favoris</span>
                 </div>
                 <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
-                  {/* Main favorite */}
-                  {(() => {
-                    const fav = favorites[user];
+                  {(favorites[user]||[]).map(fav=>{
                     const opt = LUNCH_OPTIONS.find(o=>o.id===fav.choice);
-                    const isActive = JSON.stringify(orders[user]) === JSON.stringify(fav);
+                    const {id:favId, name:favName, ...favOrder} = fav;
+                    const currentOrder = orders[user];
+                    const isActive = currentOrder?.choice === favOrder.choice &&
+                      formatOrder(currentOrder,extras,crudites) === formatOrder(favOrder,extras,crudites);
                     return (
                       <button
-                        key="main-fav"
-                        onClick={async()=>{ await setDoc(doc(db,"orders",user),{...fav}); }}
+                        key={favId}
+                        onClick={async()=>{
+                          if (isActive) {
+                            await deleteDoc(doc(db,"orders",user));
+                          } else {
+                            await setDoc(doc(db,"orders",user),{...favOrder});
+                          }
+                        }}
                         style={{
                           background: isActive ? opt?.accent+"22" : T.bg2,
-                          border: "1px solid "+(isActive ? opt?.accent : T.border),
+                          border: "2px solid "+(isActive ? opt?.accent : T.border),
                           borderRadius:12, padding:"10px 16px", cursor:"pointer",
                           textAlign:"left", transition:"all 0.2s",
                           display:"flex", flexDirection:"column", gap:4,
-                          minWidth: isMobile ? "100%" : 200,
+                          minWidth: isMobile ? "calc(50% - 5px)" : 200,
                           flex: isMobile ? "1" : "0 1 auto",
+                          position:"relative",
                         }}
                       >
-                        <div style={{display:"flex",alignItems:"center",gap:6}}>
-                          <span style={{fontSize:13,fontWeight:600,color:opt?.accent}}>{opt?.label}</span>
+                        <div style={{display:"flex",alignItems:"center",gap:6,justifyContent:"space-between"}}>
+                          <span style={{fontSize:12,fontWeight:600,color:opt?.accent}}>{opt?.label}</span>
                           {isActive && <span style={{fontSize:10,background:opt?.accent+"33",color:opt?.accent,padding:"1px 6px",borderRadius:10}}>✓ Actif</span>}
                         </div>
-                        <div style={{fontSize:12,color:T.textMuted,lineHeight:1.4}}>
-                          {formatOrder(fav,extras,crudites)||"Aucun détail"}
+                        <div style={{fontSize:12,fontWeight:500,color:T.text}}>{favName}</div>
+                        <div style={{fontSize:11,color:T.textMuted,lineHeight:1.4}}>
+                          {formatOrder(favOrder,extras,crudites)||"Aucun détail"}
                         </div>
-                        {!isActive && <div style={{fontSize:11,color:opt?.accent,marginTop:2}}>Cliquer pour commander →</div>}
+                        <div style={{fontSize:11,color:isActive?"#f87171":opt?.accent,marginTop:2}}>
+                          {isActive ? "Cliquer pour effacer ✕" : "Cliquer pour commander →"}
+                        </div>
                       </button>
                     );
-                  })()}
+                  })}
                 </div>
               </div>
             )}
@@ -932,8 +973,12 @@ export default function App() {
                               {paid?"✓ Payé":"À payer"}
                             </button>
                             {name===user&&(
-                              <button style={{background:"transparent",border:"none",fontSize:16,cursor:"pointer",padding:"2px 6px",color:formatOrder(favorites[name],extras,crudites)===formatOrder(orders[name],extras,crudites)?"#f59e0b":"#aaa",flexShrink:0}}
-                                onClick={()=>saveFavorite(name)} title="Sauvegarder comme favori">⭐</button>
+                              <button
+                                style={{background:"transparent",border:"1px solid "+T.border,fontSize:13,cursor:"pointer",padding:"3px 8px",color:T.textMuted,borderRadius:8,flexShrink:0,whiteSpace:"nowrap"}}
+                                onClick={()=>setShowFavModal(true)}
+                                title="Sauvegarder comme favori">
+                                ⭐ Sauvegarder
+                              </button>
                             )}
                           </div>
                           {lines.length>0 && (
@@ -960,6 +1005,31 @@ export default function App() {
                 {notOrdered.map(n=><span key={n} style={{background:T.bg3,color:T.textMuted,fontSize:12,padding:"3px 10px",borderRadius:20}}>{n}</span>)}
               </div>
             )}
+            {/* Save favorite modal */}
+            {showFavModal && (
+              <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999}}
+                onClick={e=>e.target===e.currentTarget&&setShowFavModal(false)}>
+                <div style={{background:T.bg2,border:"1px solid "+T.border,borderRadius:16,padding:"24px",width:320,boxShadow:"0 24px 80px rgba(0,0,0,.4)"}}>
+                  <h3 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:16,color:T.text,marginBottom:6}}>⭐ Sauvegarder ce favori</h3>
+                  <p style={{fontSize:12,color:T.textMuted,marginBottom:16}}>Donne un nom à cette commande pour la retrouver facilement.</p>
+                  <input
+                    autoFocus
+                    style={{width:"100%",background:T.bg,border:"1px solid "+T.border,borderRadius:10,color:T.text,padding:"10px 14px",fontSize:14,fontFamily:"'DM Sans',sans-serif",marginBottom:12}}
+                    value={favNameInput}
+                    onChange={e=>setFavNameInput(e.target.value)}
+                    onKeyDown={e=>e.key==="Enter"&&saveFavorite(user)}
+                    placeholder="ex: Durum falafel habituel, Bicky large…"
+                  />
+                  <div style={{display:"flex",gap:8}}>
+                    <button style={{flex:1,background:T.text,color:T.bg,border:"none",borderRadius:10,padding:"10px",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"'Syne',sans-serif"}}
+                      onClick={()=>saveFavorite(user)}>Sauvegarder</button>
+                    <button style={{background:"transparent",border:"1px solid "+T.border,color:T.textMuted,borderRadius:10,padding:"10px 16px",fontSize:13,cursor:"pointer"}}
+                      onClick={()=>setShowFavModal(false)}>Annuler</button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {savedMsg&&(
               <div style={{position:"fixed",bottom:32,left:"50%",transform:"translateX(-50%)",background:T.bg2,border:"1px solid #f59e0b55",color:"#f59e0b",borderRadius:12,padding:"12px 24px",fontSize:14,animation:"toastIn 0.3s ease",zIndex:999}}>
                 ⭐ Commande sauvegardée comme favori !
@@ -972,60 +1042,80 @@ export default function App() {
         {tab==="favorites"&&(
           <div style={{animation:"slideDown 0.3s ease"}}>
             <h2 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:18,marginBottom:24,color:T.text}}>⭐ Commandes favorites</h2>
+
+            {/* User view */}
             {user!=="Admin"&&(
-              favorites[user]?.choice?(
-                <div style={{background:T.bg2,border:"1px solid "+T.border,borderRadius:14,padding:"24px"}}>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
-                    <h3 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:16,color:T.text}}>Ta commande favorite</h3>
-                    <button style={{background:"#f59e0b22",border:"1px solid #f59e0b55",color:"#f59e0b",borderRadius:8,padding:"6px 14px",fontSize:13,cursor:"pointer"}}
-                      onClick={async()=>{await setDoc(doc(db,"orders",user),{...favorites[user]});setTab("order");}}>
-                      ↩ Recharger maintenant
-                    </button>
-                  </div>
-                  {LUNCH_OPTIONS.map(opt=>{
-                    if(favorites[user].choice!==opt.id)return null;
-                    return (
-                      <div key={opt.id} style={{paddingLeft:12,borderLeft:"3px solid "+opt.accent}}>
-                        <div style={{fontSize:13,fontWeight:600,color:opt.accent,marginBottom:8}}>{opt.label}</div>
-                        <div style={{fontSize:15,color:T.text,fontWeight:500}}>{formatOrder(favorites[user],extras)}</div>
-                      </div>
-                    );
-                  })}
-                  <div style={{marginTop:16,paddingTop:16,borderTop:"1px solid "+T.border2}}>
-                    <button style={{background:"transparent",border:"1px solid #f8717155",color:"#f87171",borderRadius:8,padding:"6px 14px",fontSize:12,cursor:"pointer"}}
-                      onClick={async()=>{if(window.confirm("Supprimer ton favori ?"))await deleteDoc(doc(db,"favorites",user));}}>
-                      🗑 Supprimer ce favori
-                    </button>
-                  </div>
-                </div>
-              ):(
+              (favorites[user]||[]).length===0 ? (
                 <div style={{textAlign:"center",color:T.textFaint,padding:60}}>
                   <div style={{fontSize:40,marginBottom:12}}>⭐</div>
                   <p>Tu n'as pas encore de favori.</p>
-                  <p style={{fontSize:13,marginTop:8}}>Dans l'onglet Résumé, clique sur ⭐ à côté de ta commande.</p>
+                  <p style={{fontSize:13,marginTop:8}}>Dans l'onglet Résumé, clique sur "⭐ Sauvegarder" à côté de ta commande.</p>
+                </div>
+              ) : (
+                <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                  {(favorites[user]||[]).map(fav=>{
+                    const {id:favId, name:favName, ...favOrder} = fav;
+                    const opt = LUNCH_OPTIONS.find(o=>o.id===favOrder.choice);
+                    const currentOrder = orders[user];
+                    const isActive = currentOrder?.choice===favOrder.choice &&
+                      formatOrder(currentOrder,extras,crudites)===formatOrder(favOrder,extras,crudites);
+                    return (
+                      <div key={favId} style={{background:T.bg2,border:"2px solid "+(isActive?opt?.accent:T.border),borderRadius:14,padding:"16px 20px",transition:"all 0.2s"}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8}}>
+                            <span style={{fontSize:14,fontWeight:700,color:T.text}}>{favName}</span>
+                            <span style={{fontSize:12,color:opt?.accent}}>{opt?.label}</span>
+                            {isActive&&<span style={{fontSize:10,background:opt?.accent+"33",color:opt?.accent,padding:"1px 8px",borderRadius:10}}>✓ Actif</span>}
+                          </div>
+                          <button style={{background:"transparent",border:"none",color:"#f87171",cursor:"pointer",fontSize:15,padding:4}}
+                            onClick={async()=>{if(window.confirm(`Supprimer "${favName}" ?`)) await deleteFavorite(user,favId);}}>🗑</button>
+                        </div>
+                        <div style={{fontSize:12,color:T.textMuted,marginBottom:12,lineHeight:1.5}}>
+                          {formatOrder(favOrder,extras,crudites)||<em>Aucun détail</em>}
+                        </div>
+                        <button
+                          style={{background:isActive?"#f8717122":opt?.accent+"22",border:"1px solid "+(isActive?"#f8717155":opt?.accent+"55"),color:isActive?"#f87171":opt?.accent,borderRadius:8,padding:"6px 16px",fontSize:13,cursor:"pointer",width:"100%"}}
+                          onClick={async()=>{
+                            if(isActive){ await deleteDoc(doc(db,"orders",user)); }
+                            else { await setDoc(doc(db,"orders",user),{...favOrder}); setTab("order"); }
+                          }}>
+                          {isActive ? "✕ Effacer ma commande" : "↩ Commander ça maintenant"}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )
             )}
+
+            {/* Admin view */}
             {user==="Admin"&&(
               Object.keys(favorites).length===0?(
                 <p style={{color:T.textFaint,textAlign:"center",padding:48}}>Aucun favori enregistré.</p>
               ):(
                 <div style={{display:"flex",flexDirection:"column",gap:12}}>
-                  {LUNCH_OPTIONS.map(opt=>{
-                    const people=Object.entries(favorites).filter(([,f])=>f.choice===opt.id);
-                    if(!people.length)return null;
+                  {Object.entries(favorites).map(([username, favList])=>{
+                    if(!favList?.length) return null;
                     return (
-                      <div key={opt.id} style={{background:T.bg2,border:"1px solid "+T.border,borderLeft:"3px solid "+opt.accent,borderRadius:12,padding:"16px 20px"}}>
-                        <h3 style={{fontSize:14,fontWeight:700,color:opt.accent,marginBottom:12,fontFamily:"'Syne',sans-serif"}}>{opt.label}</h3>
-                        {people.map(([name,fav])=>(
-                          <div key={name} style={{display:"flex",gap:12,alignItems:"center",padding:"8px 0",borderBottom:"1px solid "+T.border2}}>
-                            <div style={{width:28,height:28,borderRadius:6,background:opt.accent+"28",color:opt.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,flexShrink:0}}>{name[0].toUpperCase()}</div>
-                            <span style={{fontSize:13,fontWeight:600,minWidth:120,color:T.text}}>{name}</span>
-                            <span style={{fontSize:13,color:T.textMuted,flex:1}}>{formatOrder(fav,extras)||<em style={{opacity:0.4}}>Aucun détail</em>}</span>
-                            <button style={{background:"transparent",border:"none",color:T.textFaint,cursor:"pointer",fontSize:14,padding:4}}
-                              onClick={async()=>{if(window.confirm(`Supprimer le favori de ${name} ?`))await deleteDoc(doc(db,"favorites",name));}}>🗑</button>
-                          </div>
-                        ))}
+                      <div key={username} style={{background:T.bg2,border:"1px solid "+T.border,borderRadius:12,padding:"16px 20px"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+                          <div style={{width:28,height:28,borderRadius:6,background:T.bg3,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:T.textMuted}}>{username[0].toUpperCase()}</div>
+                          <span style={{fontSize:14,fontWeight:600,color:T.text}}>{username}</span>
+                          <span style={{fontSize:12,color:T.textMuted}}>{favList.length} favori{favList.length>1?"s":""}</span>
+                        </div>
+                        {favList.map(fav=>{
+                          const {id:favId,name:favName,...favOrder}=fav;
+                          const opt=LUNCH_OPTIONS.find(o=>o.id===favOrder.choice);
+                          return (
+                            <div key={favId} style={{display:"flex",gap:12,alignItems:"center",padding:"8px 0",borderBottom:"1px solid "+T.border2}}>
+                              <span style={{fontSize:12,color:opt?.accent,minWidth:16}}>●</span>
+                              <span style={{fontSize:13,fontWeight:600,color:T.text,minWidth:120}}>{favName}</span>
+                              <span style={{fontSize:12,color:T.textMuted,flex:1}}>{formatOrder(favOrder,extras,crudites)||<em style={{opacity:0.4}}>Aucun détail</em>}</span>
+                              <button style={{background:"transparent",border:"none",color:T.textFaint,cursor:"pointer",fontSize:14,padding:4}}
+                                onClick={async()=>{if(window.confirm(`Supprimer "${favName}" de ${username} ?`)) await deleteFavorite(username,favId);}}>🗑</button>
+                            </div>
+                          );
+                        })}
                       </div>
                     );
                   })}
