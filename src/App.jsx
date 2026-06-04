@@ -164,6 +164,8 @@ export default function App() {
   const [tab, setTab]               = useState("order");
   const [status, setStatus]         = useState("connecting");
   const [savedMsg, setSavedMsg]     = useState(false);
+  const [favNameInput, setFavNameInput] = useState("");
+  const [showFavModal, setShowFavModal] = useState(false);
   const [theme, setTheme]           = useState(()=>localStorage.getItem("lunch_theme")||"dark");
 
   // member form
@@ -339,9 +341,6 @@ export default function App() {
     setPayments(updated);
     await setDoc(doc(db,"payments","today"), updated);
   };
-
-  const [favNameInput, setFavNameInput] = useState("");
-  const [showFavModal, setShowFavModal] = useState(false);
 
   const saveFavorite = async name => {
     const cur = orders[name];
