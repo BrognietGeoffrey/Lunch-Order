@@ -188,10 +188,25 @@ function CookidoTab({ T, isMobile }) {
   const [selectedRecipe, setSelected] = useState(null);
   const [showForm, setShowForm]       = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [copiedLink, setCopiedLink]   = useState(false);
   const [form, setForm] = useState({
     name:"", description:"", category:"", servings:4,
     prepTime:"", totalTime:"", ingredients:[""], steps:[{title:"",text:""}], notes:"",
   });
+
+  // Hash routing: #cookido/ID
+  const openRecipe = (recipe) => {
+    setSelected(recipe);
+    window.location.hash = "cookido/" + recipe.id;
+  };
+  const closeRecipe = () => {
+    setSelected(null);
+    window.location.hash = "cookido";
+  };
+  const copyLink = () => {
+    const url = window.location.origin + window.location.pathname + "#cookido/" + selectedRecipe.id;
+    navigator.clipboard.writeText(url).then(()=>{ setCopiedLink(true); setTimeout(()=>setCopiedLink(false),2000); });
+  };
 
   useEffect(()=>{
     const unsub = onSnapshot(collection(db,"cookido"), snap=>{
@@ -203,6 +218,18 @@ function CookidoTab({ T, isMobile }) {
     });
     return ()=>unsub();
   },[]);
+
+  // On mount: check if URL hash points to a recipe
+  useEffect(()=>{
+    const hash = window.location.hash.replace("#","");
+    if (hash.startsWith("cookido/")) {
+      const id = hash.split("/")[1];
+      if (id && recipes.length > 0) {
+        const found = recipes.find(r=>r.id===id);
+        if (found) setSelected(found);
+      }
+    }
+  },[recipes]);
 
   useEffect(()=>{
     if (initialized && recipes.length===0) {
@@ -229,7 +256,7 @@ function CookidoTab({ T, isMobile }) {
   const deleteRecipe = async (id) => {
     if (!window.confirm("Supprimer cette recette ?")) return;
     await deleteDoc(doc(db,"cookido",id));
-    if (selectedRecipe?.id===id) setSelected(null);
+    if (selectedRecipe?.id===id) closeRecipe();
   };
 
   const updateIngredient = (i,val) => { const l=[...form.ingredients]; l[i]=val; setForm(f=>({...f,ingredients:l})); };
@@ -245,7 +272,12 @@ function CookidoTab({ T, isMobile }) {
 
   if (selectedRecipe) return (
     <div style={{animation:"slideDown 0.3s ease"}}>
-      <button onClick={()=>setSelected(null)} style={{background:"transparent",border:"1px solid "+T.border,color:T.textMuted,borderRadius:8,padding:"6px 14px",fontSize:13,cursor:"pointer",marginBottom:20}}>← Retour</button>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
+        <button onClick={closeRecipe} style={{background:"transparent",border:"1px solid "+T.border,color:T.textMuted,borderRadius:8,padding:"6px 14px",fontSize:13,cursor:"pointer"}}>← Retour</button>
+        <button onClick={copyLink} style={{background:copiedLink?accent+"22":"transparent",border:"1px solid "+(copiedLink?accent+"55":T.border),color:copiedLink?accent:T.textMuted,borderRadius:8,padding:"6px 14px",fontSize:13,cursor:"pointer",transition:"all 0.2s"}}>
+          {copiedLink?"✓ Lien copié !":"🔗 Copier le lien"}
+        </button>
+      </div>
       <div style={{background:T.bg2,border:"1px solid "+T.border,borderRadius:16,padding:isMobile?"16px":"28px"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,gap:12}}>
           <div>
@@ -382,7 +414,7 @@ function CookidoTab({ T, isMobile }) {
       )}
       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(auto-fill,minmax(280px,1fr))",gap:14}}>
         {recipes.map(recipe=>(
-          <div key={recipe.id} onClick={()=>setSelected(recipe)}
+          <div key={recipe.id} onClick={()=>openRecipe(recipe)}
             style={{background:T.bg2,border:"1px solid "+T.border,borderRadius:14,padding:"18px 20px",cursor:"pointer",transition:"all 0.18s"}}
             onMouseEnter={e=>{e.currentTarget.style.border="1px solid "+accent+"66";e.currentTarget.style.transform="translateY(-2px)";}}
             onMouseLeave={e=>{e.currentTarget.style.border="1px solid "+T.border;e.currentTarget.style.transform="translateY(0)";}}>
