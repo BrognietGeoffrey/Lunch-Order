@@ -478,7 +478,8 @@ export default function App() {
   const [newExtraApplies, setNewExtraApplies] = useState([]);
   const [isDark, setIsDark]           = useState(()=>localStorage.getItem("lunch_theme")!=="light");
   const [isMobile, setIsMobile]       = useState(()=>window.innerWidth<768);
-  const [viewMode, setViewMode]       = useState("accordion"); // "accordion" | "columns"
+  const [viewMode, setViewMode]       = useState("accordion");
+  const [openHistory, setOpenHistory] = useState({}); // "accordion" | "columns"
   const detailTimers = useRef({});
   const theme = isDark ? T : LIGHT_T;
 
@@ -1143,14 +1144,31 @@ export default function App() {
             {history.map(day=>{
               const visibleOrders=user==="Admin"?Object.entries(day.orders||{}):Object.entries(day.orders||{}).filter(([n])=>n===user);
               if(!visibleOrders.length)return null;
+              const isOpen = openHistory[day.id] || false;
+              const toggle = () => setOpenHistory(prev=>({...prev,[day.id]:!prev[day.id]}));
               return (
-                <div key={day.id} style={{ ...glassCard(theme), marginBottom:14, overflow:"hidden" }}>
-                  <div style={{ padding:"12px 20px", background:theme.bgSection, borderBottom:`1px solid ${theme.border}`,
-                    display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                    <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:14, color:theme.text }}>
-                      📆 {new Date(day.date||day.id).toLocaleDateString("fr-BE",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}
-                    </h3>
-                    <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                <div key={day.id} style={{ ...glassCard(theme), marginBottom:10, overflow:"hidden" }}>
+                  {/* Header — always visible, click to expand */}
+                  <div onClick={toggle} style={{ padding:"14px 20px", display:"flex", alignItems:"center",
+                    justifyContent:"space-between", cursor:"pointer",
+                    background: isOpen ? theme.bgSection : "transparent",
+                    borderBottom: isOpen ? `1px solid ${theme.border}` : "none",
+                    transition:"background 0.2s" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                      <span style={{ fontSize:18, transition:"transform 0.2s", display:"inline-block",
+                        transform: isOpen ? "rotate(90deg)" : "rotate(0deg)" }}>›</span>
+                      <div>
+                        <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:14, color:theme.text }}>
+                          📆 {new Date(day.date||day.id).toLocaleDateString("fr-BE",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}
+                        </h3>
+                        {!isOpen && (
+                          <p style={{ fontSize:12, color:theme.textSub, marginTop:2 }}>
+                            {visibleOrders.length} commande{visibleOrders.length>1?"s":""} · {LUNCH_OPTIONS.filter(opt=>visibleOrders.some(([,o])=>o.choice===opt.id)).map(o=>o.label).join(", ")}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ display:"flex", gap:8, alignItems:"center" }} onClick={e=>e.stopPropagation()}>
                       <span style={{ ...badge }}>{visibleOrders.length} commande{visibleOrders.length>1?"s":""}</span>
                       {user==="Admin" && (
                         <>
@@ -1160,37 +1178,43 @@ export default function App() {
                               if(day.payments)await setDoc(doc(db,"payments","today"),day.payments);
                             }}>↩ Restaurer</button>
                           <button style={{ background:`${theme.red}11`, border:`1px solid ${theme.red}33`, color:theme.red, borderRadius:8, padding:"4px 10px", fontSize:12, cursor:"pointer" }}
-                            onClick={()=>deleteHistory(day.id)}>🗑 Supprimer</button>
+                            onClick={()=>deleteHistory(day.id)}>🗑</button>
                         </>
                       )}
                     </div>
                   </div>
-                  {LUNCH_OPTIONS.map(opt=>{
-                    const people=visibleOrders.filter(([,o])=>o.choice===opt.id);
-                    if(!people.length)return null;
-                    return (
-                      <div key={opt.id} style={{ padding:"12px 20px", borderBottom:`1px solid ${theme.borderSub}` }}>
-                        <div style={{ fontSize:12, fontWeight:600, color:opt.accent, marginBottom:8 }}>{opt.label}</div>
-                        {people.map(([name,o],idx)=>{
-                          const paid=(day.payments||{})[name]||false;
-                          return (
-                            <div key={name} style={{ display:"flex", gap:10, alignItems:"flex-start", padding:"6px 0", borderBottom:`1px solid ${theme.borderSub}` }}>
-                              <span style={{ fontSize:11, fontWeight:700, color:theme.textFaint, minWidth:20, textAlign:"right", marginTop:2 }}>{idx+1}.</span>
-                              <div style={{ flex:1 }}>
-                                <span style={{ fontSize:13, fontWeight:600, color:theme.text, textDecoration:paid?"line-through":"none", marginRight:8 }}>{name}</span>
-                                <div style={{ marginTop:4 }}><OrderPills order={o}/></div>
-                              </div>
-                              <span style={{ fontSize:11, padding:"2px 8px", borderRadius:20, flexShrink:0,
-                                background:paid?`${theme.green}22`:`${theme.red}11`,
-                                color:paid?theme.green:theme.textFaint }}>
-                                {paid?"✓ Payé":"Non payé"}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
+
+                  {/* Content — only when open */}
+                  {isOpen && (
+                    <div>
+                      {LUNCH_OPTIONS.map(opt=>{
+                        const people=visibleOrders.filter(([,o])=>o.choice===opt.id);
+                        if(!people.length)return null;
+                        return (
+                          <div key={opt.id} style={{ padding:"12px 20px", borderBottom:`1px solid ${theme.borderSub}` }}>
+                            <div style={{ fontSize:12, fontWeight:600, color:opt.accent, marginBottom:8 }}>{opt.label}</div>
+                            {people.map(([name,o],idx)=>{
+                              const paid=(day.payments||{})[name]||false;
+                              return (
+                                <div key={name} style={{ display:"flex", gap:10, alignItems:"flex-start", padding:"6px 0", borderBottom:`1px solid ${theme.borderSub}` }}>
+                                  <span style={{ fontSize:11, fontWeight:700, color:theme.textFaint, minWidth:20, textAlign:"right", marginTop:2 }}>{idx+1}.</span>
+                                  <div style={{ flex:1 }}>
+                                    <span style={{ fontSize:13, fontWeight:600, color:theme.text, textDecoration:paid?"line-through":"none", marginRight:8 }}>{name}</span>
+                                    <div style={{ marginTop:4 }}><OrderPills order={o}/></div>
+                                  </div>
+                                  <span style={{ fontSize:11, padding:"2px 8px", borderRadius:20, flexShrink:0,
+                                    background:paid?`${theme.green}22`:`${theme.red}11`,
+                                    color:paid?theme.green:theme.textFaint }}>
+                                    {paid?"✓ Payé":"Non payé"}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               );
             })}
