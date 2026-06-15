@@ -374,6 +374,8 @@ function LoginScreen({ onLogin, T, isDark, toggleTheme, members }) {
   const [code, setCode]         = useState("");
   const [error, setError]       = useState("");
   const [shake, setShake]       = useState(false);
+  const [isMobile, setIsMobile] = useState(()=>window.innerWidth<640);
+  useEffect(()=>{ const h=()=>setIsMobile(window.innerWidth<640); window.addEventListener("resize",h); return ()=>window.removeEventListener("resize",h); },[]);
   const allUsers = [...members, ADMIN];
 
   const attempt = () => {
@@ -382,71 +384,112 @@ function LoginScreen({ onLogin, T, isDark, toggleTheme, members }) {
     else { setError("Nom ou code invalide."); setShake(true); setTimeout(()=>setShake(false),600); }
   };
 
+  const sidebarColor = T.sidebar;
+
   return (
-    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.bg}}>
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",
+      background:T.bg, padding: isMobile ? "20px 16px" : "24px"}}>
       <style>{CSS(T)}</style>
-      <button onClick={toggleTheme} style={{position:"fixed",top:20,right:20,background:T.bgCard,
-        border:`1px solid ${T.border}`,borderRadius:10,padding:"8px 12px",fontSize:15,cursor:"pointer",color:T.text}}>
+      <button onClick={toggleTheme} style={{position:"fixed",top:16,right:16,background:T.bgCard,
+        border:`1px solid ${T.border}`,borderRadius:10,padding:"8px 12px",fontSize:15,cursor:"pointer",color:T.text,zIndex:10}}>
         {isDark?"☀️":"🌙"}
       </button>
 
-      <div style={{display:"flex",width:"100%",maxWidth:900,borderRadius:24,overflow:"hidden",
-        boxShadow:"0 24px 80px rgba(44,31,14,0.15)",border:`1px solid ${T.border}`,
-        animation:shake?"shake 0.5s":"fadeUp 0.5s both"}}>
-
-        {/* Left panel */}
-        <div style={{width:280,background:`linear-gradient(180deg, ${T.sidebarBg||T.sidebar} 0%, ${T.sidebar} 100%)`,padding:48,display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
-          <div>
-            <div style={{width:48,height:48,borderRadius:14,background:"rgba(245,239,230,0.15)",
-              display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,marginBottom:32}}>🍽️</div>
-            <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:28,color:"#f5efe6",
-              marginBottom:8,letterSpacing:"-0.5px"}}>Lunch Orders</h1>
-            <p style={{color:"rgba(245,239,230,0.5)",fontSize:14,lineHeight:1.6}}>
-              Organise les commandes de l'équipe en quelques secondes.
-            </p>
+      {isMobile ? (
+        /* ── Mobile login : stacked ── */
+        <div style={{width:"100%",maxWidth:400,animation:shake?"shake 0.5s":"fadeUp 0.5s both"}}>
+          {/* Top card */}
+          <div style={{background:`linear-gradient(145deg, ${T.sidebarBg||sidebarColor}, ${sidebarColor})`,
+            borderRadius:"20px 20px 0 0",padding:"32px 28px 28px",textAlign:"center"}}>
+            <div style={{width:52,height:52,borderRadius:14,background:"rgba(255,252,245,0.18)",
+              display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,margin:"0 auto 16px"}}>🍽️</div>
+            <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:30,color:"#fff",
+              marginBottom:6,letterSpacing:"-0.5px"}}>Lunch Orders</h1>
+            <p style={{color:"rgba(255,252,245,0.55)",fontSize:14}}>Organise les commandes de l'équipe</p>
           </div>
-          <div style={{borderTop:"1px solid rgba(245,239,230,0.1)",paddingTop:24}}>
-            {["🍦 Ice Cream","🥪 Snack Merode","🥙 Libanais"].map(item=>(
-              <div key={item} style={{color:"rgba(245,239,230,0.4)",fontSize:13,marginBottom:8}}>{item}</div>
-            ))}
+          {/* Bottom form */}
+          <div style={{background:T.bgCard,borderRadius:"0 0 20px 20px",padding:"28px",
+            boxShadow:"0 16px 40px rgba(44,31,14,0.12)"}}>
+            <div style={{marginBottom:14}}>
+              <label style={{display:"block",fontSize:11,fontWeight:600,color:T.textSub,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase"}}>Ton nom</label>
+              <select style={{width:"100%",background:T.bgInput,border:`1px solid ${T.border}`,borderRadius:10,
+                color:T.text,padding:"11px 14px",fontSize:14,cursor:"pointer"}}
+                value={username} onChange={e=>setUsername(e.target.value)}>
+                <option value="">— Sélectionne ton nom —</option>
+                {allUsers.map(u=><option key={u.username} value={u.username}>{u.username}</option>)}
+              </select>
+            </div>
+            <div style={{marginBottom:20}}>
+              <label style={{display:"block",fontSize:11,fontWeight:600,color:T.textSub,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase"}}>Code</label>
+              <input style={{width:"100%",background:T.bgInput,border:`1px solid ${T.border}`,borderRadius:10,
+                color:T.text,padding:"11px 14px",fontSize:14}}
+                type="password" value={code} placeholder="••••"
+                onChange={e=>setCode(e.target.value)} onKeyDown={e=>e.key==="Enter"&&attempt()}/>
+            </div>
+            {error && <p style={{color:T.red,fontSize:13,marginBottom:14}}>{error}</p>}
+            <button style={{width:"100%",background:`linear-gradient(135deg, ${T.sidebarBg||sidebarColor}, ${sidebarColor})`,
+              color:"#fff",border:"none",borderRadius:12,padding:"13px",
+              fontSize:15,fontWeight:600,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}
+              onClick={attempt}>Entrer →</button>
+            <p style={{color:T.textFaint,fontSize:11,marginTop:14,textAlign:"center"}}>Ton code = ton numéro de poste</p>
           </div>
         </div>
+      ) : (
+        /* ── Desktop login : side by side ── */
+        <div style={{display:"flex",width:"100%",maxWidth:860,borderRadius:24,overflow:"hidden",
+          boxShadow:"0 24px 80px rgba(44,31,14,0.15)",border:`1px solid ${T.border}`,
+          animation:shake?"shake 0.5s":"fadeUp 0.5s both"}}>
 
-        {/* Right panel */}
-        <div style={{flex:1,background:T.bgCard,padding:48,display:"flex",flexDirection:"column",justifyContent:"center"}}>
-          <h2 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:22,color:T.text,marginBottom:4}}>Bienvenue 👋</h2>
-          <p style={{color:T.textSub,fontSize:14,marginBottom:32}}>Connecte-toi pour passer ta commande</p>
-
-          <div style={{marginBottom:16}}>
-            <label style={{display:"block",fontSize:12,fontWeight:500,color:T.textSub,marginBottom:6,letterSpacing:"0.05em",textTransform:"uppercase"}}>Ton nom</label>
-            <select style={{width:"100%",background:T.bgInput,border:`1px solid ${T.border}`,borderRadius:10,
-              color:T.text,padding:"11px 14px",fontSize:14,cursor:"pointer"}}
-              value={username} onChange={e=>setUsername(e.target.value)}>
-              <option value="">— Sélectionne ton nom —</option>
-              {allUsers.map(u=><option key={u.username} value={u.username}>{u.username}</option>)}
-            </select>
+          <div style={{width:260,background:`linear-gradient(160deg, ${T.sidebarBg||sidebarColor} 0%, ${sidebarColor} 100%)`,
+            padding:"44px 36px",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
+            <div>
+              <div style={{width:48,height:48,borderRadius:14,background:"rgba(255,252,245,0.18)",
+                display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,marginBottom:28}}>🍽️</div>
+              <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:26,color:"#fff",
+                marginBottom:8,letterSpacing:"-0.5px",lineHeight:1.2}}>Lunch Orders</h1>
+              <p style={{color:"rgba(255,252,245,0.5)",fontSize:13,lineHeight:1.6}}>
+                Organise les commandes de l'équipe en quelques secondes.
+              </p>
+            </div>
+            <div style={{borderTop:"1px solid rgba(255,252,245,0.12)",paddingTop:20}}>
+              {["🍦 Ice Cream","🥪 Snack Merode","🥙 Libanais"].map(item=>(
+                <div key={item} style={{color:"rgba(255,252,245,0.45)",fontSize:13,marginBottom:7}}>{item}</div>
+              ))}
+            </div>
           </div>
 
-          <div style={{marginBottom:24}}>
-            <label style={{display:"block",fontSize:12,fontWeight:500,color:T.textSub,marginBottom:6,letterSpacing:"0.05em",textTransform:"uppercase"}}>Code</label>
-            <input style={{width:"100%",background:T.bgInput,border:`1px solid ${T.border}`,borderRadius:10,
-              color:T.text,padding:"11px 14px",fontSize:14}}
-              type="password" value={code} placeholder="••••"
-              onChange={e=>setCode(e.target.value)} onKeyDown={e=>e.key==="Enter"&&attempt()}/>
+          <div style={{flex:1,background:T.bgCard,padding:"44px 40px",display:"flex",flexDirection:"column",justifyContent:"center"}}>
+            <h2 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:22,color:T.text,marginBottom:4}}>Bienvenue 👋</h2>
+            <p style={{color:T.textSub,fontSize:14,marginBottom:28}}>Connecte-toi pour passer ta commande</p>
+
+            <div style={{marginBottom:14}}>
+              <label style={{display:"block",fontSize:11,fontWeight:600,color:T.textSub,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase"}}>Ton nom</label>
+              <select style={{width:"100%",background:T.bgInput,border:`1px solid ${T.border}`,borderRadius:10,
+                color:T.text,padding:"11px 14px",fontSize:14,cursor:"pointer"}}
+                value={username} onChange={e=>setUsername(e.target.value)}>
+                <option value="">— Sélectionne ton nom —</option>
+                {allUsers.map(u=><option key={u.username} value={u.username}>{u.username}</option>)}
+              </select>
+            </div>
+            <div style={{marginBottom:22}}>
+              <label style={{display:"block",fontSize:11,fontWeight:600,color:T.textSub,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase"}}>Code</label>
+              <input style={{width:"100%",background:T.bgInput,border:`1px solid ${T.border}`,borderRadius:10,
+                color:T.text,padding:"11px 14px",fontSize:14}}
+                type="password" value={code} placeholder="••••"
+                onChange={e=>setCode(e.target.value)} onKeyDown={e=>e.key==="Enter"&&attempt()}/>
+            </div>
+            {error && <p style={{color:T.red,fontSize:13,marginBottom:14}}>{error}</p>}
+            <button style={{width:"100%",background:`linear-gradient(135deg, ${T.sidebarBg||sidebarColor}, ${sidebarColor})`,
+              color:"#fff",border:"none",borderRadius:12,padding:"12px",
+              fontSize:15,fontWeight:600,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",
+              transition:"opacity 0.15s"}}
+              onMouseEnter={e=>e.target.style.opacity="0.88"}
+              onMouseLeave={e=>e.target.style.opacity="1"}
+              onClick={attempt}>Entrer →</button>
+            <p style={{color:T.textFaint,fontSize:11,marginTop:16,textAlign:"center"}}>Ton code = ton numéro de poste</p>
           </div>
-
-          {error && <p style={{color:T.red,fontSize:13,marginBottom:16}}>{error}</p>}
-
-          <button style={{background:T.sidebar,color:"#f5efe6",border:"none",borderRadius:10,padding:"12px",
-            fontSize:15,fontWeight:600,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",
-            transition:"opacity 0.15s"}}
-            onMouseEnter={e=>e.target.style.opacity="0.88"}
-            onMouseLeave={e=>e.target.style.opacity="1"}
-            onClick={attempt}>Entrer →</button>
-
-          <p style={{color:T.textFaint,fontSize:11,marginTop:20,textAlign:"center"}}>Ton code = ton numéro de poste</p>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -635,7 +678,7 @@ export default function App() {
       {!isMobile && (
         <aside style={{width:72,background:`linear-gradient(180deg, ${T.sidebarBg||T.sidebar} 0%, ${T.sidebar} 100%)`,
           display:"flex",flexDirection:"column",position:"sticky",top:0,height:"100vh",flexShrink:0,
-          zIndex:10}}>
+          zIndex:10, overflow:"visible"}}>
 
           {/* Logo */}
           <div style={{padding:"20px 0 16px",display:"flex",flexDirection:"column",alignItems:"center",
@@ -651,51 +694,45 @@ export default function App() {
           <nav style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",padding:"4px 0",gap:2}}>
             {navItems.map(item=>{
               const isActive = tab===item.id;
+              const tabColor = T.bg; // matches page background
               return (
                 <div key={item.id} style={{width:"100%",position:"relative",display:"flex",alignItems:"center",justifyContent:"flex-end"}}>
-                  {/* White sliding tab */}
+                  {/* Sliding tab — uses page bg color */}
                   {isActive && (
                     <div style={{
-                      position:"absolute",
-                      right:0,
-                      width:52,
-                      height:52,
-                      background:T.bgCard,
-                      borderRadius:"12px 0 0 12px",
-                      zIndex:1,
-                      // notch effect top
-                      boxShadow:`4px 0 0 0 ${T.bgCard}`,
+                      position:"absolute", right:0, width:56, height:56,
+                      background:tabColor, borderRadius:"14px 0 0 14px", zIndex:1,
                     }}>
-                      {/* top notch */}
-                      <div style={{position:"absolute",top:-16,right:0,width:16,height:16,
+                      {/* top curved notch */}
+                      <div style={{position:"absolute",top:-18,right:0,width:18,height:18,
                         background:"transparent",
-                        boxShadow:`8px 8px 0 8px ${T.bgCard}`,
-                        borderRadius:"0 0 12px 0"}}/>
-                      {/* bottom notch */}
-                      <div style={{position:"absolute",bottom:-16,right:0,width:16,height:16,
+                        boxShadow:`9px 9px 0 9px ${tabColor}`,
+                        borderRadius:"0 0 14px 0"}}/>
+                      {/* bottom curved notch */}
+                      <div style={{position:"absolute",bottom:-18,right:0,width:18,height:18,
                         background:"transparent",
-                        boxShadow:`8px -8px 0 8px ${T.bgCard}`,
-                        borderRadius:"0 12px 0 0"}}/>
+                        boxShadow:`9px -9px 0 9px ${tabColor}`,
+                        borderRadius:"0 14px 0 0"}}/>
                     </div>
                   )}
-
                   <button
                     onClick={()=>setTab(item.id)}
                     style={{
                       position:"relative", zIndex:2,
-                      width:52, height:52,
+                      width:56, height:56,
                       display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-                      gap:2, border:"none", cursor:"pointer",
+                      gap:3, border:"none", cursor:"pointer",
                       background:"transparent",
-                      borderRadius: isActive ? "12px 0 0 12px" : "10px",
-                      color: isActive ? T.accent : "rgba(255,252,245,0.65)",
-                      transition:"color 0.2s",
+                      color: isActive ? T.accent : "rgba(255,252,245,0.55)",
+                      transition:"color 0.2s, opacity 0.2s",
                     }}
                     title={item.label}
+                    onMouseEnter={e=>{ if(!isActive) e.currentTarget.style.color="rgba(255,252,245,0.9)"; }}
+                    onMouseLeave={e=>{ if(!isActive) e.currentTarget.style.color="rgba(255,252,245,0.55)"; }}
                   >
-                    <span style={{fontSize:18,lineHeight:1}}>{item.icon}</span>
-                    <span style={{fontSize:8,fontWeight:600,opacity:0.8,fontFamily:"'DM Sans',sans-serif",
-                      letterSpacing:"0.02em"}}>{item.label.slice(0,3).toUpperCase()}</span>
+                    <span style={{fontSize:19,lineHeight:1}}>{item.icon}</span>
+                    <span style={{fontSize:8,fontWeight:600,fontFamily:"'DM Sans',sans-serif",
+                      letterSpacing:"0.04em",opacity:0.8}}>{item.label.slice(0,3).toUpperCase()}</span>
                   </button>
                 </div>
               );
@@ -750,16 +787,22 @@ export default function App() {
 
         {/* Mobile bottom nav */}
         {isMobile && (
-          <nav style={{position:"fixed",bottom:0,left:0,right:0,background:T.bgCard,
-            borderTop:`1px solid ${T.border}`,display:"flex",zIndex:100,
-            padding:"8px 0 env(safe-area-inset-bottom)"}}>
+          <nav style={{position:"fixed",bottom:0,left:0,right:0,
+            background:T.bgCard, borderTop:`1px solid ${T.border}`,
+            display:"flex",zIndex:100,
+            paddingBottom:"env(safe-area-inset-bottom,8px)"}}>
             {navItems.map(item=>(
               <button key={item.id} onClick={()=>setTab(item.id)}
-                style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:2,
-                  background:"none",border:"none",padding:"4px 0",cursor:"pointer",
-                  color:tab===item.id?T.accent:T.textFaint,fontFamily:"'DM Sans',sans-serif"}}>
-                <span style={{fontSize:18}}>{item.icon}</span>
-                <span style={{fontSize:9,fontWeight:tab===item.id?600:400}}>{item.label}</span>
+                style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",
+                  justifyContent:"center",gap:3,padding:"10px 0",
+                  background:"none",border:"none",cursor:"pointer",
+                  color:tab===item.id?T.accent:T.textFaint,
+                  borderTop:tab===item.id?`2px solid ${T.accent}`:"2px solid transparent",
+                  fontFamily:"'DM Sans',sans-serif",transition:"color 0.15s"}}>
+                <span style={{fontSize:20}}>{item.icon}</span>
+                <span style={{fontSize:9,fontWeight:tab===item.id?700:400,letterSpacing:"0.03em"}}>
+                  {item.label.slice(0,3).toUpperCase()}
+                </span>
               </button>
             ))}
           </nav>
