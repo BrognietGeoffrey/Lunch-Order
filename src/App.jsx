@@ -478,6 +478,7 @@ export default function App() {
   const [newExtraApplies, setNewExtraApplies] = useState([]);
   const [isDark, setIsDark]           = useState(()=>localStorage.getItem("lunch_theme")!=="light");
   const [isMobile, setIsMobile]       = useState(()=>window.innerWidth<768);
+  const [viewMode, setViewMode]       = useState("accordion"); // "accordion" | "columns"
   const detailTimers = useRef({});
   const theme = isDark ? T : LIGHT_T;
 
@@ -767,55 +768,85 @@ export default function App() {
                 Commandes du jour
                 <span style={badge}>{totalOrdered} / {names.length}</span>
               </h2>
+              {user==="Admin" && (
+                <button onClick={()=>setViewMode(v=>v==="accordion"?"columns":"accordion")}
+                  style={{ ...glassCard(theme), padding:"6px 14px", fontSize:12, cursor:"pointer",
+                    color:theme.textAccent, border:`1px solid ${theme.amber}44`, display:"flex", alignItems:"center", gap:6 }}>
+                  {viewMode==="accordion"?"⊞ Vue colonnes":"☰ Vue accordéon"}
+                </button>
+              )}
             </div>
 
-            {/* Mobile cards */}
-            {isMobile && (
-              <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+            {/* ── VIEW A: Accordion (default for everyone) ── */}
+            {viewMode==="accordion" && (
+              <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
                 {names.map((name,idx)=>{
                   const order=orders[name]||{};
                   const chosen=LUNCH_OPTIONS.find(o=>o.id===order.choice);
                   const canEdit=user===name||user==="Admin";
                   const isMe=user===name;
+                  const isOpen=isMe || (order.choice && canEdit);
                   return (
                     <div key={name} style={{ ...glassCard(theme),
-                      border:`1px solid ${isMe&&chosen?chosen.accent:isMe?theme.amber:theme.border}`,
-                      boxShadow: isMe&&chosen?`0 0 24px ${chosen.glow}`:isMe?`0 0 24px ${theme.amberGlow}`:undefined,
-                      padding:16 }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
-                        <div style={{ width:36, height:36, borderRadius:10,
+                      border:`1px solid ${isMe&&chosen?chosen.accent:isMe?theme.amber:chosen?chosen.accent+"44":theme.border}`,
+                      boxShadow:isMe?`0 0 24px ${chosen?chosen.glow:theme.amberGlow}`:chosen?`0 0 12px ${chosen.glow}`:"none",
+                      overflow:"hidden", transition:"all 0.2s" }}>
+
+                      {/* Row header — always visible */}
+                      <div style={{ padding:"12px 16px", display:"flex", alignItems:"center", gap:12,
+                        background: isMe?theme.amberGlow:"transparent",
+                        borderBottom: order.choice?`1px solid ${theme.borderSub}`:"none" }}>
+
+                        {/* Number + avatar */}
+                        <span style={{ fontSize:12, fontWeight:700, color:theme.textFaint, minWidth:20, textAlign:"right" }}>{idx+1}</span>
+                        <div style={{ width:34, height:34, borderRadius:10, flexShrink:0,
                           background:chosen?chosen.glow:theme.bgInput,
                           border:`1px solid ${chosen?chosen.accent:theme.border}`,
                           display:"flex", alignItems:"center", justifyContent:"center",
-                          fontSize:14, fontWeight:700, color:chosen?chosen.accent:theme.textSub }}>
+                          fontSize:13, fontWeight:700, color:chosen?chosen.accent:theme.textSub }}>
                           {name[0].toUpperCase()}
                         </div>
+
+                        {/* Name */}
                         <div style={{ flex:1 }}>
-                          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                            <span style={{ fontSize:15, fontWeight:600, color:isMe?theme.amber:theme.text }}>{name}</span>
-                            {isMe && <span style={{ fontSize:9, color:theme.textFaint, background:theme.bgInput, padding:"1px 6px", borderRadius:10 }}>toi</span>}
-                            <span style={{ fontSize:11, color:theme.textFaint, marginLeft:"auto" }}>#{idx+1}</span>
+                          <span style={{ fontSize:14, fontWeight:isMe?700:500, color:isMe?theme.amber:theme.text }}>{name}</span>
+                          {isMe && <span style={{ marginLeft:6, fontSize:9, color:theme.textFaint, background:theme.bgInput, padding:"1px 6px", borderRadius:10 }}>toi</span>}
+                          {chosen && !isOpen && (
+                            <div style={{ display:"flex", gap:4, marginTop:3, flexWrap:"wrap" }}>
+                              <OrderPills order={order}/>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Choice buttons (compact) */}
+                        {canEdit && (
+                          <div style={{ display:"flex", gap:6 }}>
+                            {LUNCH_OPTIONS.map(opt=>(
+                              <button key={opt.id} className="pill-btn"
+                                onClick={()=>toggleChoice(name,opt.id)}
+                                style={{ padding:"5px 10px", borderRadius:8, fontSize:11, fontWeight:600,
+                                  border:`1px solid ${order.choice===opt.id?opt.accent:theme.border}`,
+                                  background:order.choice===opt.id?opt.glow:theme.bgInput,
+                                  color:order.choice===opt.id?opt.accent:theme.textSub,
+                                  cursor:"pointer", transition:"all 0.15s",
+                                  boxShadow:order.choice===opt.id?`0 0 10px ${opt.glow}`:undefined }}>
+                                {isMobile ? opt.label.split(" ")[0] : opt.label}
+                              </button>
+                            ))}
                           </div>
-                          {chosen && <span style={{ fontSize:11, color:chosen.accent }}>{chosen.label}</span>}
-                        </div>
-                        {user==="Admin" && <button style={{ background:"transparent", border:"none", color:theme.textFaint, fontSize:16, cursor:"pointer" }} onClick={()=>removeMember(name)}>✕</button>}
+                        )}
+                        {!canEdit && chosen && (
+                          <span style={{ fontSize:12, color:chosen.accent, fontWeight:500 }}>{chosen.label}</span>
+                        )}
+                        {user==="Admin" && (
+                          <button style={{ background:"transparent", border:"none", color:theme.textFaint, fontSize:15, cursor:"pointer", padding:4, flexShrink:0 }}
+                            onClick={()=>removeMember(name)}>✕</button>
+                        )}
                       </div>
-                      {canEdit && (
-                        <div style={{ display:"flex", gap:6, marginBottom:12, flexWrap:"wrap" }}>
-                          {LUNCH_OPTIONS.map(opt=>(
-                            <button key={opt.id} className="pill-btn"
-                              style={{ flex:1, minWidth:80, padding:"8px 4px", borderRadius:10,
-                                border:`1px solid ${order.choice===opt.id?opt.accent:theme.border}`,
-                                background:order.choice===opt.id?opt.glow:theme.bgInput,
-                                color:order.choice===opt.id?opt.accent:theme.textSub,
-                                fontSize:12, fontWeight:600, cursor:"pointer", transition:"all 0.18s",
-                                boxShadow:order.choice===opt.id?`0 0 16px ${opt.glow}`:undefined }}
-                              onClick={()=>toggleChoice(name,opt.id)}>{opt.label}</button>
-                          ))}
-                        </div>
-                      )}
+
+                      {/* Expanded details */}
                       {order.choice && (
-                        <div style={{ paddingTop:12, borderTop:`1px solid ${theme.borderSub}` }}>
+                        <div style={{ padding:"14px 16px 14px 66px" }}>
                           <DetailCell name={name} order={order} canEdit={canEdit}
                             mealExtras={extrasForMeal(order.choice)} {...detailCellProps}/>
                         </div>
@@ -826,78 +857,71 @@ export default function App() {
               </div>
             )}
 
-            {/* Desktop table */}
-            {!isMobile && (
-              <div style={{ ...glassCard(theme), overflow:"hidden" }}>
-                <table style={{ width:"100%", borderCollapse:"collapse" }}>
-                  <thead>
-                    <tr style={{ background:theme.bgSection }}>
-                      <th style={{ padding:"12px 16px", textAlign:"center", width:44, color:theme.textFaint, fontSize:11, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.07em", borderBottom:`1px solid ${theme.border}` }}>#</th>
-                      <th style={{ padding:"12px 16px", textAlign:"left", width:160, color:theme.textFaint, fontSize:11, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.07em", borderBottom:`1px solid ${theme.border}` }}>Nom</th>
-                      {LUNCH_OPTIONS.map(o=>(
-                        <th key={o.id} style={{ padding:"12px 16px", textAlign:"left", color:o.accent, fontSize:11, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.07em", borderBottom:`1px solid ${theme.border}` }}>{o.label}</th>
-                      ))}
-                      <th style={{ padding:"12px 16px", textAlign:"left", color:theme.textFaint, fontSize:11, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.07em", borderBottom:`1px solid ${theme.border}` }}>Détails</th>
-                      <th style={{ width:44, borderBottom:`1px solid ${theme.border}` }}/>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {names.map((name,idx)=>{
-                      const order=orders[name]||{};
-                      const chosen=LUNCH_OPTIONS.find(o=>o.id===order.choice);
-                      const canEdit=user===name||user==="Admin";
-                      const isMe=user===name;
-                      const td = { padding:"10px 16px", verticalAlign:"middle", borderBottom:`1px solid ${theme.borderSub}`, transition:"background 0.15s" };
-                      return (
-                        <tr key={name} className="row-hover" style={{ background: isMe?theme.amberGlow:"transparent" }}>
-                          <td style={{ ...td, textAlign:"center" }}>
-                            <span style={{ fontSize:12, fontWeight:700, color:isMe?theme.amber:theme.textFaint }}>{idx+1}</span>
-                          </td>
-                          <td style={td}>
-                            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                              <div style={{ width:32, height:32, borderRadius:8, flexShrink:0,
-                                background:chosen?chosen.glow:theme.bgInput,
-                                border:`1px solid ${chosen?chosen.accent:theme.border}`,
-                                display:"flex", alignItems:"center", justifyContent:"center",
-                                fontSize:12, fontWeight:700, color:chosen?chosen.accent:theme.textSub }}>
+            {/* ── VIEW C: 3 columns (admin only) ── */}
+            {viewMode==="columns" && user==="Admin" && (
+              <div style={{ display:"flex", gap:16, alignItems:"flex-start" }}>
+                {LUNCH_OPTIONS.map(opt=>{
+                  const people=names.filter(n=>orders[n]?.choice===opt.id);
+                  const none=names.filter(n=>!orders[n]?.choice);
+                  return (
+                    <div key={opt.id} style={{ flex:1, display:"flex", flexDirection:"column", gap:8 }}>
+                      {/* Column header */}
+                      <div style={{ ...glassCard(theme), padding:"12px 16px", textAlign:"center",
+                        border:`1px solid ${opt.accent}55`,
+                        background:opt.glow, boxShadow:`0 0 20px ${opt.glow}` }}>
+                        <div style={{ fontSize:24, marginBottom:4 }}>{opt.label.split(" ")[0]}</div>
+                        <div style={{ fontSize:13, fontWeight:700, color:opt.accent, fontFamily:"'Syne',sans-serif" }}>{opt.label.slice(3)}</div>
+                        <div style={{ fontSize:11, color:theme.textSub, marginTop:2 }}>{people.length} commande{people.length!==1?"s":""}</div>
+                      </div>
+                      {/* People in this column */}
+                      {people.map((name,idx)=>{
+                        const order=orders[name]||{};
+                        return (
+                          <div key={name} style={{ ...glassCard(theme), padding:"12px 14px",
+                            border:`1px solid ${opt.accent}33` }}>
+                            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+                              <div style={{ width:28, height:28, borderRadius:8, background:opt.glow,
+                                border:`1px solid ${opt.accent}44`, display:"flex", alignItems:"center",
+                                justifyContent:"center", fontSize:11, fontWeight:700, color:opt.accent }}>
                                 {name[0].toUpperCase()}
                               </div>
-                              <div>
-                                <span style={{ fontSize:13, fontWeight:isMe?600:400, color:isMe?theme.amber:theme.text }}>{name}</span>
-                                {isMe && <span style={{ display:"block", fontSize:10, color:theme.textFaint }}>● toi</span>}
-                              </div>
+                              <span style={{ fontSize:13, fontWeight:600, color:theme.text, flex:1 }}>{name}</span>
+                              <span style={{ fontSize:11, color:theme.textFaint }}>#{idx+1}</span>
                             </div>
-                          </td>
-                          {LUNCH_OPTIONS.map(opt=>(
-                            <td key={opt.id} style={{ ...td, textAlign:"center" }}>
-                              <button className="pill-btn"
-                                style={{ width:32, height:32, borderRadius:8,
-                                  border:`1px solid ${order.choice===opt.id?opt.accent:theme.border}`,
-                                  background:order.choice===opt.id?opt.glow:theme.bgInput,
-                                  color:order.choice===opt.id?opt.accent:theme.textFaint,
-                                  fontSize:14, cursor:canEdit?"pointer":"not-allowed",
-                                  transition:"all 0.18s", opacity:canEdit?1:0.35,
-                                  boxShadow:order.choice===opt.id?`0 0 12px ${opt.glow}`:undefined }}
-                                onClick={()=>canEdit&&toggleChoice(name,opt.id)}>
-                                {order.choice===opt.id?"✓":"○"}
-                              </button>
-                            </td>
-                          ))}
-                          <td style={td}>
-                            <DetailCell name={name} order={order} canEdit={canEdit}
-                              mealExtras={extrasForMeal(order.choice)} {...detailCellProps}/>
-                          </td>
-                          <td style={{ ...td, textAlign:"center" }}>
-                            {user==="Admin" && (
-                              <button style={{ background:"transparent", border:"none", color:theme.textFaint, fontSize:15, cursor:"pointer", padding:4 }}
-                                onClick={()=>removeMember(name)}>✕</button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                            <OrderPills order={order}/>
+                          </div>
+                        );
+                      })}
+                      {/* Drop zone if empty */}
+                      {people.length===0 && (
+                        <div style={{ ...glassCard(theme), padding:"20px", textAlign:"center",
+                          color:theme.textFaint, fontSize:12, border:`1px dashed ${opt.accent}22` }}>
+                          Personne ici
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {/* Not ordered column */}
+                <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8 }}>
+                  <div style={{ ...glassCard(theme), padding:"12px 16px", textAlign:"center",
+                    border:`1px solid ${theme.border}` }}>
+                    <div style={{ fontSize:24, marginBottom:4 }}>⏳</div>
+                    <div style={{ fontSize:13, fontWeight:700, color:theme.textSub, fontFamily:"'Syne',sans-serif" }}>En attente</div>
+                    <div style={{ fontSize:11, color:theme.textFaint, marginTop:2 }}>{names.filter(n=>!orders[n]?.choice).length} personne{names.filter(n=>!orders[n]?.choice).length!==1?"s":""}</div>
+                  </div>
+                  {names.filter(n=>!orders[n]?.choice).map(name=>(
+                    <div key={name} style={{ ...glassCard(theme), padding:"10px 14px",
+                      display:"flex", alignItems:"center", gap:8 }}>
+                      <div style={{ width:28, height:28, borderRadius:8, background:theme.bgInput,
+                        border:`1px solid ${theme.border}`, display:"flex", alignItems:"center",
+                        justifyContent:"center", fontSize:11, fontWeight:700, color:theme.textFaint }}>
+                        {name[0].toUpperCase()}
+                      </div>
+                      <span style={{ fontSize:13, color:theme.textSub }}>{name}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
