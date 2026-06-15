@@ -29,39 +29,85 @@ const DEFAULT_MEMBERS = [
 const DEFAULT_SAUCES   = ["Mayo","Ketchup","Andalouse","Samourai","Pickles","Cocktail"];
 const DEFAULT_CRUDITES = ["Tomate","Salade","Oignon","Cornichon","Poivron"];
 const DEFAULT_BOISSONS = ["Eau","Coca","Fanta","Ice Tea","Jus d'orange"];
-
-// Extra categories: [{ id, label, options:[], appliesTo:["ice-cream","snack-merode","libanais"], accent }]
-const DEFAULT_EXTRAS = [];
+const DEFAULT_EXTRAS   = [];
+const EXTRA_ACCENTS    = ["#c084fc","#fb923c","#38bdf8","#a3e635","#f472b6","#34d399"];
 
 const LUNCH_OPTIONS = [
-  { id: "ice-cream",    label: "🍦 Ice Cream",    accent: "#ec4899" },
-  { id: "snack-merode", label: "🥪 Snack Merode", accent: "#0891b2" },
-  { id: "libanais",     label: "🥙 Libanais",     accent: "#16a34a" },
+  { id: "ice-cream",    label: "🍦 Ice Cream",    accent: "#f472b6", glow: "#f472b633" },
+  { id: "snack-merode", label: "🥪 Snack Merode", accent: "#fb923c", glow: "#fb923c33" },
+  { id: "libanais",     label: "🥙 Libanais",     accent: "#34d399", glow: "#34d39933" },
 ];
 
-const EXTRA_ACCENTS = ["#8b5cf6","#f97316","#06b6d4","#84cc16","#f43f5e","#a78bfa"];
+// ── Design tokens ─────────────────────────────────────────────────────────────
+const T = {
+  // Backgrounds
+  bg:        "#0f0e0c",       // near-black warm
+  bgCard:    "rgba(255,248,235,0.05)",
+  bgCardHov: "rgba(255,248,235,0.08)",
+  bgGlass:   "rgba(255,248,235,0.04)",
+  bgInput:   "rgba(255,248,235,0.06)",
+  bgSection: "rgba(255,248,235,0.03)",
 
-const DARK  = { bg:"#0f0f13",bg2:"#16161f",bg3:"#1a1a28",border:"#2a2a38",border2:"#1c1c28",text:"#f1f1f5",textMuted:"#888",textFaint:"#555",scrollbar:"#3f3f52",rowHover:"#1c1c28",thBg:"#1a1a28",thColor:"#777",loginGrad:"linear-gradient(135deg,#0f0f13,#151528)" };
-const LIGHT = { bg:"#f5f5f7",bg2:"#ffffff",bg3:"#f0f0f5",border:"#dddde8",border2:"#e8e8f0",text:"#111118",textMuted:"#666",textFaint:"#aaa",scrollbar:"#ccccdd",rowHover:"#f0f0f8",thBg:"#ebebf5",thColor:"#555",loginGrad:"linear-gradient(135deg,#e8e8f5,#f5f5ff)" };
+  // Borders
+  border:    "rgba(255,220,150,0.12)",
+  borderGlow:"rgba(255,200,100,0.25)",
+  borderSub: "rgba(255,220,150,0.07)",
 
-// ── Format order for summary ──────────────────────────────────────────────────
-function formatCrudites(order, allCrudites) {
-  if (!order.crudites?.length) return null;
-  if (order.cruditesTout) {
-    const excl = allCrudites.filter(c => !order.crudites.includes(c));
+  // Text
+  text:      "#f5efe6",
+  textSub:   "#a89880",
+  textFaint: "#5a4f44",
+  textAccent:"#f0c070",
+
+  // Accents
+  amber:     "#f0c070",
+  amberGlow: "rgba(240,192,112,0.20)",
+  amberDeep: "#c8922a",
+  green:     "#22c55e",
+  red:       "#f87171",
+
+  // Blur
+  blur:      "blur(20px)",
+};
+
+const LIGHT_T = {
+  bg:        "#f5f0e8",
+  bgCard:    "rgba(255,255,255,0.85)",
+  bgCardHov: "rgba(255,255,255,0.95)",
+  bgGlass:   "rgba(255,255,255,0.6)",
+  bgInput:   "rgba(255,255,255,0.9)",
+  bgSection: "rgba(0,0,0,0.02)",
+  border:    "rgba(180,140,80,0.20)",
+  borderGlow:"rgba(180,140,80,0.40)",
+  borderSub: "rgba(180,140,80,0.10)",
+  text:      "#2c1f0e",
+  textSub:   "#7a6040",
+  textFaint: "#b0956a",
+  textAccent:"#c8922a",
+  amber:     "#c8922a",
+  amberGlow: "rgba(200,146,42,0.15)",
+  amberDeep: "#a06820",
+  green:     "#16a34a",
+  red:       "#dc2626",
+  blur:      "blur(20px)",
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function formatCrudites(o, allCrudites) {
+  if (!o.crudites?.length) return null;
+  if (o.cruditesTout) {
+    const excl = allCrudites.filter(c => !o.crudites.includes(c));
     return excl.length > 0 ? "Tout sauf: "+excl.join(", ") : "Toutes crudités";
   }
-  return "Crudités: "+order.crudites.join(", ");
+  return "Crudités: "+o.crudites.join(", ");
 }
 
 function formatOrderFull(o, extras=[], allCrudites=[]) {
   if (!o?.choice) return [];
   const lines = [];
   if (o.choice==="snack-merode") {
-    // Durum/Bicky + detail = 1 pill
     const firstPart = [o.snackType, o.detail].filter(Boolean).join(" ");
     if (firstPart) lines.push({ emoji:"🥙", text: firstPart });
-    // Each selected extra = its own pill
     extras.filter(ex=>ex.appliesTo?.includes("snack-merode")).forEach(ex=>{
       const sel=(o.extras||{})[ex.id]||[];
       sel.forEach(opt=>lines.push({ emoji:"➕", text: opt }));
@@ -76,43 +122,84 @@ function formatOrderFull(o, extras=[], allCrudites=[]) {
   } else if (o.choice==="ice-cream") {
     if (o.boules)  lines.push({ emoji:"🍦", text: o.boules });
     if (o.detail)  lines.push({ emoji:"✨", text: o.detail });
-    if (o.boisson) lines.push({ emoji:"🥤", text: o.boisson });
     extras.filter(ex=>ex.appliesTo?.includes("ice-cream")).forEach(ex=>{
       const sel=(o.extras||{})[ex.id]||[];
       sel.forEach(opt=>lines.push({ emoji:"➕", text: opt }));
     });
+    if (o.boisson) lines.push({ emoji:"🥤", text: o.boisson });
   } else {
     if (o.detail)  lines.push({ emoji:"🥙", text: o.detail });
-    if (o.boisson) lines.push({ emoji:"🥤", text: o.boisson });
     extras.filter(ex=>ex.appliesTo?.includes("libanais")).forEach(ex=>{
       const sel=(o.extras||{})[ex.id]||[];
       sel.forEach(opt=>lines.push({ emoji:"➕", text: opt }));
     });
+    if (o.boisson) lines.push({ emoji:"🥤", text: o.boisson });
   }
   return lines;
 }
 
-// compact version for favori banner / history
 function formatOrder(o, extras=[], allCrudites=[]) {
-  return formatOrderFull(o, extras, allCrudites).map(l=>l.text).join(" · ");
+  return formatOrderFull(o,extras,allCrudites).map(l=>l.text).join(" · ");
 }
 
-function makeCssGlobal(T) {
-  return `
-    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@400;500&display=swap');
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: ${T.bg}; }
-    textarea { resize: vertical; }
-    input:focus, textarea:focus, button:focus, select:focus { outline: none; }
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-thumb { background: ${T.scrollbar}; border-radius: 3px; }
-    @keyframes fadeIn    { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
-    @keyframes shake     { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-6px)} 80%{transform:translateX(6px)} }
-    @keyframes slideDown { from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:translateY(0)} }
-    @keyframes toastIn   { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
-    tr.datarow:hover td  { background: ${T.rowHover}; }
-  `;
-}
+// ── Styles helpers ────────────────────────────────────────────────────────────
+const CSS = (theme) => `
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: ${theme.bg}; font-family: 'DM Sans', sans-serif; }
+  textarea { resize: vertical; }
+  input:focus, textarea:focus, button:focus, select:focus { outline: none; }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: ${theme.border}; border-radius: 4px; }
+  @keyframes fadeUp    { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes shake     { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} 60%{transform:translateX(-6px)} 80%{transform:translateX(6px)} }
+  @keyframes slideDown { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes pulse     { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  @keyframes toastIn   { from{opacity:0;transform:translateX(-50%) translateY(16px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+  @keyframes glow      { 0%,100%{box-shadow:0 0 20px rgba(240,192,112,0.1)} 50%{box-shadow:0 0 40px rgba(240,192,112,0.25)} }
+  .row-hover:hover { background: ${theme.bgCardHov} !important; }
+  .tab-btn:hover { color: ${theme.textAccent} !important; }
+  .pill-btn:hover { opacity: 0.85; }
+`;
+
+const glassCard = (theme, extra={}) => ({
+  background: theme.bgCard,
+  backdropFilter: theme.blur,
+  WebkitBackdropFilter: theme.blur,
+  border: `1px solid ${theme.border}`,
+  borderRadius: 16,
+  ...extra,
+});
+
+const inputStyle = (theme) => ({
+  width:"100%",
+  background: theme.bgInput,
+  backdropFilter: theme.blur,
+  border: `1px solid ${theme.border}`,
+  borderRadius: 10,
+  color: theme.text,
+  padding: "10px 14px",
+  fontSize: 14,
+  fontFamily: "'DM Sans', sans-serif",
+  transition: "border-color 0.2s",
+});
+
+const pill = (accent, active, disabled, theme) => ({
+  background: active ? accent+"22" : "transparent",
+  border: `1px solid ${active ? accent : theme.border}`,
+  borderRadius: 20,
+  padding: "4px 12px",
+  fontSize: 12,
+  fontWeight: active ? 600 : 400,
+  color: active ? accent : theme.textSub,
+  cursor: disabled ? "not-allowed" : "pointer",
+  transition: "all 0.15s",
+  fontFamily: "inherit",
+  whiteSpace: "nowrap",
+  opacity: disabled ? 0.3 : 1,
+  boxShadow: active ? `0 0 12px ${accent}33` : "none",
+});
 
 // ── Login ─────────────────────────────────────────────────────────────────────
 function LoginScreen({ onLogin, theme, toggleTheme, members }) {
@@ -120,7 +207,6 @@ function LoginScreen({ onLogin, theme, toggleTheme, members }) {
   const [code, setCode]         = useState("");
   const [error, setError]       = useState("");
   const [shake, setShake]       = useState(false);
-  const T = theme==="dark" ? DARK : LIGHT;
   const allUsers = [...members, ADMIN];
 
   const attempt = () => {
@@ -130,32 +216,235 @@ function LoginScreen({ onLogin, theme, toggleTheme, members }) {
   };
 
   return (
-    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.loginGrad,fontFamily:"'DM Sans',sans-serif"}}>
-      <style>{makeCssGlobal(T)}</style>
-      <button onClick={toggleTheme} style={{position:"fixed",top:16,right:16,background:T.bg2,border:"1px solid "+T.border,borderRadius:8,padding:"6px 12px",fontSize:16,cursor:"pointer",color:T.text}}>
-        {theme==="dark"?"☀️":"🌙"}
+    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center",
+      background: `radial-gradient(ellipse at 30% 20%, rgba(240,192,112,0.08) 0%, transparent 60%),
+                   radial-gradient(ellipse at 70% 80%, rgba(251,146,60,0.06) 0%, transparent 60%),
+                   ${theme.bg}`,
+      fontFamily:"'DM Sans',sans-serif" }}>
+      <style>{CSS(theme)}</style>
+      <button onClick={toggleTheme} style={{ position:"fixed", top:20, right:20, background:theme.bgCard,
+        backdropFilter:theme.blur, border:`1px solid ${theme.border}`, borderRadius:10,
+        padding:"8px 12px", fontSize:16, cursor:"pointer", color:theme.text }}>
+        {theme===T?"☀️":"🌙"}
       </button>
-      <div style={{background:T.bg2,border:"1px solid "+T.border,borderRadius:20,padding:"48px 40px",width:360,textAlign:"center",boxShadow:"0 24px 80px rgba(0,0,0,.2)",animation:shake?"shake 0.5s":"fadeIn 0.5s both"}}>
-        <div style={{fontSize:52,marginBottom:12}}>🍽️</div>
-        <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:28,color:T.text,marginBottom:6}}>Lunch Orders</h1>
-        <p style={{color:T.textMuted,fontSize:14,marginBottom:32}}>Connecte-toi pour commander</p>
-        <div style={{textAlign:"left",marginBottom:16}}>
-          <label style={{display:"block",fontSize:11,fontWeight:600,color:T.textMuted,marginBottom:6,letterSpacing:"0.08em",textTransform:"uppercase"}}>Nom</label>
-          <select style={{width:"100%",background:T.bg,border:"1px solid "+T.border,borderRadius:10,color:T.text,padding:"10px 14px",fontSize:14,fontFamily:"'DM Sans',sans-serif"}}
-            value={username} onChange={e=>setUsername(e.target.value)}>
+
+      <div style={{ ...glassCard(theme), padding:"48px 40px", width:380, textAlign:"center",
+        boxShadow:`0 32px 80px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,220,150,0.1)`,
+        animation: shake?"shake 0.5s":"fadeUp 0.6s both" }}>
+
+        {/* Logo */}
+        <div style={{ width:64, height:64, borderRadius:16, background:`linear-gradient(135deg, ${theme.amber}22, ${theme.amber}44)`,
+          border:`1px solid ${theme.amber}44`, display:"flex", alignItems:"center", justifyContent:"center",
+          fontSize:28, margin:"0 auto 20px", boxShadow:`0 0 30px ${theme.amber}22` }}>🍽️</div>
+
+        <h1 style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:26, color:theme.text, marginBottom:4, letterSpacing:"-0.5px" }}>Lunch Orders</h1>
+        <p style={{ color:theme.textSub, fontSize:14, marginBottom:32 }}>Connecte-toi pour commander</p>
+
+        <div style={{ textAlign:"left", marginBottom:14 }}>
+          <label style={{ display:"block", fontSize:11, fontWeight:600, color:theme.textSub, marginBottom:6, letterSpacing:"0.08em", textTransform:"uppercase" }}>Nom</label>
+          <select style={{ ...inputStyle(theme) }} value={username} onChange={e=>setUsername(e.target.value)}>
             <option value="">— Choisis ton nom —</option>
             {allUsers.map(u=><option key={u.username} value={u.username}>{u.username}</option>)}
           </select>
         </div>
-        <div style={{textAlign:"left",marginBottom:16}}>
-          <label style={{display:"block",fontSize:11,fontWeight:600,color:T.textMuted,marginBottom:6,letterSpacing:"0.08em",textTransform:"uppercase"}}>Code</label>
-          <input style={{width:"100%",background:T.bg,border:"1px solid "+T.border,borderRadius:10,color:T.text,padding:"10px 14px",fontSize:14,fontFamily:"'DM Sans',sans-serif"}}
-            type="password" value={code} placeholder="••••" onChange={e=>setCode(e.target.value)} onKeyDown={e=>e.key==="Enter"&&attempt()} />
+
+        <div style={{ textAlign:"left", marginBottom:20 }}>
+          <label style={{ display:"block", fontSize:11, fontWeight:600, color:theme.textSub, marginBottom:6, letterSpacing:"0.08em", textTransform:"uppercase" }}>Code</label>
+          <input style={{ ...inputStyle(theme) }} type="password" value={code} placeholder="••••"
+            onChange={e=>setCode(e.target.value)} onKeyDown={e=>e.key==="Enter"&&attempt()} />
         </div>
-        {error && <p style={{color:"#f87171",fontSize:13,marginBottom:10}}>{error}</p>}
-        <button style={{width:"100%",background:T.text,color:T.bg,border:"none",borderRadius:10,padding:"12px 0",fontSize:15,fontWeight:700,fontFamily:"'Syne',sans-serif",cursor:"pointer",marginTop:8}} onClick={attempt}>Entrer →</button>
-        <p style={{color:T.textFaint,fontSize:11,marginTop:18}}>Ton code = ton numéro de poste 😉</p>
+
+        {error && <p style={{ color:theme.red, fontSize:13, marginBottom:14 }}>{error}</p>}
+
+        <button style={{ width:"100%", background:`linear-gradient(135deg, ${theme.amber}, ${theme.amberDeep})`,
+          color:"#1a1000", border:"none", borderRadius:12, padding:"13px 0", fontSize:15, fontWeight:700,
+          fontFamily:"'Syne',sans-serif", cursor:"pointer", letterSpacing:"0.02em",
+          boxShadow:`0 4px 20px ${theme.amberGlow}`, transition:"transform 0.15s, box-shadow 0.15s" }}
+          onMouseEnter={e=>{e.target.style.transform="translateY(-1px)";e.target.style.boxShadow=`0 8px 30px ${theme.amberGlow}`;}}
+          onMouseLeave={e=>{e.target.style.transform="";e.target.style.boxShadow=`0 4px 20px ${theme.amberGlow}`;}}
+          onClick={attempt}>Entrer →</button>
+
+        <p style={{ color:theme.textFaint, fontSize:11, marginTop:20 }}>Ton code = ton numéro de poste 😉</p>
       </div>
+    </div>
+  );
+}
+
+// ── Order detail cell (shared) ────────────────────────────────────────────────
+function DetailCell({ name, order, canEdit, sauces, crudites, boissons, extras, mealExtras, theme,
+  handleDetail, handleSubDetail, toggleMulti, toggleCruditesTout, toggleExtraOption, pb, ps, newBoissonInput, setNewBoissonInput, isMobile }) {
+
+  if (!order.choice) return <span style={{ fontSize:12, color:theme.textFaint }}>{canEdit?"Choisis d'abord…":"🔒"}</span>;
+
+  const P = (accent, active, disabled) => pill(accent, active, disabled, theme);
+  const sauceInput = useRef(null);
+  const sauceFriteInput = useRef(null);
+
+  const BoissonSection = () => (
+    <div style={{ paddingTop:8, marginTop:4, borderTop:`1px dashed ${theme.borderSub}` }}>
+      <span style={{ fontSize:11, color:theme.textFaint, display:"block", marginBottom:5 }}>🥤 Boisson :</span>
+      <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:5 }}>
+        {boissons.map(b=>(
+          <button key={b} disabled={!canEdit} className="pill-btn"
+            onClick={()=>canEdit&&handleSubDetail(name,"boisson",order.boisson===b?"":b)}
+            style={P("#38bdf8",order.boisson===b,!canEdit)}>{b}</button>
+        ))}
+      </div>
+      <div style={{ display:"flex", gap:5, alignItems:"center" }}>
+        <input style={{ flex:1, background:theme.bgInput, border:`1px solid ${theme.border}`, borderRadius:8,
+          color:theme.text, padding:"4px 8px", fontSize:12, fontFamily:"'DM Sans',sans-serif", opacity:canEdit?1:0.35 }}
+          disabled={!canEdit}
+          value={newBoissonInput[name]??(!boissons.includes(order.boisson||"")?(order.boisson||""):"")}
+          onChange={e=>{ setNewBoissonInput(p=>({...p,[name]:e.target.value})); handleSubDetail(name,"boisson",e.target.value); }}
+          placeholder={canEdit?"Autre boisson…":"🔒"} />
+        {canEdit && (newBoissonInput[name]||order.boisson||"").trim() && !boissons.includes((newBoissonInput[name]||order.boisson||"").trim()) && (
+          <button className="pill-btn" onClick={async()=>{ const v=(newBoissonInput[name]||order.boisson||"").trim(); await pb([...boissons,v]); setNewBoissonInput(p=>({...p,[name]:""})); }}
+            style={{ ...P("#38bdf8",false,false), padding:"4px 8px", fontSize:11 }}>+ Sauvegarder</button>
+        )}
+      </div>
+    </div>
+  );
+
+  if (order.choice==="ice-cream") return (
+    <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+      <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+        {["1 boule","2 boules"].map(opt=>(
+          <button key={opt} disabled={!canEdit} className="pill-btn"
+            onClick={()=>canEdit&&handleSubDetail(name,"boules",order.boules===opt?"":opt)}
+            style={P("#f472b6",order.boules===opt,!canEdit)}>{opt}</button>
+        ))}
+      </div>
+      <input style={{ ...inputStyle(theme), padding:"6px 10px", fontSize:13, opacity:canEdit?1:0.35 }}
+        disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?"Parfum(s)…":"🔒"} />
+      {mealExtras.map(ex=>(
+        <div key={ex.id} style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
+          <span style={{ fontSize:11, color:ex.accent, width:"100%", fontWeight:500 }}>➕ {ex.label} :</span>
+          {ex.options.map(o=>(
+            <button key={o} disabled={!canEdit} className="pill-btn"
+              onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)}
+              style={P(ex.accent,((order.extras||{})[ex.id]||[]).includes(o),!canEdit)}>{o}</button>
+          ))}
+        </div>
+      ))}
+      <BoissonSection/>
+    </div>
+  );
+
+  if (order.choice==="libanais") return (
+    <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+      <textarea style={{ ...inputStyle(theme), padding:"8px 10px", fontSize:13, lineHeight:1.5, opacity:canEdit?1:0.35 }}
+        rows={2} disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?"Précise ta commande…":"🔒"} />
+      {mealExtras.map(ex=>(
+        <div key={ex.id} style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
+          <span style={{ fontSize:11, color:ex.accent, width:"100%", fontWeight:500 }}>➕ {ex.label} :</span>
+          {ex.options.map(o=>(
+            <button key={o} disabled={!canEdit} className="pill-btn"
+              onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)}
+              style={P(ex.accent,((order.extras||{})[ex.id]||[]).includes(o),!canEdit)}>{o}</button>
+          ))}
+        </div>
+      ))}
+      <BoissonSection/>
+    </div>
+  );
+
+  // Snack Merode
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:0 }}>
+      {/* Section 1: Durum/Bicky */}
+      <div style={{ paddingBottom:8, marginBottom:6, borderBottom:`1px dashed ${theme.borderSub}` }}>
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap", alignItems:"center", marginBottom:6 }}>
+          {["Durum","Bicky"].map(opt=>(
+            <button key={opt} disabled={!canEdit} className="pill-btn"
+              onClick={()=>canEdit&&handleSubDetail(name,"snackType",order.snackType===opt?"":opt)}
+              style={P("#fb923c",order.snackType===opt,!canEdit)}>{opt}</button>
+          ))}
+          <input style={{ flex:1, minWidth:80, background:theme.bgInput, border:`1px solid ${theme.border}`,
+            borderRadius:8, color:theme.text, padding:"4px 8px", fontSize:13, fontFamily:"'DM Sans',sans-serif", opacity:canEdit?1:0.35 }}
+            disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)}
+            placeholder={canEdit?(order.snackType?"ex: falafel…":"Précise…"):"🔒"} />
+        </div>
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:6 }}>
+          {["Frite dedans","Frite à part"].map(opt=>(
+            <button key={opt} disabled={!canEdit} className="pill-btn"
+              onClick={()=>canEdit&&handleSubDetail(name,"frites",order.frites===opt?"":opt)}
+              style={P("#fbbf24",order.frites===opt,!canEdit)}>{opt}</button>
+          ))}
+        </div>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginBottom:4 }}>
+          <span style={{ fontSize:11, color:theme.textFaint, width:"100%" }}>🫙 Sauce snack :</span>
+          {sauces.map(s=>(
+            <button key={s} disabled={!canEdit} className="pill-btn"
+              onClick={()=>canEdit&&toggleMulti(name,"sauces",s)}
+              style={P("#c084fc",(order.sauces||[]).includes(s),!canEdit)}>{s}</button>
+          ))}
+          {canEdit && (
+            <div style={{ display:"flex", gap:5, alignItems:"center", width:"100%", marginTop:3 }}>
+              <input ref={sauceInput} style={{ flex:1, background:theme.bgInput, border:`1px solid ${theme.border}`,
+                borderRadius:8, color:theme.text, padding:"3px 8px", fontSize:12, fontFamily:"'DM Sans',sans-serif" }}
+                placeholder="Autre sauce…"
+                onKeyDown={async e=>{ if(e.key==="Enter"&&e.target.value.trim()){await ps([...sauces,e.target.value.trim()]);e.target.value="";}}} />
+              <button className="pill-btn" style={{ ...P("#c084fc",false,false), padding:"3px 8px", fontSize:11 }}
+                onClick={()=>{ if(sauceInput.current?.value.trim()){ps([...sauces,sauceInput.current.value.trim()]);sauceInput.current.value="";}}}>+ Sauvegarder</button>
+            </div>
+          )}
+        </div>
+        {mealExtras.map(ex=>(
+          <div key={ex.id} style={{ display:"flex", flexWrap:"wrap", gap:5, marginTop:5 }}>
+            <span style={{ fontSize:11, color:ex.accent, width:"100%", fontWeight:500 }}>➕ {ex.label} :</span>
+            {ex.options.map(o=>(
+              <button key={o} disabled={!canEdit} className="pill-btn"
+                onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)}
+                style={P(ex.accent,((order.extras||{})[ex.id]||[]).includes(o),!canEdit)}>{o}</button>
+            ))}
+          </div>
+        ))}
+      </div>
+      {/* Section 2: Frite extra */}
+      <div style={{ paddingBottom:8, marginBottom:6, borderBottom:`1px dashed ${theme.borderSub}` }}>
+        <span style={{ fontSize:11, color:theme.textFaint, display:"block", marginBottom:5 }}>🍟 Frite extra :</span>
+        <div style={{ display:"flex", gap:6, flexWrap:"wrap", marginBottom:5 }}>
+          {["Petite","Moyenne","Grande"].map(opt=>(
+            <button key={opt} disabled={!canEdit} className="pill-btn"
+              onClick={()=>canEdit&&handleSubDetail(name,"friteSup",order.friteSup===opt?"":opt)}
+              style={P("#fb923c",order.friteSup===opt,!canEdit)}>{opt}</button>
+          ))}
+        </div>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
+          <span style={{ fontSize:11, color:theme.textFaint, width:"100%" }}>🥣 Sauce frite :</span>
+          {sauces.map(s=>(
+            <button key={s} disabled={!canEdit} className="pill-btn"
+              onClick={()=>canEdit&&handleSubDetail(name,"sauceFrite",order.sauceFrite===s?"":s)}
+              style={P("#fbbf24",order.sauceFrite===s,!canEdit)}>{s}</button>
+          ))}
+          {canEdit && (
+            <div style={{ display:"flex", gap:5, alignItems:"center", width:"100%", marginTop:3 }}>
+              <input ref={sauceFriteInput} style={{ flex:1, background:theme.bgInput, border:`1px solid ${theme.border}`,
+                borderRadius:8, color:theme.text, padding:"3px 8px", fontSize:12, fontFamily:"'DM Sans',sans-serif" }}
+                placeholder="Autre sauce…"
+                onKeyDown={async e=>{ if(e.key==="Enter"&&e.target.value.trim()){await ps([...sauces,e.target.value.trim()]);e.target.value="";}}} />
+              <button className="pill-btn" style={{ ...P("#fbbf24",false,false), padding:"3px 8px", fontSize:11 }}
+                onClick={()=>{ if(sauceFriteInput.current?.value.trim()){ps([...sauces,sauceFriteInput.current.value.trim()]);sauceFriteInput.current.value="";}}}> + Sauvegarder</button>
+            </div>
+          )}
+        </div>
+      </div>
+      {/* Section 3: Crudités */}
+      <div style={{ paddingBottom:8, marginBottom:6, borderBottom:`1px dashed ${theme.borderSub}` }}>
+        <span style={{ fontSize:11, color:theme.textFaint, display:"block", marginBottom:5 }}>🥗 Crudités :</span>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
+          <button disabled={!canEdit} className="pill-btn"
+            onClick={()=>canEdit&&toggleCruditesTout(name)}
+            style={{ ...P("#34d399",order.cruditesTout,!canEdit), fontWeight:600 }}>Tout</button>
+          {crudites.map(c=>(
+            <button key={c} disabled={!canEdit} className="pill-btn"
+              onClick={()=>canEdit&&toggleMulti(name,"crudites",c)}
+              style={P("#34d399",(order.crudites||[]).includes(c),!canEdit)}>{c}</button>
+          ))}
+        </div>
+      </div>
+      {/* Section 4: Boissons */}
+      <BoissonSection/>
     </div>
   );
 }
@@ -170,46 +459,39 @@ export default function App() {
   const [crudites, setCrudites]     = useState(DEFAULT_CRUDITES);
   const [boissons, setBoissons]     = useState(DEFAULT_BOISSONS);
   const [extras, setExtras]         = useState(DEFAULT_EXTRAS);
-  const [history, setHistory]       = useState([]);
   const [payments, setPayments]     = useState({});
+  const [history, setHistory]       = useState([]);
   const [tab, setTab]               = useState("order");
   const [status, setStatus]         = useState("connecting");
   const [savedMsg, setSavedMsg]     = useState(false);
-  const [favNameInput, setFavNameInput] = useState("");
-  const [showFavModal, setShowFavModal] = useState(false);
+  const [favNameInput, setFavNameInput]     = useState("");
+  const [showFavModal, setShowFavModal]     = useState(false);
   const [newBoissonInput, setNewBoissonInput] = useState({});
-  const [theme, setTheme]           = useState(()=>localStorage.getItem("lunch_theme")||"dark");
-
-  // member form
-  const [newMemberName, setNewMemberName] = useState("");
-  const [newMemberCode, setNewMemberCode] = useState("");
-  const [editingMember, setEditingMember] = useState(null);
-
-  // sauce/crudite form
-  const [newSauce, setNewSauce]     = useState("");
-  const [newCrudite, setNewCrudite] = useState("");
-  const [newBoisson, setNewBoisson] = useState("");
-
-  // extra category form
-  const [newExtraLabel, setNewExtraLabel]       = useState("");
-  const [newExtraApplies, setNewExtraApplies]   = useState([]);
-  const [newExtraOption, setNewExtraOption]      = useState({});  // { [extraId]: string }
-
+  const [newExtraOption, setNewExtraOption]   = useState({});
+  const [newMemberName, setNewMemberName]     = useState("");
+  const [newMemberCode, setNewMemberCode]     = useState("");
+  const [editingMember, setEditingMember]     = useState(null);
+  const [newSauce, setNewSauce]       = useState("");
+  const [newCrudite, setNewCrudite]   = useState("");
+  const [newBoisson, setNewBoisson]   = useState("");
+  const [newExtraLabel, setNewExtraLabel]     = useState("");
+  const [newExtraApplies, setNewExtraApplies] = useState([]);
+  const [isDark, setIsDark]           = useState(()=>localStorage.getItem("lunch_theme")!=="light");
+  const [isMobile, setIsMobile]       = useState(()=>window.innerWidth<768);
   const detailTimers = useRef({});
-  const T = theme==="dark" ? DARK : LIGHT;
-
-  // detect mobile
-  const [isMobile, setIsMobile] = useState(()=>window.innerWidth < 768);
-  useEffect(()=>{
-    const handler = ()=>setIsMobile(window.innerWidth < 768);
-    window.addEventListener("resize", handler);
-    return ()=>window.removeEventListener("resize", handler);
-  },[]);
+  const theme = isDark ? T : LIGHT_T;
 
   const toggleTheme = () => {
-    const next = theme==="dark"?"light":"dark";
-    setTheme(next); localStorage.setItem("lunch_theme",next);
+    const next = !isDark;
+    setIsDark(next);
+    localStorage.setItem("lunch_theme", next?"dark":"light");
   };
+
+  useEffect(()=>{
+    const h = ()=>setIsMobile(window.innerWidth<768);
+    window.addEventListener("resize",h);
+    return ()=>window.removeEventListener("resize",h);
+  },[]);
 
   useEffect(()=>{
     const u1 = onSnapshot(collection(db,"orders"),    snap=>{const d={};snap.forEach(s=>{d[s.id]=s.data();});setOrders(d);setStatus("live");}, ()=>setStatus("error"));
@@ -221,11 +503,10 @@ export default function App() {
     const u6 = onSnapshot(collection(db,"favorites"), snap=>{
       const d={};
       snap.forEach(s=>{
-        const data = s.data();
-        // support both old format (single fav) and new format (list of favs)
-        if (data.list) d[s.id] = data.list;
-        else if (data.choice) d[s.id] = [{ id:"fav_legacy", name:"Mon favori", ...data }];
-        else d[s.id] = [];
+        const data=s.data();
+        if(data.list) d[s.id]=data.list;
+        else if(data.choice) d[s.id]=[{id:"fav_legacy",name:"Mon favori",...data}];
+        else d[s.id]=[];
       });
       setFavorites(d);
     });
@@ -236,102 +517,57 @@ export default function App() {
 
   useEffect(()=>{
     if(!user||user==="Admin")return;
-    const favList = favorites[user]||[];
+    const favList=favorites[user]||[];
     if(!favList.length)return;
     const cur=orders[user];
-    if(!cur?.choice) {
-      const first = favList[0];
-      const {id:_favId, name:_favName, ...orderData} = first;
+    if(!cur?.choice){
+      const first=favList[0];
+      const {id:_fid,name:_fn,...orderData}=first;
       setDoc(doc(db,"orders",user),{...orderData});
     }
   },[user,favorites]);
 
   if(!user) return <LoginScreen onLogin={setUser} theme={theme} toggleTheme={toggleTheme} members={members}/>;
 
-  // persist helpers
+  // persist
   const pm = async l=>{setMembers(l);   await setDoc(doc(db,"config","members"), {list:l});};
   const ps = async l=>{setSauces(l);    await setDoc(doc(db,"config","sauces"),  {list:l});};
   const pc = async l=>{setCrudites(l);  await setDoc(doc(db,"config","crudites"),{list:l});};
   const pb = async l=>{setBoissons(l);  await setDoc(doc(db,"config","boissons"),{list:l});};
   const pe = async l=>{setExtras(l);    await setDoc(doc(db,"config","extras"),  {list:l});};
 
-  // names sorted: current user first
-  const names = user==="Admin"
-    ? members.map(m=>m.username)
-    : [user,...members.map(m=>m.username).filter(n=>n!==user)];
+  const names = user==="Admin" ? members.map(m=>m.username) : [user,...members.map(m=>m.username).filter(n=>n!==user)];
 
-  // member CRUD
   const addMember    = async()=>{const n=newMemberName.trim(),c=newMemberCode.trim();if(!n||!c||members.find(m=>m.username===n))return;await pm([...members,{username:n,code:c}]);setNewMemberName("");setNewMemberCode("");};
   const removeMember = async n=>{await pm(members.filter(m=>m.username!==n));await deleteDoc(doc(db,"orders",n));};
   const saveEdit     = async()=>{if(!editingMember)return;await pm(members.map(m=>m.username===editingMember.username?editingMember:m));setEditingMember(null);};
-
-  // sauce/crudite CRUD
   const addSauce     = async()=>{const s=newSauce.trim();   if(s&&!sauces.includes(s))   {await ps([...sauces,s]);    setNewSauce("");}};
   const removeSauce  = async s=>{await ps(sauces.filter(x=>x!==s));};
   const addCrudite   = async()=>{const c=newCrudite.trim(); if(c&&!crudites.includes(c)) {await pc([...crudites,c]);  setNewCrudite("");}};
   const removeCrudite= async c=>{await pc(crudites.filter(x=>x!==c));};
-  const addBoisson   = async()=>{const b=newBoisson.trim(); if(b&&!boissons.includes(b)){await pb([...boissons,b]); setNewBoisson("");}};
+  const addBoisson   = async()=>{const b=newBoisson.trim(); if(b&&!boissons.includes(b)) {await pb([...boissons,b]);  setNewBoisson("");}};
   const removeBoisson= async b=>{await pb(boissons.filter(x=>x!==b));};
+  const addExtraCategory=async()=>{const label=newExtraLabel.trim();if(!label||!newExtraApplies.length)return;const id="extra_"+Date.now();const accent=EXTRA_ACCENTS[extras.length%EXTRA_ACCENTS.length];await pe([...extras,{id,label,options:[],appliesTo:newExtraApplies,accent}]);setNewExtraLabel("");setNewExtraApplies([]);};
+  const removeExtraCategory=async id=>{await pe(extras.filter(e=>e.id!==id));};
+  const addExtraOption=async(extraId)=>{const val=(newExtraOption[extraId]||"").trim();if(!val)return;const updated=extras.map(e=>e.id===extraId?{...e,options:[...e.options,val]}:e);await pe(updated);setNewExtraOption(prev=>({...prev,[extraId]:""}));};
+  const removeExtraOption=async(extraId,opt)=>{const updated=extras.map(e=>e.id===extraId?{...e,options:e.options.filter(o=>o!==opt)}:e);await pe(updated);};
+  const toggleExtraApplies=meal=>{setNewExtraApplies(prev=>prev.includes(meal)?prev.filter(x=>x!==meal):[...prev,meal]);};
 
-  // extra category CRUD
-  const addExtraCategory = async()=>{
-    const label=newExtraLabel.trim();
-    if(!label||!newExtraApplies.length)return;
-    const id="extra_"+Date.now();
-    const accent=EXTRA_ACCENTS[extras.length%EXTRA_ACCENTS.length];
-    await pe([...extras,{id,label,options:[],appliesTo:newExtraApplies,accent}]);
-    setNewExtraLabel(""); setNewExtraApplies([]);
-  };
-  const removeExtraCategory = async id=>{await pe(extras.filter(e=>e.id!==id));};
-  const addExtraOption = async(extraId)=>{
-    const val=(newExtraOption[extraId]||"").trim();
-    if(!val)return;
-    const updated=extras.map(e=>e.id===extraId?{...e,options:[...e.options,val]}:e);
-    await pe(updated);
-    setNewExtraOption(prev=>({...prev,[extraId]:""}));
-  };
-  const removeExtraOption = async(extraId,opt)=>{
-    const updated=extras.map(e=>e.id===extraId?{...e,options:e.options.filter(o=>o!==opt)}:e);
-    await pe(updated);
-  };
-  const toggleExtraApplies = (meal)=>{
-    setNewExtraApplies(prev=>prev.includes(meal)?prev.filter(x=>x!==meal):[...prev,meal]);
-  };
-
-  // order helpers
   const toggleChoice=async(name,choice)=>{
     const cur=orders[name]||{};
     if(cur.choice===choice){await deleteDoc(doc(db,"orders",name));}
     else{await setDoc(doc(db,"orders",name),{choice,detail:"",sauces:[],crudites:[],cruditesTout:false,boules:"",snackType:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}});}
   };
-
-  // toggle "tout" for crudites
-  const toggleCruditesTout = async(name)=>{
-    const cur=orders[name]||{};
-    if(!cur.choice)return;
-    const wasTout=cur.cruditesTout||false;
-    const updated={...cur, cruditesTout:!wasTout, crudites:!wasTout?[...crudites]:[]};
-    setOrders(prev=>({...prev,[name]:updated}));
-    await setDoc(doc(db,"orders",name),updated);
-  };
   const handleDetail=(name,detail)=>{
     setOrders(prev=>({...prev,[name]:{...prev[name],detail}}));
     clearTimeout(detailTimers.current[name]);
-    detailTimers.current[name]=setTimeout(async()=>{
-      const cur=orders[name]||{};if(!cur.choice)return;
-      await setDoc(doc(db,"orders",name),{...cur,detail});
-    },600);
+    detailTimers.current[name]=setTimeout(async()=>{const cur=orders[name]||{};if(!cur.choice)return;await setDoc(doc(db,"orders",name),{...cur,detail});},600);
   };
   const handleSubDetail=async(name,field,value)=>{
     const cur=orders[name]||{};if(!cur.choice)return;
     const updated={...cur,[field]:value};
     setOrders(prev=>({...prev,[name]:updated}));
     await setDoc(doc(db,"orders",name),updated);
-  };
-
-  const handleBoissonInput = (name, val) => {
-    setNewBoissonInput(prev=>({...prev,[name]:val}));
-    handleSubDetail(name,"boisson",val);
   };
   const toggleMulti=async(name,field,value)=>{
     const cur=orders[name]||{};if(!cur.choice)return;
@@ -340,6 +576,13 @@ export default function App() {
     const newOrder={...cur,[field]:updated};
     setOrders(prev=>({...prev,[name]:newOrder}));
     await setDoc(doc(db,"orders",name),newOrder);
+  };
+  const toggleCruditesTout=async(name)=>{
+    const cur=orders[name]||{};if(!cur.choice)return;
+    const wasTout=cur.cruditesTout||false;
+    const updated={...cur,cruditesTout:!wasTout,crudites:!wasTout?[...crudites]:[]};
+    setOrders(prev=>({...prev,[name]:updated}));
+    await setDoc(doc(db,"orders",name),updated);
   };
   const toggleExtraOption=async(name,extraId,value)=>{
     const cur=orders[name]||{};if(!cur.choice)return;
@@ -350,37 +593,32 @@ export default function App() {
     setOrders(prev=>({...prev,[name]:newOrder}));
     await setDoc(doc(db,"orders",name),newOrder);
   };
-
-  const togglePayment = async name => {
-    const current = payments[name] || false;
-    const updated = { ...payments, [name]: !current };
+  const togglePayment=async name=>{
+    const current=payments[name]||false;
+    const updated={...payments,[name]:!current};
     setPayments(updated);
-    await setDoc(doc(db,"payments","today"), updated);
+    await setDoc(doc(db,"payments","today"),updated);
   };
-
-  const saveFavorite = async name => {
-    const cur = orders[name];
-    if (!cur?.choice) return;
-    const favName = favNameInput.trim() || formatOrder(cur,extras,crudites).slice(0,30) || "Mon favori";
-    const existing = favorites[name] || [];
-    const newFav = { id:"fav_"+Date.now(), name:favName, ...cur };
-    await setDoc(doc(db,"favorites",name), { list:[...existing, newFav] });
-    setFavNameInput("");
-    setShowFavModal(false);
-    setSavedMsg(true); setTimeout(()=>setSavedMsg(false),2500);
+  const saveFavorite=async name=>{
+    const cur=orders[name];if(!cur?.choice)return;
+    const favName=favNameInput.trim()||formatOrder(cur,extras,crudites).slice(0,30)||"Mon favori";
+    const existing=favorites[name]||[];
+    const newFav={id:"fav_"+Date.now(),name:favName,...cur};
+    await setDoc(doc(db,"favorites",name),{list:[...existing,newFav]});
+    setFavNameInput("");setShowFavModal(false);
+    setSavedMsg(true);setTimeout(()=>setSavedMsg(false),2500);
   };
-
-  const deleteFavorite = async (username, favId) => {
-    const existing = favorites[username] || [];
-    const updated = existing.filter(f=>f.id!==favId);
-    await setDoc(doc(db,"favorites",username), { list:updated });
+  const deleteFavorite=async(username,favId)=>{
+    const existing=favorites[username]||[];
+    await setDoc(doc(db,"favorites",username),{list:existing.filter(f=>f.id!==favId)});
   };
   const resetAll=async()=>{
     if(!window.confirm("Archiver et effacer toutes les commandes du jour ?"))return;
     const today=new Date().toISOString().slice(0,10);
+    const historyKey=`${today}_${Date.now()}`;
     const snapshot={};
     members.map(m=>m.username).forEach(n=>{if(orders[n]?.choice)snapshot[n]=orders[n];});
-    if(Object.keys(snapshot).length>0)await setDoc(doc(db,"history",today),{date:today,orders:snapshot,payments});
+    if(Object.keys(snapshot).length>0)await setDoc(doc(db,"history",historyKey),{date:today,orders:snapshot,payments});
     await Promise.all(members.map(m=>deleteDoc(doc(db,"orders",m.username))));
     await setDoc(doc(db,"payments","today"),{});
   };
@@ -389,99 +627,132 @@ export default function App() {
   const totalOrdered=names.filter(n=>orders[n]?.choice).length;
   const notOrdered=names.filter(n=>!orders[n]?.choice);
   const counts=LUNCH_OPTIONS.reduce((a,o)=>{a[o.id]=names.filter(n=>orders[n]?.choice===o.id).length;return a;},{});
+  const P = (accent, active, disabled) => pill(accent, active, disabled, theme);
 
-  const pill=(accent,active,disabled)=>({
-    background:active?accent:T.bg3, border:"1px solid "+(active?accent:T.border),
-    borderRadius:20, padding:"3px 10px", fontSize:12, color:active?"#fff":T.textMuted,
-    cursor:disabled?"not-allowed":"pointer", transition:"all 0.15s", fontFamily:"inherit",
-    whiteSpace:"nowrap", opacity:disabled?0.35:1,
-  });
-  const inp={background:T.bg,border:"1px solid "+T.border,borderRadius:10,color:T.text,padding:"10px 14px",fontSize:14,fontFamily:"'DM Sans',sans-serif"};
-  const addBtn={background:T.text,color:T.bg,border:"none",borderRadius:10,padding:"10px 20px",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"'Syne',sans-serif",whiteSpace:"nowrap"};
-  const secTitle={fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:18,marginBottom:18,color:T.text,display:"flex",alignItems:"center",gap:12};
-  const tdS={padding:"10px 16px",verticalAlign:"middle",borderBottom:"1px solid "+T.border2};
-  const thS={background:T.thBg,color:T.thColor,fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.07em",padding:"12px 16px",textAlign:"left",borderBottom:"1px solid "+T.border};
+  const inp = { ...inputStyle(theme) };
+  const addBtn = {
+    background: `linear-gradient(135deg, ${theme.amber}, ${theme.amberDeep})`,
+    color: "#1a1000", border:"none", borderRadius:10, padding:"10px 20px",
+    fontSize:14, fontWeight:700, cursor:"pointer", fontFamily:"'Syne',sans-serif",
+    whiteSpace:"nowrap", boxShadow:`0 4px 16px ${theme.amberGlow}`,
+  };
+  const secTitle = {
+    fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:18,
+    marginBottom:18, color:theme.text, display:"flex", alignItems:"center", gap:12,
+  };
+  const badge = {
+    background: theme.bgInput, border:`1px solid ${theme.border}`,
+    color:theme.textSub, fontSize:12, padding:"3px 12px", borderRadius:20,
+  };
 
-  // Extra categories for a given meal choice
-  const extrasForMeal = (choice) => extras.filter(e=>e.appliesTo?.includes(choice));
+  const extrasForMeal = choice => extras.filter(e=>e.appliesTo?.includes(choice));
+
+  const detailCellProps = { sauces, crudites, boissons, extras, theme,
+    handleDetail, handleSubDetail, toggleMulti, toggleCruditesTout, toggleExtraOption,
+    pb, ps, newBoissonInput, setNewBoissonInput, isMobile };
+
+  // ── Summary pill component
+  const OrderPills = ({order}) => {
+    const lines = formatOrderFull(order, extras, crudites);
+    if (!lines.length) return <span style={{fontSize:12,color:theme.textFaint,fontStyle:"italic"}}>Aucun détail</span>;
+    return (
+      <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+        {lines.map((line,i)=>(
+          <span key={i} style={{
+            background: theme.bgInput, border:`1px solid ${theme.border}`,
+            borderRadius:20, padding:"2px 10px", fontSize:12, color:theme.textSub,
+            display:"inline-flex", alignItems:"center", gap:3,
+          }}><span>{line.emoji}</span><span>{line.text}</span></span>
+        ))}
+      </div>
+    );
+  };
 
   return (
-    <div style={{minHeight:"100vh",background:T.bg,fontFamily:"'DM Sans',sans-serif",color:T.text}}>
-      <style>{makeCssGlobal(T)}</style>
+    <div style={{ minHeight:"100vh", background: isDark
+      ? `radial-gradient(ellipse at 20% 0%, rgba(240,192,112,0.06) 0%, transparent 50%),
+         radial-gradient(ellipse at 80% 100%, rgba(251,146,60,0.04) 0%, transparent 50%),
+         ${theme.bg}`
+      : theme.bg,
+      fontFamily:"'DM Sans',sans-serif", color:theme.text }}>
+      <style>{CSS(theme)}</style>
 
-      {/* Header */}
-      <header style={{background:T.bg2,borderBottom:"1px solid "+T.border,position:"sticky",top:0,zIndex:100}}>
-        <div style={{maxWidth:1200,margin:"0 auto",padding:"14px 24px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <span style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:20,color:T.text}}>🍽️ Lunch Orders</span>
-          <div style={{display:"flex",alignItems:"center",gap:14}}>
-            <span style={{fontSize:12,color:status==="live"?"#22c55e":status==="error"?"#f87171":"#f59e0b"}}>
-              {status==="live"?"● En direct":status==="error"?"● Erreur":"⟳ Connexion…"}
+      {/* ── Header ── */}
+      <header style={{ ...glassCard(theme), borderRadius:0, borderLeft:"none", borderRight:"none", borderTop:"none",
+        position:"sticky", top:0, zIndex:100, boxShadow:`0 1px 40px rgba(0,0,0,0.3)` }}>
+        <div style={{ maxWidth:1200, margin:"0 auto", padding:"14px 24px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            <div style={{ width:32, height:32, borderRadius:8,
+              background:`linear-gradient(135deg, ${theme.amber}33, ${theme.amber}66)`,
+              border:`1px solid ${theme.amber}44`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>🍽️</div>
+            <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:theme.text, letterSpacing:"-0.3px" }}>Lunch Orders</span>
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+            <span style={{ fontSize:11, color:status==="live"?theme.green:status==="error"?theme.red:"#f59e0b",
+              display:"flex", alignItems:"center", gap:5, animation:status==="connecting"?"pulse 1.2s infinite":"none" }}>
+              <span style={{ width:6, height:6, borderRadius:"50%", background:"currentColor", display:"inline-block" }}/>
+              {status==="live"?"En direct":status==="error"?"Erreur":"Connexion…"}
             </span>
-            <button onClick={toggleTheme} style={{background:T.bg3,border:"1px solid "+T.border,borderRadius:8,padding:"5px 10px",fontSize:15,cursor:"pointer",color:T.text}}>
-              {theme==="dark"?"☀️":"🌙"}
+            <button onClick={toggleTheme} style={{ ...glassCard(theme), padding:"6px 10px", fontSize:14, cursor:"pointer", color:theme.text, border:`1px solid ${theme.border}` }}>
+              {isDark?"☀️":"🌙"}
             </button>
-            <span style={{fontSize:13,color:T.textMuted}}>👤 {user}</span>
-            <button style={{background:"transparent",border:"1px solid "+T.border,color:T.textMuted,borderRadius:8,padding:"6px 14px",fontSize:12,cursor:"pointer"}} onClick={()=>setUser(null)}>Déconnexion</button>
+            <div style={{ ...glassCard(theme), padding:"5px 12px", display:"flex", alignItems:"center", gap:6 }}>
+              <div style={{ width:24, height:24, borderRadius:6, background:theme.amberGlow,
+                border:`1px solid ${theme.amber}44`, display:"flex", alignItems:"center", justifyContent:"center",
+                fontSize:11, fontWeight:700, color:theme.amber }}>{user[0].toUpperCase()}</div>
+              <span style={{ fontSize:13, color:theme.textSub }}>{user}</span>
+            </div>
+            <button style={{ background:"transparent", border:`1px solid ${theme.border}`, color:theme.textSub,
+              borderRadius:8, padding:"6px 14px", fontSize:12, cursor:"pointer" }}
+              onClick={()=>setUser(null)}>Déconnexion</button>
           </div>
         </div>
-        <div style={{maxWidth:1200,margin:"0 auto",padding:"0 24px",display:"flex",overflowX:"auto"}}>
-          {[["order","📋 Commander"],["summary","📊 Résumé"],["favorites","⭐ Favoris"],["history","📅 Historique"],["settings","⚙️ Config"]].map(([id,label])=>(
-            <button key={id} style={{background:"transparent",border:"none",color:tab===id?T.text:T.textMuted,padding:"10px 18px",fontSize:13,fontWeight:600,cursor:"pointer",borderBottom:tab===id?"2px solid "+T.text:"2px solid transparent",fontFamily:"'DM Sans',sans-serif",transition:"all 0.2s",whiteSpace:"nowrap"}}
-              onClick={()=>setTab(id)}>{label}</button>
+        <div style={{ maxWidth:1200, margin:"0 auto", padding:"0 20px", display:"flex", gap:2, overflowX:"auto" }}>
+          {[["order","📋","Commander"],["summary","📊","Résumé"],["favorites","⭐","Favoris"],["history","📅","Historique"],["settings","⚙️","Config"]].map(([id,icon,label])=>(
+            <button key={id} className="tab-btn"
+              style={{ background:"transparent", border:"none", color:tab===id?theme.textAccent:theme.textSub,
+                padding:"10px 16px", fontSize:13, fontWeight:tab===id?600:400, cursor:"pointer",
+                borderBottom: tab===id?`2px solid ${theme.amber}`:"2px solid transparent",
+                fontFamily:"'DM Sans',sans-serif", transition:"all 0.2s", whiteSpace:"nowrap",
+                display:"flex", alignItems:"center", gap:5 }}
+              onClick={()=>setTab(id)}>{icon} {label}</button>
           ))}
         </div>
       </header>
 
-      <main style={{maxWidth:1200,margin:"0 auto",padding:isMobile?"16px 12px":"32px 24px"}}>
+      <main style={{ maxWidth:1200, margin:"0 auto", padding: isMobile?"16px 12px":"28px 24px" }}>
 
         {/* ════ ORDER TAB ════ */}
         {tab==="order" && (
-          <div style={{animation:"slideDown 0.3s ease"}}>
+          <div style={{ animation:"slideDown 0.3s ease" }}>
 
-            {/* ── Favoris rapides ── */}
-            {user!=="Admin" && (favorites[user]||[]).length > 0 && (
-              <div style={{marginBottom:20}}>
-                <div style={{fontSize:12,color:T.textFaint,marginBottom:8,display:"flex",alignItems:"center",gap:6}}>
-                  ⭐ <span>Commande rapide depuis tes favoris</span>
-                </div>
-                <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+            {/* Quick favorites */}
+            {user!=="Admin" && (favorites[user]||[]).length>0 && (
+              <div style={{ marginBottom:24 }}>
+                <p style={{ fontSize:12, color:theme.textSub, marginBottom:10, display:"flex", alignItems:"center", gap:6 }}>
+                  <span style={{ color:theme.amber }}>⭐</span> Commande rapide
+                </p>
+                <div style={{ display:"flex", gap:10, flexWrap:"wrap" }}>
                   {(favorites[user]||[]).map(fav=>{
-                    const opt = LUNCH_OPTIONS.find(o=>o.id===fav.choice);
-                    const {id:favId, name:favName, ...favOrder} = fav;
-                    const currentOrder = orders[user];
-                    const isActive = currentOrder?.choice === favOrder.choice &&
-                      formatOrder(currentOrder,extras,crudites) === formatOrder(favOrder,extras,crudites);
+                    const {id:favId,name:favName,...favOrder}=fav;
+                    const opt=LUNCH_OPTIONS.find(o=>o.id===favOrder.choice);
+                    const isActive=orders[user]?.choice===favOrder.choice&&formatOrder(orders[user],extras,crudites)===formatOrder(favOrder,extras,crudites);
                     return (
-                      <button
-                        key={favId}
-                        onClick={async()=>{
-                          if (isActive) {
-                            await deleteDoc(doc(db,"orders",user));
-                          } else {
-                            await setDoc(doc(db,"orders",user),{...favOrder});
-                          }
-                        }}
-                        style={{
-                          background: isActive ? opt?.accent+"22" : T.bg2,
-                          border: "2px solid "+(isActive ? opt?.accent : T.border),
-                          borderRadius:12, padding:"10px 16px", cursor:"pointer",
-                          textAlign:"left", transition:"all 0.2s",
-                          display:"flex", flexDirection:"column", gap:4,
-                          minWidth: isMobile ? "calc(50% - 5px)" : 200,
-                          flex: isMobile ? "1" : "0 1 auto",
-                          position:"relative",
-                        }}
-                      >
-                        <div style={{display:"flex",alignItems:"center",gap:6,justifyContent:"space-between"}}>
-                          <span style={{fontSize:12,fontWeight:600,color:opt?.accent}}>{opt?.label}</span>
-                          {isActive && <span style={{fontSize:10,background:opt?.accent+"33",color:opt?.accent,padding:"1px 6px",borderRadius:10}}>✓ Actif</span>}
+                      <button key={favId} className="pill-btn"
+                        onClick={async()=>{ if(isActive){await deleteDoc(doc(db,"orders",user));}else{await setDoc(doc(db,"orders",user),{...favOrder});} }}
+                        style={{ ...glassCard(theme), padding:"10px 16px", cursor:"pointer", textAlign:"left",
+                          border:`1px solid ${isActive?opt?.accent:theme.border}`,
+                          boxShadow: isActive?`0 0 20px ${opt?.glow}`:undefined,
+                          background: isActive?opt?.glow:theme.bgCard,
+                          minWidth: isMobile?"calc(50% - 5px)":180, flex:isMobile?"1":"0 1 auto",
+                          display:"flex", flexDirection:"column", gap:3, transition:"all 0.2s" }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:6, justifyContent:"space-between" }}>
+                          <span style={{ fontSize:11, fontWeight:600, color:opt?.accent }}>{opt?.label}</span>
+                          {isActive && <span style={{ fontSize:9, background:opt?.accent+"22", color:opt?.accent, padding:"1px 6px", borderRadius:10 }}>✓ Actif</span>}
                         </div>
-                        <div style={{fontSize:12,fontWeight:500,color:T.text}}>{favName}</div>
-                        <div style={{fontSize:11,color:T.textMuted,lineHeight:1.4}}>
-                          {formatOrder(favOrder,extras,crudites)||"Aucun détail"}
-                        </div>
-                        <div style={{fontSize:11,color:isActive?"#f87171":opt?.accent,marginTop:2}}>
-                          {isActive ? "Cliquer pour effacer ✕" : "Cliquer pour commander →"}
+                        <div style={{ fontSize:12, fontWeight:500, color:theme.text }}>{favName}</div>
+                        <div style={{ fontSize:11, color:isActive?theme.red:opt?.accent, marginTop:1 }}>
+                          {isActive?"Cliquer pour effacer ✕":"Cliquer pour commander →"}
                         </div>
                       </button>
                     );
@@ -490,247 +761,84 @@ export default function App() {
               </div>
             )}
 
-            <div style={{marginBottom:40}}>
+            {/* Table header */}
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
               <h2 style={secTitle}>
                 Commandes du jour
-                <span style={{background:T.bg3,color:T.textMuted,fontSize:12,padding:"3px 10px",borderRadius:20}}>{totalOrdered} / {names.length}</span>
+                <span style={badge}>{totalOrdered} / {names.length}</span>
               </h2>
+            </div>
 
-              {/* ── MOBILE VIEW ── */}
-              {isMobile && (
-                <div style={{display:"flex",flexDirection:"column",gap:12}}>
-                  {names.map((name,idx)=>{
-                    const order=orders[name]||{};
-                    const chosen=LUNCH_OPTIONS.find(o=>o.id===order.choice);
-                    const canEdit=user===name||user==="Admin";
-                    const isMe=user===name;
-                    const mealExtras=extrasForMeal(order.choice);
-                    return (
-                      <div key={name} style={{
-                        background: isMe ? T.bg2 : T.bg2,
-                        border: "1px solid "+(isMe ? (chosen?.accent||"#f59e0b") : T.border),
-                        borderRadius:14,
-                        padding:"16px",
-                        boxShadow: isMe ? "0 0 0 2px "+(chosen?.accent||"#f59e0b")+"33" : "none",
-                      }}>
-                        {/* Card header */}
-                        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
-                          <div style={{width:36,height:36,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:700,flexShrink:0,background:chosen?chosen.accent+"28":T.bg3,color:chosen?chosen.accent:T.textMuted}}>
-                            {name[0].toUpperCase()}
-                          </div>
-                          <div style={{flex:1}}>
-                            <div style={{display:"flex",alignItems:"center",gap:8}}>
-                              <span style={{fontSize:15,fontWeight:600,color:isMe?"#f59e0b":T.text}}>{name}</span>
-                              {isMe && <span style={{fontSize:10,color:T.textFaint,background:T.bg3,padding:"1px 6px",borderRadius:10}}>toi</span>}
-                              <span style={{fontSize:12,color:T.textFaint,marginLeft:"auto"}}>#{idx+1}</span>
-                            </div>
-                            {chosen && <span style={{fontSize:12,color:chosen.accent}}>{chosen.label}</span>}
-                          </div>
-                          {user==="Admin" && (
-                            <button style={{background:"transparent",border:"none",color:T.textFaint,fontSize:18,cursor:"pointer",padding:4}} onClick={()=>removeMember(name)}>✕</button>
-                          )}
+            {/* Mobile cards */}
+            {isMobile && (
+              <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+                {names.map((name,idx)=>{
+                  const order=orders[name]||{};
+                  const chosen=LUNCH_OPTIONS.find(o=>o.id===order.choice);
+                  const canEdit=user===name||user==="Admin";
+                  const isMe=user===name;
+                  return (
+                    <div key={name} style={{ ...glassCard(theme),
+                      border:`1px solid ${isMe&&chosen?chosen.accent:isMe?theme.amber:theme.border}`,
+                      boxShadow: isMe&&chosen?`0 0 24px ${chosen.glow}`:isMe?`0 0 24px ${theme.amberGlow}`:undefined,
+                      padding:16 }}>
+                      <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
+                        <div style={{ width:36, height:36, borderRadius:10,
+                          background:chosen?chosen.glow:theme.bgInput,
+                          border:`1px solid ${chosen?chosen.accent:theme.border}`,
+                          display:"flex", alignItems:"center", justifyContent:"center",
+                          fontSize:14, fontWeight:700, color:chosen?chosen.accent:theme.textSub }}>
+                          {name[0].toUpperCase()}
                         </div>
-
-                        {/* Choice buttons */}
-                        {canEdit && (
-                          <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
-                            {LUNCH_OPTIONS.map(opt=>(
-                              <button key={opt.id}
-                                style={{flex:1,minWidth:80,padding:"8px 4px",borderRadius:10,border:"1px solid "+(order.choice===opt.id?opt.accent:T.border),background:order.choice===opt.id?opt.accent:T.bg3,color:order.choice===opt.id?"#fff":T.textMuted,fontSize:12,fontWeight:600,cursor:"pointer",transition:"all 0.18s"}}
-                                onClick={()=>toggleChoice(name,opt.id)}>
-                                {opt.label}
-                              </button>
-                            ))}
+                        <div style={{ flex:1 }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                            <span style={{ fontSize:15, fontWeight:600, color:isMe?theme.amber:theme.text }}>{name}</span>
+                            {isMe && <span style={{ fontSize:9, color:theme.textFaint, background:theme.bgInput, padding:"1px 6px", borderRadius:10 }}>toi</span>}
+                            <span style={{ fontSize:11, color:theme.textFaint, marginLeft:"auto" }}>#{idx+1}</span>
                           </div>
-                        )}
-                        {!canEdit && order.choice && (
-                          <div style={{marginBottom:12}}>
-                            <span style={{fontSize:13,color:chosen?.accent,fontWeight:600}}>{chosen?.label}</span>
-                          </div>
-                        )}
-
-                        {/* Details — only shown when choice made */}
-                        {order.choice && (
-                          <div style={{display:"flex",flexDirection:"column",gap:8,paddingTop:12,borderTop:"1px solid "+T.border2}}>
-
-                            {order.choice==="ice-cream" && (
-                              <>
-                                <div style={{display:"flex",gap:6}}>
-                                  {["1 boule","2 boules"].map(opt=>(
-                                    <button key={opt} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"boules",order.boules===opt?"":opt)} style={pill("#ec4899",order.boules===opt,!canEdit)}>{opt}</button>
-                                  ))}
-                                </div>
-                                <input style={{width:"100%",background:T.bg,border:"1px solid #ec489966",borderRadius:8,color:T.text,padding:"8px 12px",fontSize:13,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.4}}
-                                  disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?"Parfum(s)…":"🔒"} />
-                                <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                                  <span style={{fontSize:11,color:T.textMuted,whiteSpace:"nowrap"}}>🥤 Boisson :</span>
-                                  <input style={{flex:1,background:T.bg,border:"1px solid "+T.border,borderRadius:8,color:T.text,padding:"6px 10px",fontSize:13,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.4}}
-                                    disabled={!canEdit} value={order.boisson||""} onChange={e=>handleSubDetail(name,"boisson",e.target.value)} placeholder={canEdit?"ex: eau, coca…":"🔒"} />
-                                </div>
-                              </>
-                            )}
-
-                            {order.choice==="libanais" && (
-                              <>
-                                <textarea style={{width:"100%",background:T.bg,border:"1px solid #16a34a66",borderRadius:8,color:T.text,padding:"8px 12px",fontSize:13,fontFamily:"'DM Sans',sans-serif",lineHeight:1.5,opacity:canEdit?1:0.4,resize:"none"}}
-                                  rows={2} disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?"Précise ta commande…":"🔒"} />
-                                <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                                  <span style={{fontSize:11,color:T.textMuted,whiteSpace:"nowrap"}}>🥤 Boisson :</span>
-                                  <input style={{flex:1,background:T.bg,border:"1px solid "+T.border,borderRadius:8,color:T.text,padding:"6px 10px",fontSize:13,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.4}}
-                                    disabled={!canEdit} value={order.boisson||""} onChange={e=>handleSubDetail(name,"boisson",e.target.value)} placeholder={canEdit?"ex: eau, coca…":"🔒"} />
-                                </div>
-                              </>
-                            )}
-
-                            {order.choice==="snack-merode" && (
-                              <>
-                                {/* Section 1: Durum + frites + sauce + extras */}
-                                <div style={{paddingBottom:8,marginBottom:8,borderBottom:"1px dashed "+T.border}}>
-                                  <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",marginBottom:6}}>
-                                    {["Durum","Bicky"].map(opt=>(
-                                      <button key={opt} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"snackType",order.snackType===opt?"":opt)} style={pill("#0891b2",order.snackType===opt,!canEdit)}>{opt}</button>
-                                    ))}
-                                    <input style={{flex:1,minWidth:80,background:T.bg,border:"1px solid #0891b266",borderRadius:8,color:T.text,padding:"6px 10px",fontSize:13,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.4}}
-                                      disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?(order.snackType?"ex: falafel…":"Précise…"):"🔒"} />
-                                  </div>
-                                  <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:6}}>
-                                    <span style={{fontSize:11,color:T.textFaint,width:"100%"}}>🫙 Sauce snack :</span>
-                                    {sauces.map(s=>(
-                                      <button key={s} disabled={!canEdit} onClick={()=>canEdit&&toggleMulti(name,"sauces",s)} style={pill("#7c3aed",(order.sauces||[]).includes(s),!canEdit)}>{s}</button>
-                                    ))}
-                                    {canEdit && (
-                                      <div style={{display:"flex",gap:5,alignItems:"center",width:"100%",marginTop:4}}>
-                                        <input style={{flex:1,background:T.bg,border:"1px solid #7c3aed66",borderRadius:8,color:T.text,padding:"4px 8px",fontSize:12,fontFamily:"'DM Sans',sans-serif"}}
-                                          placeholder="Autre sauce…"
-                                          onKeyDown={async e=>{if(e.key==="Enter"&&e.target.value.trim()){await ps([...sauces,e.target.value.trim()]);e.target.value="";}}} />
-                                        <button style={{...pill("#7c3aed",false,false),fontSize:11,padding:"4px 8px",whiteSpace:"nowrap"}}
-                                          onClick={async e=>{const inp=e.target.previousSibling;if(inp.value.trim()){await ps([...sauces,inp.value.trim()]);inp.value="";}}}> + Sauvegarder</button>
-                                      </div>
-                                    )}
-                                  </div>
-                                  {mealExtras.map(ex=>(
-                                    <div key={ex.id} style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:5}}>
-                                      <span style={{fontSize:11,color:ex.accent,width:"100%",fontWeight:500}}>➕ {ex.label} :</span>
-                                      {ex.options.map(o=>(
-                                        <button key={o} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)} style={pill(ex.accent,((order.extras||{})[ex.id]||[]).includes(o),!canEdit)}>{o}</button>
-                                      ))}
-                                    </div>
-                                  ))}
-                                  <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>
-                                    {["Frite dedans","Frite à part"].map(opt=>(
-                                      <button key={opt} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"frites",order.frites===opt?"":opt)} style={pill("#f59e0b",order.frites===opt,!canEdit)}>{opt}</button>
-                                    ))}
-                                  </div>
-                                  <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:6}}>
-                                    <span style={{fontSize:11,color:T.textFaint,width:"100%"}}>🫙 Sauce snack :</span>
-                                    {sauces.map(s=>(
-                                      <button key={s} disabled={!canEdit} onClick={()=>canEdit&&toggleMulti(name,"sauces",s)} style={pill("#7c3aed",(order.sauces||[]).includes(s),!canEdit)}>{s}</button>
-                                    ))}
-                                    {canEdit && (
-                                      <div style={{display:"flex",gap:5,alignItems:"center",width:"100%",marginTop:4}}>
-                                        <input style={{flex:1,background:T.bg,border:"1px solid #7c3aed66",borderRadius:8,color:T.text,padding:"4px 8px",fontSize:12,fontFamily:"'DM Sans',sans-serif"}}
-                                          placeholder="Autre sauce…"
-                                          onKeyDown={async e=>{if(e.key==="Enter"&&e.target.value.trim()){await ps([...sauces,e.target.value.trim()]);e.target.value="";}}} />
-                                        <button style={{...pill("#7c3aed",false,false),fontSize:11,padding:"4px 8px",whiteSpace:"nowrap"}}
-                                          onClick={async e=>{const inp=e.target.previousSibling;if(inp.value.trim()){await ps([...sauces,inp.value.trim()]);inp.value="";}}}> + Sauvegarder</button>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                                {/* Section 2: Frite extra */}
-                                <div style={{paddingBottom:8,marginBottom:8,borderBottom:"1px dashed "+T.border}}>
-                                  <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center",marginBottom:6}}>
-                                    <span style={{fontSize:11,color:T.textFaint,width:"100%"}}>🍟 Frite extra :</span>
-                                    {["Petite","Moyenne","Grande"].map(opt=>(
-                                      <button key={opt} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"friteSup",order.friteSup===opt?"":opt)} style={pill("#f97316",order.friteSup===opt,!canEdit)}>{opt}</button>
-                                    ))}
-                                  </div>
-                                  <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                                    <span style={{fontSize:11,color:T.textFaint,width:"100%"}}>🥣 Sauce frite :</span>
-                                    {sauces.map(s=>(
-                                      <button key={s} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"sauceFrite",order.sauceFrite===s?"":s)} style={pill("#f59e0b",order.sauceFrite===s,!canEdit)}>{s}</button>
-                                    ))}
-                                    {canEdit && (
-                                      <div style={{display:"flex",gap:5,alignItems:"center",width:"100%",marginTop:4}}>
-                                        <input style={{flex:1,background:T.bg,border:"1px solid #f59e0b66",borderRadius:8,color:T.text,padding:"4px 8px",fontSize:12,fontFamily:"'DM Sans',sans-serif"}}
-                                          placeholder="Autre sauce…"
-                                          onKeyDown={async e=>{if(e.key==="Enter"&&e.target.value.trim()){await ps([...sauces,e.target.value.trim()]);e.target.value="";}}} />
-                                        <button style={{...pill("#f59e0b",false,false),fontSize:11,padding:"4px 8px",whiteSpace:"nowrap"}}
-                                          onClick={async e=>{const inp=e.target.previousSibling;if(inp.value.trim()){await ps([...sauces,inp.value.trim()]);inp.value="";}}}> + Sauvegarder</button>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                                {/* Section 3: Crudités */}
-                                <div style={{paddingBottom:8,marginBottom:8,borderBottom:"1px dashed "+T.border}}>
-                                  <span style={{fontSize:11,color:T.textFaint,display:"block",marginBottom:5}}>🥗 Crudités :</span>
-                                  <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                                    <button disabled={!canEdit} onClick={()=>canEdit&&toggleCruditesTout(name)} style={{...pill("#16a34a",order.cruditesTout,!canEdit),fontWeight:600}}>Tout</button>
-                                    {crudites.map(c=>(
-                                      <button key={c} disabled={!canEdit} onClick={()=>canEdit&&toggleMulti(name,"crudites",c)} style={pill("#16a34a",(order.crudites||[]).includes(c),!canEdit)}>{c}</button>
-                                    ))}
-                                  </div>
-                                </div>
-                                {/* Section 4: Boissons */}
-                                <div>
-                                  <span style={{fontSize:11,color:T.textFaint,display:"block",marginBottom:5}}>🥤 Boisson :</span>
-                                  <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:5}}>
-                                    {boissons.map(b=>(
-                                      <button key={b} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"boisson",order.boisson===b?"":b)} style={pill("#06b6d4",order.boisson===b,!canEdit)}>{b}</button>
-                                    ))}
-                                  </div>
-                                  <div style={{display:"flex",gap:5,alignItems:"center"}}>
-                                    <input style={{flex:1,background:T.bg,border:"1px solid #06b6d466",borderRadius:8,color:T.text,padding:"6px 10px",fontSize:12,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.4}}
-                                      disabled={!canEdit} value={newBoissonInput[name]??(!boissons.includes(order.boisson||"")?(order.boisson||""):"")} onChange={e=>handleBoissonInput(name,e.target.value)} placeholder={canEdit?"Autre boisson…":"🔒"} />
-                                    {canEdit && (newBoissonInput[name]||order.boisson||"").trim() && !boissons.includes((newBoissonInput[name]||order.boisson||"").trim()) && (
-                                      <button onClick={async()=>{await pb([...boissons,(newBoissonInput[name]||order.boisson||"").trim()]); setNewBoissonInput(prev=>({...prev,[name]:""}));}} style={{...pill("#06b6d4",false,false),fontSize:11,padding:"4px 8px",whiteSpace:"nowrap"}}>+ Sauvegarder</button>
-                                    )}
-                                  </div>
-                                </div>
-                              </>
-                            )}
-
-                            {order.choice==="libanais" && (
-                              <>
-                                <textarea style={{width:"100%",background:T.bg,border:"1px solid #16a34a66",borderRadius:8,color:T.text,padding:"8px 12px",fontSize:13,fontFamily:"'DM Sans',sans-serif",lineHeight:1.5,opacity:canEdit?1:0.4,resize:"none"}}
-                                  rows={2} disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?"Précise ta commande…":"🔒"} />
-                                <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                                  <span style={{fontSize:11,color:T.textFaint,whiteSpace:"nowrap"}}>🥤 Boisson :</span>
-                                  <input style={{flex:1,background:T.bg,border:"1px solid #06b6d466",borderRadius:8,color:T.text,padding:"6px 10px",fontSize:12,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.4}}
-                                    disabled={!canEdit} value={newBoissonInput[name]??(!boissons.includes(order.boisson||"")?(order.boisson||""):"")} onChange={e=>handleBoissonInput(name,e.target.value)} placeholder={canEdit?"Autre boisson…":"🔒"} />
-                                </div>
-                              </>
-                            )}
-
-                            {/* Summary pills */}
-                            {formatOrderFull(order,extras,crudites).length>0 && (
-                              <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:4}}>
-                                {formatOrderFull(order,extras,crudites).map((line,i)=>(
-                                  <span key={i} style={{fontSize:11,color:T.textMuted,background:T.bg3,padding:"2px 8px",borderRadius:20}}>
-                                    {line.emoji} {line.text}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
+                          {chosen && <span style={{ fontSize:11, color:chosen.accent }}>{chosen.label}</span>}
+                        </div>
+                        {user==="Admin" && <button style={{ background:"transparent", border:"none", color:theme.textFaint, fontSize:16, cursor:"pointer" }} onClick={()=>removeMember(name)}>✕</button>}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                      {canEdit && (
+                        <div style={{ display:"flex", gap:6, marginBottom:12, flexWrap:"wrap" }}>
+                          {LUNCH_OPTIONS.map(opt=>(
+                            <button key={opt.id} className="pill-btn"
+                              style={{ flex:1, minWidth:80, padding:"8px 4px", borderRadius:10,
+                                border:`1px solid ${order.choice===opt.id?opt.accent:theme.border}`,
+                                background:order.choice===opt.id?opt.glow:theme.bgInput,
+                                color:order.choice===opt.id?opt.accent:theme.textSub,
+                                fontSize:12, fontWeight:600, cursor:"pointer", transition:"all 0.18s",
+                                boxShadow:order.choice===opt.id?`0 0 16px ${opt.glow}`:undefined }}
+                              onClick={()=>toggleChoice(name,opt.id)}>{opt.label}</button>
+                          ))}
+                        </div>
+                      )}
+                      {order.choice && (
+                        <div style={{ paddingTop:12, borderTop:`1px solid ${theme.borderSub}` }}>
+                          <DetailCell name={name} order={order} canEdit={canEdit}
+                            mealExtras={extrasForMeal(order.choice)} {...detailCellProps}/>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
-              {/* ── DESKTOP VIEW (table) ── */}
-              {!isMobile && (
-              <div style={{overflowX:"auto",borderRadius:14,border:"1px solid "+T.border}}>
-                <table style={{width:"100%",borderCollapse:"collapse",minWidth:820}}>
+            {/* Desktop table */}
+            {!isMobile && (
+              <div style={{ ...glassCard(theme), overflow:"hidden" }}>
+                <table style={{ width:"100%", borderCollapse:"collapse" }}>
                   <thead>
-                    <tr>
-                      <th style={{...thS,width:50,textAlign:"center"}}>#</th>
-                      <th style={{...thS,width:160}}>Nom</th>
-                      {LUNCH_OPTIONS.map(o=><th key={o.id} style={thS}>{o.label}</th>)}
-                      <th style={thS}>Détails</th>
-                      <th style={{...thS,width:44}}></th>
+                    <tr style={{ background:theme.bgSection }}>
+                      <th style={{ padding:"12px 16px", textAlign:"center", width:44, color:theme.textFaint, fontSize:11, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.07em", borderBottom:`1px solid ${theme.border}` }}>#</th>
+                      <th style={{ padding:"12px 16px", textAlign:"left", width:160, color:theme.textFaint, fontSize:11, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.07em", borderBottom:`1px solid ${theme.border}` }}>Nom</th>
+                      {LUNCH_OPTIONS.map(o=>(
+                        <th key={o.id} style={{ padding:"12px 16px", textAlign:"left", color:o.accent, fontSize:11, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.07em", borderBottom:`1px solid ${theme.border}` }}>{o.label}</th>
+                      ))}
+                      <th style={{ padding:"12px 16px", textAlign:"left", color:theme.textFaint, fontSize:11, fontWeight:600, textTransform:"uppercase", letterSpacing:"0.07em", borderBottom:`1px solid ${theme.border}` }}>Détails</th>
+                      <th style={{ width:44, borderBottom:`1px solid ${theme.border}` }}/>
                     </tr>
                   </thead>
                   <tbody>
@@ -739,215 +847,50 @@ export default function App() {
                       const chosen=LUNCH_OPTIONS.find(o=>o.id===order.choice);
                       const canEdit=user===name||user==="Admin";
                       const isMe=user===name;
-                      const mealExtras=extrasForMeal(order.choice);
+                      const td = { padding:"10px 16px", verticalAlign:"middle", borderBottom:`1px solid ${theme.borderSub}`, transition:"background 0.15s" };
                       return (
-                        <tr key={name} className="datarow" style={isMe?{background:T.bg3}:{}}>
-                          <td style={{...tdS,textAlign:"center"}}>
-                            <span style={{fontSize:13,fontWeight:700,color:isMe?"#f59e0b":T.textFaint}}>{idx+1}</span>
+                        <tr key={name} className="row-hover" style={{ background: isMe?theme.amberGlow:"transparent" }}>
+                          <td style={{ ...td, textAlign:"center" }}>
+                            <span style={{ fontSize:12, fontWeight:700, color:isMe?theme.amber:theme.textFaint }}>{idx+1}</span>
                           </td>
-                          <td style={tdS}>
-                            <div style={{display:"flex",alignItems:"center",gap:10}}>
-                              <div style={{width:32,height:32,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,flexShrink:0,background:chosen?chosen.accent+"28":T.bg3,color:chosen?chosen.accent:T.textMuted}}>
+                          <td style={td}>
+                            <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                              <div style={{ width:32, height:32, borderRadius:8, flexShrink:0,
+                                background:chosen?chosen.glow:theme.bgInput,
+                                border:`1px solid ${chosen?chosen.accent:theme.border}`,
+                                display:"flex", alignItems:"center", justifyContent:"center",
+                                fontSize:12, fontWeight:700, color:chosen?chosen.accent:theme.textSub }}>
                                 {name[0].toUpperCase()}
                               </div>
                               <div>
-                                <span style={{fontSize:14,fontWeight:isMe?700:500,color:isMe?"#f59e0b":T.text}}>{name}</span>
-                                {isMe&&<span style={{display:"block",fontSize:10,color:T.textFaint}}>● toi</span>}
+                                <span style={{ fontSize:13, fontWeight:isMe?600:400, color:isMe?theme.amber:theme.text }}>{name}</span>
+                                {isMe && <span style={{ display:"block", fontSize:10, color:theme.textFaint }}>● toi</span>}
                               </div>
                             </div>
                           </td>
                           {LUNCH_OPTIONS.map(opt=>(
-                            <td key={opt.id} style={{...tdS,textAlign:"center"}}>
-                              <button style={{width:34,height:34,borderRadius:8,border:"1px solid "+(order.choice===opt.id?opt.accent:T.border),background:order.choice===opt.id?opt.accent:T.bg3,color:order.choice===opt.id?"#fff":T.textMuted,fontSize:15,cursor:canEdit?"pointer":"not-allowed",transition:"all 0.18s",opacity:canEdit?1:0.35}}
+                            <td key={opt.id} style={{ ...td, textAlign:"center" }}>
+                              <button className="pill-btn"
+                                style={{ width:32, height:32, borderRadius:8,
+                                  border:`1px solid ${order.choice===opt.id?opt.accent:theme.border}`,
+                                  background:order.choice===opt.id?opt.glow:theme.bgInput,
+                                  color:order.choice===opt.id?opt.accent:theme.textFaint,
+                                  fontSize:14, cursor:canEdit?"pointer":"not-allowed",
+                                  transition:"all 0.18s", opacity:canEdit?1:0.35,
+                                  boxShadow:order.choice===opt.id?`0 0 12px ${opt.glow}`:undefined }}
                                 onClick={()=>canEdit&&toggleChoice(name,opt.id)}>
                                 {order.choice===opt.id?"✓":"○"}
                               </button>
                             </td>
                           ))}
-
-                          {/* Detail cell */}
-                          <td style={tdS}>
-                            {!order.choice&&<span style={{fontSize:12,color:T.textFaint}}>{canEdit?"Choisis d'abord":"🔒"}</span>}
-
-                            {order.choice==="ice-cream"&&(
-                              <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                                <div style={{display:"flex",gap:6}}>
-                                  {["1 boule","2 boules"].map(opt=>(
-                                    <button key={opt} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"boules",order.boules===opt?"":opt)} style={pill("#ec4899",order.boules===opt,!canEdit)}>{opt}</button>
-                                  ))}
-                                </div>
-                                <textarea style={{width:"100%",background:T.bg,border:"1px solid #ec489966",borderRadius:8,color:T.text,padding:"8px 10px",fontSize:13,fontFamily:"'DM Sans',sans-serif",lineHeight:1.5,opacity:canEdit?1:0.35}}
-                                  rows={1} disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?"Parfum(s)…":"🔒"} />
-                                <div style={{padding:"6px 0",borderTop:"1px dashed "+T.border}}>
-                                  <span style={{fontSize:11,color:T.textFaint,display:"block",marginBottom:5}}>🥤 Boisson :</span>
-                                  <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:5}}>
-                                    {boissons.map(b=>(
-                                      <button key={b} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"boisson",order.boisson===b?"":b)} style={pill("#06b6d4",order.boisson===b,!canEdit)}>{b}</button>
-                                    ))}
-                                  </div>
-                                  <div style={{display:"flex",gap:5,alignItems:"center"}}>
-                                    <input style={{flex:1,background:T.bg,border:"1px solid #06b6d466",borderRadius:8,color:T.text,padding:"4px 8px",fontSize:12,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.35}}
-                                      disabled={!canEdit} value={newBoissonInput[name]??(!boissons.includes(order.boisson||"")?(order.boisson||""):"")} onChange={e=>handleBoissonInput(name,e.target.value)} placeholder={canEdit?"Autre…":"🔒"} />
-                                    {canEdit && (newBoissonInput[name]||order.boisson||"").trim() && !boissons.includes((newBoissonInput[name]||order.boisson||"").trim()) && (
-                                      <button onClick={async()=>{ await pb([...boissons,(newBoissonInput[name]||order.boisson||"").trim()]); setNewBoissonInput(prev=>({...prev,[name]:""})); }} style={{...pill("#06b6d4",false,false),fontSize:11,padding:"4px 8px",whiteSpace:"nowrap"}}>+ Sauvegarder</button>
-                                    )}
-                                  </div>
-                                </div>
-                                {mealExtras.map(ex=>(
-                                  <div key={ex.id} style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                                    <span style={{fontSize:12,color:T.textMuted,width:"100%"}}>{ex.label} :</span>
-                                    {ex.options.map(o=>(
-                                      <button key={o} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)} style={pill(ex.accent,((order.extras||{})[ex.id]||[]).includes(o),!canEdit)}>{o}</button>
-                                    ))}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
-                            {order.choice==="snack-merode"&&(
-                              <div style={{display:"flex",flexDirection:"column",gap:0}}>
-
-                                {/* ── Section 1: Durum/Bicky + sauces ── */}
-                                <div style={{padding:"8px 0",borderBottom:"1px dashed "+T.border}}>
-                                  <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",marginBottom:6}}>
-                                    {["Durum","Bicky"].map(opt=>(
-                                      <button key={opt} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"snackType",order.snackType===opt?"":opt)} style={pill("#0891b2",order.snackType===opt,!canEdit)}>{opt}</button>
-                                    ))}
-                                    <input style={{flex:1,minWidth:80,background:T.bg,border:"1px solid #0891b266",borderRadius:8,color:T.text,padding:"4px 8px",fontSize:13,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.35}}
-                                      disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?(order.snackType?"ex: falafel…":"Précise…"):"🔒"} />
-                                  </div>
-                                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                                    {["Frite dedans","Frite à part"].map(opt=>(
-                                      <button key={opt} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"frites",order.frites===opt?"":opt)} style={pill("#f59e0b",order.frites===opt,!canEdit)}>{opt}</button>
-                                    ))}
-                                  </div>
-                                  <div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:5}}>
-                                    <span style={{fontSize:11,color:T.textFaint,width:"100%"}}>🫙 Sauce du snack :</span>
-                                    {sauces.map(s=>(
-                                      <button key={s} disabled={!canEdit} onClick={()=>canEdit&&toggleMulti(name,"sauces",s)} style={pill("#7c3aed",(order.sauces||[]).includes(s),!canEdit)}>{s}</button>
-                                    ))}
-                                    {canEdit && (
-                                      <div style={{display:"flex",gap:5,alignItems:"center",width:"100%",marginTop:4}}>
-                                        <input style={{flex:1,background:T.bg,border:"1px solid #7c3aed66",borderRadius:8,color:T.text,padding:"3px 8px",fontSize:12,fontFamily:"'DM Sans',sans-serif"}}
-                                          placeholder="Autre sauce…"
-                                          onKeyDown={async e=>{ if(e.key==="Enter"&&e.target.value.trim()){await ps([...sauces,e.target.value.trim()]);e.target.value="";}}} />
-                                        <button style={{...pill("#7c3aed",false,false),fontSize:11,padding:"3px 8px",whiteSpace:"nowrap"}}
-                                          onClick={async e=>{ const inp=e.target.previousSibling; if(inp.value.trim()){await ps([...sauces,inp.value.trim()]);inp.value="";}}}>+ Sauvegarder</button>
-                                      </div>
-                                    )}
-                                  </div>
-                                  {mealExtras.map(ex=>(
-                                    <div key={ex.id} style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:5}}>
-                                      <span style={{fontSize:11,color:ex.accent,width:"100%",fontWeight:500}}>➕ {ex.label} :</span>
-                                      {ex.options.map(o=>(
-                                        <button key={o} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)} style={pill(ex.accent,((order.extras||{})[ex.id]||[]).includes(o),!canEdit)}>{o}</button>
-                                      ))}
-                                    </div>
-                                  ))}
-                                </div>
-
-                                {/* ── Section 2: Frites extra + sauce ── */}
-                                <div style={{padding:"8px 0",borderBottom:"1px dashed "+T.border}}>
-                                  <span style={{fontSize:11,color:T.textFaint,display:"block",marginBottom:5}}>🍟 Frite extra :</span>
-                                  <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:5}}>
-                                    {["Petite","Moyenne","Grande"].map(opt=>(
-                                      <button key={opt} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"friteSup",order.friteSup===opt?"":opt)} style={pill("#f97316",order.friteSup===opt,!canEdit)}>{opt}</button>
-                                    ))}
-                                  </div>
-                                  <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                                    <span style={{fontSize:11,color:T.textFaint,width:"100%"}}>🥣 Sauce frite :</span>
-                                    {sauces.map(s=>(
-                                      <button key={s} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"sauceFrite",order.sauceFrite===s?"":s)} style={pill("#f59e0b",order.sauceFrite===s,!canEdit)}>{s}</button>
-                                    ))}
-                                    {canEdit && (
-                                      <div style={{display:"flex",gap:5,alignItems:"center",width:"100%",marginTop:4}}>
-                                        <input style={{flex:1,background:T.bg,border:"1px solid #f59e0b66",borderRadius:8,color:T.text,padding:"3px 8px",fontSize:12,fontFamily:"'DM Sans',sans-serif"}}
-                                          placeholder="Autre sauce…"
-                                          onKeyDown={async e=>{ if(e.key==="Enter"&&e.target.value.trim()){await ps([...sauces,e.target.value.trim()]);e.target.value="";}}} />
-                                        <button style={{...pill("#f59e0b",false,false),fontSize:11,padding:"3px 8px",whiteSpace:"nowrap"}}
-                                          onClick={async e=>{ const inp=e.target.previousSibling; if(inp.value.trim()){await ps([...sauces,inp.value.trim()]);inp.value="";}}}>+ Sauvegarder</button>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {/* ── Section 3: Crudités ── */}
-                                <div style={{padding:"8px 0",borderBottom:"1px dashed "+T.border}}>
-                                  <span style={{fontSize:11,color:T.textFaint,display:"block",marginBottom:5}}>🥗 Crudités :</span>
-                                  <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                                    <button disabled={!canEdit} onClick={()=>canEdit&&toggleCruditesTout(name)}
-                                      style={{...pill("#16a34a",order.cruditesTout,!canEdit),fontWeight:600}}>Tout</button>
-                                    {crudites.map(c=>(
-                                      <button key={c} disabled={!canEdit} onClick={()=>canEdit&&toggleMulti(name,"crudites",c)}
-                                        style={pill("#16a34a",(order.crudites||[]).includes(c),!canEdit)}>{c}</button>
-                                    ))}
-                                  </div>
-                                </div>
-
-                                {/* ── Section 4: Boissons ── */}
-                                <div style={{padding:"8px 0"}}>
-                                  <span style={{fontSize:11,color:T.textFaint,display:"block",marginBottom:5}}>🥤 Boisson :</span>
-                                  <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:5}}>
-                                    {boissons.map(b=>(
-                                      <button key={b} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"boisson",order.boisson===b?"":b)} style={pill("#06b6d4",order.boisson===b,!canEdit)}>{b}</button>
-                                    ))}
-                                  </div>
-                                  {/* Custom boisson + save to list */}
-                                  <div style={{display:"flex",gap:5,alignItems:"center"}}>
-                                    <input
-                                      style={{flex:1,background:T.bg,border:"1px solid #06b6d466",borderRadius:8,color:T.text,padding:"4px 8px",fontSize:12,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.35}}
-                                      disabled={!canEdit}
-                                      value={!boissons.includes(order.boisson||"") ? (order.boisson||"") : ""}
-                                      onChange={e=>handleSubDetail(name,"boisson",e.target.value)}
-                                      placeholder={canEdit?"Autre boisson…":"🔒"}
-                                    />
-                                    {canEdit && (newBoissonInput[name]||order.boisson||"").trim() && !boissons.includes((newBoissonInput[name]||order.boisson||"").trim()) && (
-                                      <button
-                                        onClick={async()=>{ await pb([...boissons, order.boisson]); }}
-                                        style={{...pill("#06b6d4",false,false),fontSize:11,padding:"4px 8px",whiteSpace:"nowrap"}}>
-                                        + Sauvegarder
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-
-                              </div>
-                            )}
-
-                            {order.choice==="libanais"&&(
-                              <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                                <textarea style={{width:"100%",background:T.bg,border:"1px solid #16a34a66",borderRadius:8,color:T.text,padding:"8px 10px",fontSize:13,fontFamily:"'DM Sans',sans-serif",lineHeight:1.5,opacity:canEdit?1:0.35}}
-                                  rows={2} disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?"Précise ta commande…":"🔒"} />
-                                <div style={{padding:"6px 0",borderTop:"1px dashed "+T.border}}>
-                                  <span style={{fontSize:11,color:T.textFaint,display:"block",marginBottom:5}}>🥤 Boisson :</span>
-                                  <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:5}}>
-                                    {boissons.map(b=>(
-                                      <button key={b} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"boisson",order.boisson===b?"":b)} style={pill("#06b6d4",order.boisson===b,!canEdit)}>{b}</button>
-                                    ))}
-                                  </div>
-                                  <div style={{display:"flex",gap:5,alignItems:"center"}}>
-                                    <input style={{flex:1,background:T.bg,border:"1px solid #06b6d466",borderRadius:8,color:T.text,padding:"4px 8px",fontSize:12,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.35}}
-                                      disabled={!canEdit} value={newBoissonInput[name]??(!boissons.includes(order.boisson||"")?(order.boisson||""):"")} onChange={e=>handleBoissonInput(name,e.target.value)} placeholder={canEdit?"Autre boisson…":"🔒"} />
-                                    {canEdit && (newBoissonInput[name]||order.boisson||"").trim() && !boissons.includes((newBoissonInput[name]||order.boisson||"").trim()) && (
-                                      <button onClick={async()=>{ await pb([...boissons,(newBoissonInput[name]||order.boisson||"").trim()]); setNewBoissonInput(prev=>({...prev,[name]:""})); }} style={{...pill("#06b6d4",false,false),fontSize:11,padding:"4px 8px",whiteSpace:"nowrap"}}>+ Sauvegarder</button>
-                                    )}
-                                  </div>
-                                </div>
-                                {mealExtras.map(ex=>(
-                                  <div key={ex.id} style={{display:"flex",flexWrap:"wrap",gap:5}}>
-                                    <span style={{fontSize:12,color:T.textMuted,width:"100%"}}>{ex.label} :</span>
-                                    {ex.options.map(o=>(
-                                      <button key={o} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)} style={pill(ex.accent,((order.extras||{})[ex.id]||[]).includes(o),!canEdit)}>{o}</button>
-                                    ))}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                          <td style={td}>
+                            <DetailCell name={name} order={order} canEdit={canEdit}
+                              mealExtras={extrasForMeal(order.choice)} {...detailCellProps}/>
                           </td>
-
-                          <td style={{...tdS,textAlign:"center"}}>
-                            {user==="Admin"&&(
-                              <button style={{background:"transparent",border:"none",color:T.textFaint,fontSize:16,cursor:"pointer",padding:4}} onClick={()=>removeMember(name)}>✕</button>
+                          <td style={{ ...td, textAlign:"center" }}>
+                            {user==="Admin" && (
+                              <button style={{ background:"transparent", border:"none", color:theme.textFaint, fontSize:15, cursor:"pointer", padding:4 }}
+                                onClick={()=>removeMember(name)}>✕</button>
                             )}
                           </td>
                         </tr>
@@ -956,159 +899,168 @@ export default function App() {
                   </tbody>
                 </table>
               </div>
-              )}
-            </div>
+            )}
           </div>
         )}
 
         {/* ════ SUMMARY TAB ════ */}
-        {tab==="summary"&&(
-          <div style={{animation:"slideDown 0.3s ease"}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
-              <h2 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:18,color:T.text}}>Résumé des commandes</h2>
-              <button style={{background:T.bg2,color:"#f87171",border:"1px solid "+T.border,borderRadius:10,padding:"8px 16px",fontSize:13,cursor:"pointer"}} onClick={resetAll}>🗑 Réinitialiser le jour</button>
+        {tab==="summary" && (
+          <div style={{ animation:"slideDown 0.3s ease" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:20 }}>
+              <h2 style={secTitle}>Résumé des commandes</h2>
+              <button style={{ ...glassCard(theme), padding:"8px 16px", color:theme.red,
+                border:`1px solid ${theme.red}33`, cursor:"pointer", fontSize:13, display:"flex", alignItems:"center", gap:6 }}
+                onClick={resetAll}>🗑 Réinitialiser</button>
             </div>
-            <div style={{display:"flex",gap:16,marginBottom:28,flexWrap:"wrap"}}>
+
+            {/* Count cards */}
+            <div style={{ display:"flex", gap:12, marginBottom:24, flexWrap:"wrap" }}>
               {LUNCH_OPTIONS.map(opt=>(
-                <div key={opt.id} style={{flex:1,minWidth:140,background:T.bg2,border:"1px solid "+opt.accent,borderRadius:14,padding:"20px 24px",textAlign:"center"}}>
-                  <div style={{fontSize:48,fontWeight:800,fontFamily:"'Syne',sans-serif",color:opt.accent,lineHeight:1}}>{counts[opt.id]}</div>
-                  <div style={{fontSize:14,color:T.textMuted,marginTop:6}}>{opt.label}</div>
+                <div key={opt.id} style={{ ...glassCard(theme), flex:1, minWidth:130, padding:"20px 24px", textAlign:"center",
+                  border:`1px solid ${counts[opt.id]>0?opt.accent:theme.border}`,
+                  boxShadow:counts[opt.id]>0?`0 0 30px ${opt.glow}`:undefined }}>
+                  <div style={{ fontSize:44, fontWeight:800, fontFamily:"'Syne',sans-serif", color:counts[opt.id]>0?opt.accent:theme.textFaint, lineHeight:1 }}>{counts[opt.id]}</div>
+                  <div style={{ fontSize:13, color:theme.textSub, marginTop:6 }}>{opt.label}</div>
                 </div>
               ))}
             </div>
-            <div style={{display:"flex",flexDirection:"column",gap:14}}>
+
+            {/* Order groups */}
+            <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
               {LUNCH_OPTIONS.map(opt=>{
                 const people=names.filter(n=>orders[n]?.choice===opt.id);
                 if(!people.length)return null;
                 const paidCount=people.filter(n=>payments[n]).length;
                 return (
-                  <div key={opt.id} style={{background:T.bg2,border:"1px solid "+T.border,borderLeft:"3px solid "+opt.accent,borderRadius:12,padding:"16px 20px"}}>
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-                      <h3 style={{fontSize:14,fontWeight:700,color:opt.accent,fontFamily:"'Syne',sans-serif"}}>{opt.label}</h3>
-                      <span style={{fontSize:12,color:paidCount===people.length?"#22c55e":T.textMuted}}>
+                  <div key={opt.id} style={{ ...glassCard(theme), border:`1px solid ${opt.accent}44`, overflow:"hidden" }}>
+                    <div style={{ padding:"12px 20px", background:opt.glow, borderBottom:`1px solid ${opt.accent}33`,
+                      display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                      <h3 style={{ fontSize:14, fontWeight:700, color:opt.accent, fontFamily:"'Syne',sans-serif" }}>{opt.label}</h3>
+                      <span style={{ fontSize:12, color:paidCount===people.length?"#22c55e":theme.textSub }}>
                         💰 {paidCount}/{people.length} payé{paidCount>1?"s":""}
                       </span>
                     </div>
                     {people.map((name,idx)=>{
-                      const paid = payments[name]||false;
-                      const lines = formatOrderFull(orders[name],extras,crudites);
+                      const paid=payments[name]||false;
                       return (
-                        <div key={name} style={{padding:"10px 0",borderBottom:"1px solid "+T.border2,opacity:paid?0.6:1,transition:"opacity 0.2s"}}>
-                          <div style={{display:"flex",gap:12,alignItems:"center",marginBottom:lines.length?6:0}}>
-                            <span style={{fontSize:12,fontWeight:700,color:T.textFaint,minWidth:24,textAlign:"right"}}>{idx+1}.</span>
-                            <span style={{fontSize:13,fontWeight:600,color:T.text,textDecoration:paid?"line-through":"none",flex:1}}>{name}</span>
-                            <button onClick={()=>togglePayment(name)} title={paid?"Marquer non payé":"Marquer payé"}
-                              style={{background:paid?"#22c55e22":"transparent",border:"1px solid "+(paid?"#22c55e55":T.border),borderRadius:8,padding:"3px 10px",fontSize:12,cursor:"pointer",color:paid?"#22c55e":T.textMuted,whiteSpace:"nowrap",flexShrink:0,transition:"all 0.2s"}}>
+                        <div key={name} style={{ padding:"10px 20px", borderBottom:`1px solid ${theme.borderSub}`,
+                          opacity:paid?0.5:1, transition:"opacity 0.2s", display:"flex", flexDirection:"column", gap:6 }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                            <span style={{ fontSize:11, fontWeight:700, color:theme.textFaint, minWidth:20, textAlign:"right" }}>{idx+1}.</span>
+                            <span style={{ fontSize:13, fontWeight:600, color:theme.text, flex:1, textDecoration:paid?"line-through":"none" }}>{name}</span>
+                            <button onClick={()=>togglePayment(name)}
+                              style={{ background:paid?`${theme.green}22`:"transparent",
+                                border:`1px solid ${paid?theme.green:theme.border}33`,
+                                borderRadius:8, padding:"3px 10px", fontSize:11, cursor:"pointer",
+                                color:paid?theme.green:theme.textSub, whiteSpace:"nowrap", transition:"all 0.2s" }}>
                               {paid?"✓ Payé":"À payer"}
                             </button>
-                            {name===user&&(
-                              <button
-                                style={{background:"transparent",border:"1px solid "+T.border,fontSize:13,cursor:"pointer",padding:"3px 8px",color:T.textMuted,borderRadius:8,flexShrink:0,whiteSpace:"nowrap"}}
-                                onClick={()=>setShowFavModal(true)}
-                                title="Sauvegarder comme favori">
-                                ⭐ Sauvegarder
-                              </button>
+                            {name===user && (
+                              <button style={{ ...glassCard(theme), padding:"3px 10px", fontSize:11, cursor:"pointer",
+                                color:theme.textSub, border:`1px solid ${theme.border}`, whiteSpace:"nowrap" }}
+                                onClick={()=>setShowFavModal(true)}>⭐ Sauvegarder</button>
                             )}
                           </div>
-                          {lines.length>0 && (
-                            <div style={{display:"flex",flexWrap:"wrap",gap:4,paddingLeft:36}}>
-                              {lines.map((line,i)=>(
-                                <span key={i} style={{fontSize:12,color:T.textMuted,background:T.bg3,padding:"2px 8px",borderRadius:20,display:"inline-flex",alignItems:"center",gap:4}}>
-                                  <span>{line.emoji}</span><span>{line.text}</span>
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                          {lines.length===0 && <span style={{fontSize:12,color:T.textFaint,paddingLeft:36}}><em>Aucun détail</em></span>}
+                          <div style={{ paddingLeft:30 }}>
+                            <OrderPills order={orders[name]}/>
+                          </div>
                         </div>
                       );
                     })}
                   </div>
                 );
               })}
-              {totalOrdered===0&&<p style={{color:T.textFaint,textAlign:"center",padding:48}}>Aucune commande pour l'instant.</p>}
+              {totalOrdered===0 && (
+                <div style={{ ...glassCard(theme), padding:"60px 24px", textAlign:"center", color:theme.textFaint }}>
+                  <div style={{ fontSize:36, marginBottom:12 }}>🍽️</div>
+                  <p>Aucune commande pour l'instant.</p>
+                </div>
+              )}
             </div>
-            {notOrdered.length>0&&(
-              <div style={{display:"flex",flexWrap:"wrap",gap:8,alignItems:"center",marginTop:24,padding:"14px 18px",background:T.bg2,border:"1px solid "+T.border,borderRadius:12}}>
-                <span style={{color:T.textMuted,fontSize:13}}>⏳ Pas encore commandé :</span>
-                {notOrdered.map(n=><span key={n} style={{background:T.bg3,color:T.textMuted,fontSize:12,padding:"3px 10px",borderRadius:20}}>{n}</span>)}
+
+            {notOrdered.length>0 && (
+              <div style={{ ...glassCard(theme), padding:"14px 18px", marginTop:16,
+                display:"flex", flexWrap:"wrap", gap:8, alignItems:"center" }}>
+                <span style={{ color:theme.textSub, fontSize:13 }}>⏳ Pas encore commandé :</span>
+                {notOrdered.map(n=>(
+                  <span key={n} style={{ background:theme.bgInput, border:`1px solid ${theme.border}`,
+                    color:theme.textSub, fontSize:12, padding:"3px 10px", borderRadius:20 }}>{n}</span>
+                ))}
               </div>
             )}
-            {/* Save favorite modal */}
+
+            {/* Save modal */}
             {showFavModal && (
-              <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999}}
+              <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.6)", backdropFilter:"blur(4px)",
+                display:"flex", alignItems:"center", justifyContent:"center", zIndex:999 }}
                 onClick={e=>e.target===e.currentTarget&&setShowFavModal(false)}>
-                <div style={{background:T.bg2,border:"1px solid "+T.border,borderRadius:16,padding:"24px",width:320,boxShadow:"0 24px 80px rgba(0,0,0,.4)"}}>
-                  <h3 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:16,color:T.text,marginBottom:6}}>⭐ Sauvegarder ce favori</h3>
-                  <p style={{fontSize:12,color:T.textMuted,marginBottom:16}}>Donne un nom à cette commande pour la retrouver facilement.</p>
-                  <input
-                    autoFocus
-                    style={{width:"100%",background:T.bg,border:"1px solid "+T.border,borderRadius:10,color:T.text,padding:"10px 14px",fontSize:14,fontFamily:"'DM Sans',sans-serif",marginBottom:12}}
-                    value={favNameInput}
+                <div style={{ ...glassCard(theme), padding:"28px", width:340, boxShadow:`0 32px 80px rgba(0,0,0,0.5), 0 0 40px ${theme.amberGlow}` }}>
+                  <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:18, color:theme.text, marginBottom:6 }}>⭐ Sauvegarder</h3>
+                  <p style={{ fontSize:13, color:theme.textSub, marginBottom:16 }}>Donne un nom à cette commande.</p>
+                  <input autoFocus style={{ ...inp, marginBottom:12 }} value={favNameInput}
                     onChange={e=>setFavNameInput(e.target.value)}
                     onKeyDown={e=>e.key==="Enter"&&saveFavorite(user)}
-                    placeholder="ex: Durum falafel habituel, Bicky large…"
-                  />
-                  <div style={{display:"flex",gap:8}}>
-                    <button style={{flex:1,background:T.text,color:T.bg,border:"none",borderRadius:10,padding:"10px",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"'Syne',sans-serif"}}
-                      onClick={()=>saveFavorite(user)}>Sauvegarder</button>
-                    <button style={{background:"transparent",border:"1px solid "+T.border,color:T.textMuted,borderRadius:10,padding:"10px 16px",fontSize:13,cursor:"pointer"}}
+                    placeholder="ex: Durum falafel habituel…"/>
+                  <div style={{ display:"flex", gap:8 }}>
+                    <button style={{ ...addBtn, flex:1 }} onClick={()=>saveFavorite(user)}>Sauvegarder</button>
+                    <button style={{ background:"transparent", border:`1px solid ${theme.border}`, color:theme.textSub, borderRadius:10, padding:"10px 16px", fontSize:13, cursor:"pointer" }}
                       onClick={()=>setShowFavModal(false)}>Annuler</button>
                   </div>
                 </div>
               </div>
             )}
 
-            {savedMsg&&(
-              <div style={{position:"fixed",bottom:32,left:"50%",transform:"translateX(-50%)",background:T.bg2,border:"1px solid #f59e0b55",color:"#f59e0b",borderRadius:12,padding:"12px 24px",fontSize:14,animation:"toastIn 0.3s ease",zIndex:999}}>
-                ⭐ Commande sauvegardée comme favori !
+            {savedMsg && (
+              <div style={{ position:"fixed", bottom:32, left:"50%", transform:"translateX(-50%)",
+                ...glassCard(theme), border:`1px solid ${theme.amber}44`, color:theme.amber,
+                padding:"12px 24px", fontSize:14, animation:"toastIn 0.3s ease", zIndex:999,
+                boxShadow:`0 8px 32px ${theme.amberGlow}` }}>
+                ⭐ Commande sauvegardée !
               </div>
             )}
           </div>
         )}
 
         {/* ════ FAVORITES TAB ════ */}
-        {tab==="favorites"&&(
-          <div style={{animation:"slideDown 0.3s ease"}}>
-            <h2 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:18,marginBottom:24,color:T.text}}>⭐ Commandes favorites</h2>
-
-            {/* User view */}
-            {user!=="Admin"&&(
+        {tab==="favorites" && (
+          <div style={{ animation:"slideDown 0.3s ease" }}>
+            <h2 style={secTitle}>⭐ Commandes favorites</h2>
+            {user!=="Admin" && (
               (favorites[user]||[]).length===0 ? (
-                <div style={{textAlign:"center",color:T.textFaint,padding:60}}>
-                  <div style={{fontSize:40,marginBottom:12}}>⭐</div>
-                  <p>Tu n'as pas encore de favori.</p>
-                  <p style={{fontSize:13,marginTop:8}}>Dans l'onglet Résumé, clique sur "⭐ Sauvegarder" à côté de ta commande.</p>
+                <div style={{ ...glassCard(theme), padding:"60px 24px", textAlign:"center", color:theme.textFaint }}>
+                  <div style={{ fontSize:36, marginBottom:12 }}>⭐</div>
+                  <p>Pas encore de favori.</p>
+                  <p style={{ fontSize:13, marginTop:8, color:theme.textFaint }}>Dans le Résumé, clique sur "⭐ Sauvegarder".</p>
                 </div>
               ) : (
-                <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
                   {(favorites[user]||[]).map(fav=>{
-                    const {id:favId, name:favName, ...favOrder} = fav;
-                    const opt = LUNCH_OPTIONS.find(o=>o.id===favOrder.choice);
-                    const currentOrder = orders[user];
-                    const isActive = currentOrder?.choice===favOrder.choice &&
-                      formatOrder(currentOrder,extras,crudites)===formatOrder(favOrder,extras,crudites);
+                    const {id:favId,name:favName,...favOrder}=fav;
+                    const opt=LUNCH_OPTIONS.find(o=>o.id===favOrder.choice);
+                    const isActive=orders[user]?.choice===favOrder.choice&&formatOrder(orders[user],extras,crudites)===formatOrder(favOrder,extras,crudites);
                     return (
-                      <div key={favId} style={{background:T.bg2,border:"2px solid "+(isActive?opt?.accent:T.border),borderRadius:14,padding:"16px 20px",transition:"all 0.2s"}}>
-                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                          <div style={{display:"flex",alignItems:"center",gap:8}}>
-                            <span style={{fontSize:14,fontWeight:700,color:T.text}}>{favName}</span>
-                            <span style={{fontSize:12,color:opt?.accent}}>{opt?.label}</span>
-                            {isActive&&<span style={{fontSize:10,background:opt?.accent+"33",color:opt?.accent,padding:"1px 8px",borderRadius:10}}>✓ Actif</span>}
+                      <div key={favId} style={{ ...glassCard(theme),
+                        border:`1px solid ${isActive?opt?.accent:theme.border}`,
+                        boxShadow:isActive?`0 0 24px ${opt?.glow}`:undefined, padding:"20px" }}>
+                        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                            <span style={{ fontSize:14, fontWeight:700, color:theme.text }}>{favName}</span>
+                            <span style={{ fontSize:11, color:opt?.accent }}>{opt?.label}</span>
+                            {isActive && <span style={{ fontSize:9, background:opt?.accent+"22", color:opt?.accent, padding:"1px 8px", borderRadius:10 }}>✓ Actif</span>}
                           </div>
-                          <button style={{background:"transparent",border:"none",color:"#f87171",cursor:"pointer",fontSize:15,padding:4}}
-                            onClick={async()=>{if(window.confirm(`Supprimer "${favName}" ?`)) await deleteFavorite(user,favId);}}>🗑</button>
+                          <button style={{ background:"transparent", border:"none", color:theme.red, cursor:"pointer", fontSize:15, padding:4 }}
+                            onClick={async()=>{if(window.confirm(`Supprimer "${favName}" ?`))await deleteFavorite(user,favId);}}>🗑</button>
                         </div>
-                        <div style={{fontSize:12,color:T.textMuted,marginBottom:12,lineHeight:1.5}}>
-                          {formatOrder(favOrder,extras,crudites)||<em>Aucun détail</em>}
+                        <div style={{ marginBottom:14 }}>
+                          <OrderPills order={favOrder}/>
                         </div>
-                        <button
-                          style={{background:isActive?"#f8717122":opt?.accent+"22",border:"1px solid "+(isActive?"#f8717155":opt?.accent+"55"),color:isActive?"#f87171":opt?.accent,borderRadius:8,padding:"6px 16px",fontSize:13,cursor:"pointer",width:"100%"}}
-                          onClick={async()=>{
-                            if(isActive){ await deleteDoc(doc(db,"orders",user)); }
-                            else { await setDoc(doc(db,"orders",user),{...favOrder}); setTab("order"); }
-                          }}>
-                          {isActive ? "✕ Effacer ma commande" : "↩ Commander ça maintenant"}
+                        <button className="pill-btn"
+                          style={{ width:"100%", padding:"10px", borderRadius:10, fontSize:13, cursor:"pointer",
+                            background:isActive?`${theme.red}11`:opt?.glow,
+                            border:`1px solid ${isActive?`${theme.red}44`:opt?.accent+"44"}`,
+                            color:isActive?theme.red:opt?.accent, fontWeight:600 }}
+                          onClick={async()=>{ if(isActive){await deleteDoc(doc(db,"orders",user));}else{await setDoc(doc(db,"orders",user),{...favOrder});setTab("order");} }}>
+                          {isActive?"✕ Effacer ma commande":"↩ Commander ça maintenant"}
                         </button>
                       </div>
                     );
@@ -1116,32 +1068,32 @@ export default function App() {
                 </div>
               )
             )}
-
-            {/* Admin view */}
-            {user==="Admin"&&(
-              Object.keys(favorites).length===0?(
-                <p style={{color:T.textFaint,textAlign:"center",padding:48}}>Aucun favori enregistré.</p>
-              ):(
-                <div style={{display:"flex",flexDirection:"column",gap:12}}>
-                  {Object.entries(favorites).map(([username, favList])=>{
-                    if(!favList?.length) return null;
+            {user==="Admin" && (
+              Object.keys(favorites).length===0 ? (
+                <div style={{ ...glassCard(theme), padding:"48px", textAlign:"center", color:theme.textFaint }}>Aucun favori enregistré.</div>
+              ) : (
+                <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+                  {Object.entries(favorites).map(([username,favList])=>{
+                    if(!favList?.length)return null;
                     return (
-                      <div key={username} style={{background:T.bg2,border:"1px solid "+T.border,borderRadius:12,padding:"16px 20px"}}>
-                        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-                          <div style={{width:28,height:28,borderRadius:6,background:T.bg3,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:T.textMuted}}>{username[0].toUpperCase()}</div>
-                          <span style={{fontSize:14,fontWeight:600,color:T.text}}>{username}</span>
-                          <span style={{fontSize:12,color:T.textMuted}}>{favList.length} favori{favList.length>1?"s":""}</span>
+                      <div key={username} style={{ ...glassCard(theme), padding:"16px 20px" }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:12 }}>
+                          <div style={{ width:28, height:28, borderRadius:6, background:theme.amberGlow, border:`1px solid ${theme.amber}44`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:700, color:theme.amber }}>{username[0].toUpperCase()}</div>
+                          <span style={{ fontSize:14, fontWeight:600, color:theme.text }}>{username}</span>
+                          <span style={{ fontSize:12, color:theme.textSub }}>{favList.length} favori{favList.length>1?"s":""}</span>
                         </div>
                         {favList.map(fav=>{
                           const {id:favId,name:favName,...favOrder}=fav;
                           const opt=LUNCH_OPTIONS.find(o=>o.id===favOrder.choice);
                           return (
-                            <div key={favId} style={{display:"flex",gap:12,alignItems:"center",padding:"8px 0",borderBottom:"1px solid "+T.border2}}>
-                              <span style={{fontSize:12,color:opt?.accent,minWidth:16}}>●</span>
-                              <span style={{fontSize:13,fontWeight:600,color:T.text,minWidth:120}}>{favName}</span>
-                              <span style={{fontSize:12,color:T.textMuted,flex:1}}>{formatOrder(favOrder,extras,crudites)||<em style={{opacity:0.4}}>Aucun détail</em>}</span>
-                              <button style={{background:"transparent",border:"none",color:T.textFaint,cursor:"pointer",fontSize:14,padding:4}}
-                                onClick={async()=>{if(window.confirm(`Supprimer "${favName}" de ${username} ?`)) await deleteFavorite(username,favId);}}>🗑</button>
+                            <div key={favId} style={{ display:"flex", gap:10, alignItems:"flex-start", padding:"8px 0", borderBottom:`1px solid ${theme.borderSub}` }}>
+                              <span style={{ fontSize:11, color:opt?.accent, marginTop:2 }}>●</span>
+                              <div style={{ flex:1 }}>
+                                <div style={{ fontSize:13, fontWeight:600, color:theme.text, marginBottom:4 }}>{favName}</div>
+                                <OrderPills order={favOrder}/>
+                              </div>
+                              <button style={{ background:"transparent", border:"none", color:theme.textFaint, cursor:"pointer", fontSize:14 }}
+                                onClick={async()=>{if(window.confirm(`Supprimer "${favName}" de ${username} ?`))await deleteFavorite(username,favId);}}>🗑</button>
                             </div>
                           );
                         })}
@@ -1155,39 +1107,36 @@ export default function App() {
         )}
 
         {/* ════ HISTORY TAB ════ */}
-        {tab==="history"&&(
-          <div style={{animation:"slideDown 0.3s ease"}}>
-            <h2 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:18,marginBottom:24,color:T.text}}>📅 Historique des commandes</h2>
-            {history.length===0&&<p style={{color:T.textFaint,textAlign:"center",padding:48}}>Aucun historique pour l'instant.</p>}
+        {tab==="history" && (
+          <div style={{ animation:"slideDown 0.3s ease" }}>
+            <h2 style={secTitle}>📅 Historique</h2>
+            {history.length===0 && (
+              <div style={{ ...glassCard(theme), padding:"60px 24px", textAlign:"center", color:theme.textFaint }}>
+                <div style={{ fontSize:36, marginBottom:12 }}>📅</div>
+                <p>Aucun historique pour l'instant.</p>
+              </div>
+            )}
             {history.map(day=>{
-              const visibleOrders=user==="Admin"
-                ?Object.entries(day.orders||{})
-                :Object.entries(day.orders||{}).filter(([n])=>n===user);
+              const visibleOrders=user==="Admin"?Object.entries(day.orders||{}):Object.entries(day.orders||{}).filter(([n])=>n===user);
               if(!visibleOrders.length)return null;
               return (
-                <div key={day.id} style={{background:T.bg2,border:"1px solid "+T.border,borderRadius:14,padding:"20px 24px",marginBottom:16}}>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
-                    <h3 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:16,color:T.text}}>
-                      📆 {new Date(day.id).toLocaleDateString("fr-BE",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}
+                <div key={day.id} style={{ ...glassCard(theme), marginBottom:14, overflow:"hidden" }}>
+                  <div style={{ padding:"12px 20px", background:theme.bgSection, borderBottom:`1px solid ${theme.border}`,
+                    display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                    <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:14, color:theme.text }}>
+                      📆 {new Date(day.date||day.id).toLocaleDateString("fr-BE",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}
                     </h3>
-                    <div style={{display:"flex",gap:10,alignItems:"center"}}>
-                      <span style={{background:T.bg3,color:T.textMuted,fontSize:12,padding:"3px 10px",borderRadius:20}}>{visibleOrders.length} commande{visibleOrders.length>1?"s":""}</span>
-                      {user==="Admin"&&(
+                    <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+                      <span style={{ ...badge }}>{visibleOrders.length} commande{visibleOrders.length>1?"s":""}</span>
+                      {user==="Admin" && (
                         <>
-                          <button
-                            style={{background:"transparent",border:"1px solid #22c55e55",color:"#22c55e",borderRadius:8,padding:"4px 10px",fontSize:12,cursor:"pointer"}}
-                            onClick={async()=>{
-                              if(!window.confirm("Restaurer ces commandes comme commandes du jour ? Les commandes actuelles seront écrasées.")) return;
-                              const restoreOrders = day.orders||{};
-                              await Promise.all(Object.entries(restoreOrders).map(([name,order])=>
-                                setDoc(doc(db,"orders",name), order)
-                              ));
-                              // restore payments too
-                              if(day.payments) await setDoc(doc(db,"payments","today"), day.payments);
-                            }}>
-                            ↩ Restaurer
-                          </button>
-                          <button style={{background:"transparent",border:"1px solid #f8717155",color:"#f87171",borderRadius:8,padding:"4px 10px",fontSize:12,cursor:"pointer"}} onClick={()=>deleteHistory(day.id)}>🗑 Supprimer</button>
+                          <button style={{ background:`${theme.green}11`, border:`1px solid ${theme.green}33`, color:theme.green, borderRadius:8, padding:"4px 10px", fontSize:12, cursor:"pointer" }}
+                            onClick={async()=>{ if(!window.confirm("Restaurer ces commandes comme commandes du jour ?"))return;
+                              await Promise.all(Object.entries(day.orders||{}).map(([name,order])=>setDoc(doc(db,"orders",name),order)));
+                              if(day.payments)await setDoc(doc(db,"payments","today"),day.payments);
+                            }}>↩ Restaurer</button>
+                          <button style={{ background:`${theme.red}11`, border:`1px solid ${theme.red}33`, color:theme.red, borderRadius:8, padding:"4px 10px", fontSize:12, cursor:"pointer" }}
+                            onClick={()=>deleteHistory(day.id)}>🗑 Supprimer</button>
                         </>
                       )}
                     </div>
@@ -1196,16 +1145,20 @@ export default function App() {
                     const people=visibleOrders.filter(([,o])=>o.choice===opt.id);
                     if(!people.length)return null;
                     return (
-                      <div key={opt.id} style={{marginBottom:12,paddingLeft:12,borderLeft:"3px solid "+opt.accent}}>
-                        <div style={{fontSize:13,fontWeight:600,color:opt.accent,marginBottom:6}}>{opt.label}</div>
+                      <div key={opt.id} style={{ padding:"12px 20px", borderBottom:`1px solid ${theme.borderSub}` }}>
+                        <div style={{ fontSize:12, fontWeight:600, color:opt.accent, marginBottom:8 }}>{opt.label}</div>
                         {people.map(([name,o],idx)=>{
-                          const paid = (day.payments||{})[name]||false;
+                          const paid=(day.payments||{})[name]||false;
                           return (
-                            <div key={name} style={{display:"flex",gap:12,padding:"5px 0",borderBottom:"1px solid "+T.border2,alignItems:"center"}}>
-                              <span style={{fontSize:12,fontWeight:700,color:T.textFaint,minWidth:24,textAlign:"right"}}>{idx+1}.</span>
-                              <span style={{fontSize:13,fontWeight:600,minWidth:120,color:T.text,textDecoration:paid?"line-through":"none"}}>{name}</span>
-                              <span style={{fontSize:13,color:T.textMuted,flex:1}}>{formatOrder(o,extras)||<em style={{opacity:0.4}}>Aucun détail</em>}</span>
-                              <span style={{fontSize:12,padding:"2px 8px",borderRadius:20,background:paid?"#22c55e22":"#f8717122",color:paid?"#22c55e":"#f87171",flexShrink:0}}>
+                            <div key={name} style={{ display:"flex", gap:10, alignItems:"flex-start", padding:"6px 0", borderBottom:`1px solid ${theme.borderSub}` }}>
+                              <span style={{ fontSize:11, fontWeight:700, color:theme.textFaint, minWidth:20, textAlign:"right", marginTop:2 }}>{idx+1}.</span>
+                              <div style={{ flex:1 }}>
+                                <span style={{ fontSize:13, fontWeight:600, color:theme.text, textDecoration:paid?"line-through":"none", marginRight:8 }}>{name}</span>
+                                <div style={{ marginTop:4 }}><OrderPills order={o}/></div>
+                              </div>
+                              <span style={{ fontSize:11, padding:"2px 8px", borderRadius:20, flexShrink:0,
+                                background:paid?`${theme.green}22`:`${theme.red}11`,
+                                color:paid?theme.green:theme.textFaint }}>
                                 {paid?"✓ Payé":"Non payé"}
                               </span>
                             </div>
@@ -1221,43 +1174,46 @@ export default function App() {
         )}
 
         {/* ════ CONFIG TAB ════ */}
-        {tab==="settings"&&(
-          <div style={{animation:"slideDown 0.3s ease"}}>
-            {user!=="Admin"?(
-              <div style={{textAlign:"center",color:T.textFaint,padding:60}}>🔒 Réservé à l'Admin</div>
-            ):(
-              <div>
+        {tab==="settings" && (
+          <div style={{ animation:"slideDown 0.3s ease" }}>
+            {user!=="Admin" ? (
+              <div style={{ ...glassCard(theme), padding:"60px 24px", textAlign:"center", color:theme.textFaint }}>
+                <div style={{ fontSize:36, marginBottom:12 }}>🔒</div>
+                <p>Réservé à l'Admin</p>
+              </div>
+            ) : (
+              <div style={{ display:"flex", flexDirection:"column", gap:32 }}>
 
                 {/* Membres */}
-                <div style={{marginBottom:40}}>
-                  <h2 style={secTitle}>👥 Gérer les membres</h2>
-                  <div style={{display:"flex",gap:10,marginBottom:20,flexWrap:"wrap"}}>
-                    <input style={{...inp,flex:2,minWidth:140}} value={newMemberName} onChange={e=>setNewMemberName(e.target.value)} placeholder="Nom…" />
-                    <input style={{...inp,flex:1,minWidth:100}} value={newMemberCode} onChange={e=>setNewMemberCode(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addMember()} placeholder="Code…" />
+                <div>
+                  <h2 style={secTitle}>👥 Membres</h2>
+                  <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
+                    <input style={{ ...inp, flex:2, minWidth:140 }} value={newMemberName} onChange={e=>setNewMemberName(e.target.value)} placeholder="Nom…"/>
+                    <input style={{ ...inp, flex:1, minWidth:100 }} value={newMemberCode} onChange={e=>setNewMemberCode(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addMember()} placeholder="Code…"/>
                     <button style={addBtn} onClick={addMember}>+ Ajouter</button>
                   </div>
-                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                     {members.map(m=>(
-                      <div key={m.username} style={{background:T.bg2,border:"1px solid "+T.border,borderRadius:10,padding:"10px 16px"}}>
-                        {editingMember?.username===m.username?(
-                          <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-                            <input style={{...inp,flex:2,minWidth:120,padding:"6px 12px",fontSize:13}} value={editingMember.username} onChange={e=>setEditingMember({...editingMember,username:e.target.value})} />
-                            <input style={{...inp,flex:1,minWidth:80,padding:"6px 12px",fontSize:13}} value={editingMember.code} onChange={e=>setEditingMember({...editingMember,code:e.target.value})} />
-                            <button style={{...addBtn,padding:"6px 14px",fontSize:13,background:"#22c55e"}} onClick={saveEdit}>✓ Sauver</button>
-                            <button style={{background:"transparent",border:"1px solid "+T.border,color:T.textMuted,borderRadius:8,padding:"6px 12px",fontSize:13,cursor:"pointer"}} onClick={()=>setEditingMember(null)}>Annuler</button>
+                      <div key={m.username} style={{ ...glassCard(theme), padding:"10px 16px" }}>
+                        {editingMember?.username===m.username ? (
+                          <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap" }}>
+                            <input style={{ ...inp, flex:2, minWidth:120, padding:"6px 12px", fontSize:13 }} value={editingMember.username} onChange={e=>setEditingMember({...editingMember,username:e.target.value})}/>
+                            <input style={{ ...inp, flex:1, minWidth:80, padding:"6px 12px", fontSize:13 }} value={editingMember.code} onChange={e=>setEditingMember({...editingMember,code:e.target.value})}/>
+                            <button style={{ ...addBtn, padding:"6px 14px", fontSize:13, background:`linear-gradient(135deg, ${theme.green}, #16a34a)` }} onClick={saveEdit}>✓ Sauver</button>
+                            <button style={{ background:"transparent", border:`1px solid ${theme.border}`, color:theme.textSub, borderRadius:8, padding:"6px 12px", fontSize:13, cursor:"pointer" }} onClick={()=>setEditingMember(null)}>Annuler</button>
                           </div>
-                        ):(
-                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                            <div style={{display:"flex",alignItems:"center",gap:12}}>
-                              <div style={{width:32,height:32,borderRadius:8,background:T.bg3,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:T.textMuted}}>{m.username[0].toUpperCase()}</div>
+                        ) : (
+                          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                            <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                              <div style={{ width:32, height:32, borderRadius:8, background:theme.amberGlow, border:`1px solid ${theme.amber}44`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:12, fontWeight:700, color:theme.amber }}>{m.username[0].toUpperCase()}</div>
                               <div>
-                                <span style={{fontSize:14,fontWeight:500,color:T.text}}>{m.username}</span>
-                                <span style={{marginLeft:12,fontSize:12,color:T.textMuted,background:T.bg3,padding:"2px 8px",borderRadius:20}}>code : {m.code}</span>
+                                <span style={{ fontSize:14, fontWeight:500, color:theme.text }}>{m.username}</span>
+                                <span style={{ marginLeft:10, fontSize:12, color:theme.textSub, background:theme.bgInput, border:`1px solid ${theme.border}`, padding:"1px 8px", borderRadius:20 }}>code : {m.code}</span>
                               </div>
                             </div>
-                            <div style={{display:"flex",gap:8}}>
-                              <button style={{background:"transparent",border:"1px solid "+T.border,color:T.textMuted,borderRadius:8,padding:"4px 10px",fontSize:12,cursor:"pointer"}} onClick={()=>setEditingMember({...m})}>✏️ Modifier</button>
-                              <button style={{background:"transparent",border:"none",color:"#f87171",cursor:"pointer",fontSize:16,padding:4}} onClick={()=>removeMember(m.username)}>✕</button>
+                            <div style={{ display:"flex", gap:8 }}>
+                              <button style={{ background:"transparent", border:`1px solid ${theme.border}`, color:theme.textSub, borderRadius:8, padding:"4px 10px", fontSize:12, cursor:"pointer" }} onClick={()=>setEditingMember({...m})}>✏️</button>
+                              <button style={{ background:"transparent", border:"none", color:theme.red, cursor:"pointer", fontSize:16, padding:4 }} onClick={()=>removeMember(m.username)}>✕</button>
                             </div>
                           </div>
                         )}
@@ -1267,111 +1223,70 @@ export default function App() {
                 </div>
 
                 {/* Sauces */}
-                <div style={{marginBottom:40}}>
-                  <h2 style={secTitle}>🥫 Gérer les sauces</h2>
-                  <div style={{display:"flex",gap:10,marginBottom:20}}>
-                    <input style={{...inp,flex:1}} value={newSauce} onChange={e=>setNewSauce(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addSauce()} placeholder="Nouvelle sauce…" />
-                    <button style={addBtn} onClick={addSauce}>+ Ajouter</button>
-                  </div>
-                  <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-                    {sauces.map(s=>(
-                      <div key={s} style={{background:T.bg2,border:"1px solid "+T.border,borderRadius:20,padding:"5px 12px",display:"flex",alignItems:"center",gap:4}}>
-                        <span style={{fontSize:13,color:T.text}}>{s}</span>
-                        <button style={{background:"none",border:"none",color:"#f87171",cursor:"pointer",fontSize:14,padding:"0 0 0 6px"}} onClick={()=>removeSauce(s)}>✕</button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Crudités */}
-                <div style={{marginBottom:40}}>
-                  <h2 style={secTitle}>🥗 Gérer les crudités</h2>
-                  <div style={{display:"flex",gap:10,marginBottom:20}}>
-                    <input style={{...inp,flex:1}} value={newCrudite} onChange={e=>setNewCrudite(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addCrudite()} placeholder="Nouvelle crudité…" />
-                    <button style={addBtn} onClick={addCrudite}>+ Ajouter</button>
-                  </div>
-                  <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-                    {crudites.map(c=>(
-                      <div key={c} style={{background:T.bg2,border:"1px solid "+T.border,borderRadius:20,padding:"5px 12px",display:"flex",alignItems:"center",gap:4}}>
-                        <span style={{fontSize:13,color:T.text}}>{c}</span>
-                        <button style={{background:"none",border:"none",color:"#f87171",cursor:"pointer",fontSize:14,padding:"0 0 0 6px"}} onClick={()=>removeCrudite(c)}>✕</button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Boissons */}
-                <div style={{marginBottom:40}}>
-                  <h2 style={secTitle}>🥤 Gérer les boissons</h2>
-                  <div style={{display:"flex",gap:10,marginBottom:20}}>
-                    <input style={{...inp,flex:1}} value={newBoisson} onChange={e=>setNewBoisson(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addBoisson()} placeholder="Nouvelle boisson…" />
-                    <button style={addBtn} onClick={addBoisson}>+ Ajouter</button>
-                  </div>
-                  <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-                    {boissons.map(b=>(
-                      <div key={b} style={{background:T.bg2,border:"1px solid #06b6d444",borderRadius:20,padding:"5px 12px",display:"flex",alignItems:"center",gap:4}}>
-                        <span style={{fontSize:13,color:T.text}}>{b}</span>
-                        <button style={{background:"none",border:"none",color:"#f87171",cursor:"pointer",fontSize:14,padding:"0 0 0 6px"}} onClick={()=>removeBoisson(b)}>✕</button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Extra categories */}
-                <div style={{marginBottom:40}}>
-                  <h2 style={secTitle}>➕ Catégories personnalisées</h2>
-
-                  {/* Create new category */}
-                  <div style={{background:T.bg2,border:"1px solid "+T.border,borderRadius:12,padding:"16px 20px",marginBottom:20}}>
-                    <p style={{fontSize:13,color:T.textMuted,marginBottom:12}}>Nouvelle catégorie</p>
-                    <div style={{display:"flex",gap:10,marginBottom:12,flexWrap:"wrap"}}>
-                      <input style={{...inp,flex:1,minWidth:160}} value={newExtraLabel} onChange={e=>setNewExtraLabel(e.target.value)} placeholder="Nom de la catégorie (ex: Toppings, Dips…)" />
+                {[
+                  { label:"🥫 Sauces", items:sauces, newVal:newSauce, setNew:setNewSauce, add:addSauce, remove:removeSauce, accent:"#c084fc" },
+                  { label:"🥗 Crudités", items:crudites, newVal:newCrudite, setNew:setNewCrudite, add:addCrudite, remove:removeCrudite, accent:"#34d399" },
+                  { label:"🥤 Boissons", items:boissons, newVal:newBoisson, setNew:setNewBoisson, add:addBoisson, remove:removeBoisson, accent:"#38bdf8" },
+                ].map(({label,items,newVal,setNew,add,remove,accent})=>(
+                  <div key={label}>
+                    <h2 style={secTitle}>{label}</h2>
+                    <div style={{ display:"flex", gap:10, marginBottom:14 }}>
+                      <input style={{ ...inp, flex:1 }} value={newVal} onChange={e=>setNew(e.target.value)} onKeyDown={e=>e.key==="Enter"&&add()} placeholder={`Nouveau(elle)…`}/>
+                      <button style={addBtn} onClick={add}>+ Ajouter</button>
                     </div>
-                    <div style={{marginBottom:12}}>
-                      <p style={{fontSize:12,color:T.textMuted,marginBottom:8}}>Applicable à :</p>
-                      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+                      {items.map(item=>(
+                        <div key={item} style={{ ...glassCard(theme), borderRadius:20, padding:"5px 12px", display:"flex", alignItems:"center", gap:6,
+                          border:`1px solid ${accent}33` }}>
+                          <span style={{ fontSize:13, color:theme.text }}>{item}</span>
+                          <button style={{ background:"none", border:"none", color:theme.red, cursor:"pointer", fontSize:13 }} onClick={()=>remove(item)}>✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Extras */}
+                <div>
+                  <h2 style={secTitle}>➕ Catégories personnalisées</h2>
+                  <div style={{ ...glassCard(theme), padding:"16px 20px", marginBottom:16 }}>
+                    <p style={{ fontSize:13, color:theme.textSub, marginBottom:12 }}>Nouvelle catégorie</p>
+                    <input style={{ ...inp, marginBottom:10 }} value={newExtraLabel} onChange={e=>setNewExtraLabel(e.target.value)} placeholder="Nom (ex: Toppings, Dips…)"/>
+                    <div style={{ marginBottom:10 }}>
+                      <p style={{ fontSize:12, color:theme.textSub, marginBottom:6 }}>Applicable à :</p>
+                      <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
                         {LUNCH_OPTIONS.map(opt=>(
-                          <button key={opt.id}
-                            onClick={()=>toggleExtraApplies(opt.id)}
-                            style={{...pill(opt.accent,newExtraApplies.includes(opt.id),false),padding:"5px 14px",fontSize:13}}>
-                            {opt.label}
-                          </button>
+                          <button key={opt.id} className="pill-btn" onClick={()=>toggleExtraApplies(opt.id)}
+                            style={P(opt.accent,newExtraApplies.includes(opt.id),false)}>{opt.label}</button>
                         ))}
                       </div>
                     </div>
-                    <button style={{...addBtn,background:newExtraLabel&&newExtraApplies.length?T.text:"#444",cursor:newExtraLabel&&newExtraApplies.length?"pointer":"not-allowed"}}
-                      onClick={addExtraCategory}>+ Créer la catégorie</button>
+                    <button style={{ ...addBtn, opacity:newExtraLabel&&newExtraApplies.length?1:0.5 }} onClick={addExtraCategory}>+ Créer</button>
                   </div>
-
-                  {/* Existing categories */}
-                  {extras.length===0&&<p style={{color:T.textFaint,fontSize:13}}>Aucune catégorie personnalisée pour l'instant.</p>}
                   {extras.map(ex=>(
-                    <div key={ex.id} style={{background:T.bg2,border:"1px solid "+T.border,borderLeft:"3px solid "+ex.accent,borderRadius:12,padding:"16px 20px",marginBottom:12}}>
-                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                    <div key={ex.id} style={{ ...glassCard(theme), borderLeft:`3px solid ${ex.accent}`, padding:"16px 20px", marginBottom:10 }}>
+                      <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
                         <div>
-                          <span style={{fontSize:15,fontWeight:700,color:T.text}}>{ex.label}</span>
-                          <span style={{marginLeft:10,fontSize:12,color:T.textMuted}}>
-                            → {ex.appliesTo.map(id=>LUNCH_OPTIONS.find(o=>o.id===id)?.label).join(", ")}
-                          </span>
+                          <span style={{ fontSize:14, fontWeight:700, color:theme.text }}>{ex.label}</span>
+                          <span style={{ marginLeft:10, fontSize:12, color:theme.textSub }}>→ {ex.appliesTo.map(id=>LUNCH_OPTIONS.find(o=>o.id===id)?.label).join(", ")}</span>
                         </div>
-                        <button style={{background:"transparent",border:"1px solid #f8717155",color:"#f87171",borderRadius:8,padding:"4px 10px",fontSize:12,cursor:"pointer"}}
+                        <button style={{ background:`${theme.red}11`, border:`1px solid ${theme.red}33`, color:theme.red, borderRadius:8, padding:"4px 10px", fontSize:12, cursor:"pointer" }}
                           onClick={()=>removeExtraCategory(ex.id)}>🗑 Supprimer</button>
                       </div>
-                      {/* Options */}
-                      <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:10}}>
+                      <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:10 }}>
                         {ex.options.map(o=>(
-                          <div key={o} style={{background:T.bg3,border:"1px solid "+T.border,borderRadius:20,padding:"4px 12px",display:"flex",alignItems:"center",gap:4}}>
-                            <span style={{fontSize:13,color:T.text}}>{o}</span>
-                            <button style={{background:"none",border:"none",color:"#f87171",cursor:"pointer",fontSize:13,padding:"0 0 0 4px"}} onClick={()=>removeExtraOption(ex.id,o)}>✕</button>
+                          <div key={o} style={{ ...glassCard(theme), borderRadius:20, padding:"4px 12px", display:"flex", alignItems:"center", gap:4, border:`1px solid ${ex.accent}33` }}>
+                            <span style={{ fontSize:12, color:theme.text }}>{o}</span>
+                            <button style={{ background:"none", border:"none", color:theme.red, cursor:"pointer", fontSize:12 }} onClick={()=>removeExtraOption(ex.id,o)}>✕</button>
                           </div>
                         ))}
                       </div>
-                      <div style={{display:"flex",gap:8}}>
-                        <input style={{...inp,flex:1,padding:"6px 12px",fontSize:13}} value={newExtraOption[ex.id]||""}
+                      <div style={{ display:"flex", gap:8 }}>
+                        <input style={{ ...inp, flex:1, padding:"6px 12px", fontSize:13 }} value={newExtraOption[ex.id]||""}
                           onChange={e=>setNewExtraOption(prev=>({...prev,[ex.id]:e.target.value}))}
                           onKeyDown={e=>e.key==="Enter"&&addExtraOption(ex.id)}
-                          placeholder={`Nouvelle option pour "${ex.label}"…`} />
-                        <button style={{...addBtn,padding:"6px 14px",fontSize:13}} onClick={()=>addExtraOption(ex.id)}>+ Ajouter</button>
+                          placeholder={`Nouvelle option…`}/>
+                        <button style={{ ...addBtn, padding:"6px 14px", fontSize:13 }} onClick={()=>addExtraOption(ex.id)}>+ Ajouter</button>
                       </div>
                     </div>
                   ))}
