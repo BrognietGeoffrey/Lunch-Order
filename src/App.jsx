@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection } from "firebase/firestore";
+import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection, addDoc } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBuZ98mNM-FRYpIkWzb6HiZYgX7ynlMXMU",
@@ -29,8 +29,12 @@ const DEFAULT_MEMBERS = [
 const DEFAULT_SAUCES   = ["Mayo","Ketchup","Andalouse","Samourai","Pickles","Cocktail"];
 const DEFAULT_CRUDITES = ["Tomate","Salade","Oignon","Cornichon","Poivron"];
 const DEFAULT_BOISSONS = ["Eau","Coca","Fanta","Ice Tea","Jus d'orange"];
+<<<<<<< HEAD
 const DEFAULT_EXTRAS   = [];
 const EXTRA_ACCENTS    = ["#c084fc","#fb923c","#38bdf8","#a3e635","#f472b6","#34d399"];
+=======
+const DEFAULT_EXTRAS = [];
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
 
 const LUNCH_OPTIONS = [
   { id: "ice-cream",    label: "🍦 Ice Cream",    accent: "#f472b6", glow: "#f472b633" },
@@ -92,11 +96,46 @@ const LIGHT_T = {
   blur:      "blur(20px)",
 };
 
+<<<<<<< HEAD
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function formatCrudites(o, allCrudites) {
   if (!o.crudites?.length) return null;
   if (o.cruditesTout) {
     const excl = allCrudites.filter(c => !o.crudites.includes(c));
+=======
+const TZATZIKI_RECIPE = {
+  name: "Tzatziki",
+  description: "La sauce grecque fraîche et crémeuse, parfaite en dip ou en accompagnement.",
+  category: "Sauce",
+  servings: 4,
+  prepTime: 15,
+  totalTime: 45,
+  ingredients: [
+    "500 g de yaourt grec entier",
+    "1 concombre",
+    "2 gousses d'ail",
+    "2 c. à soupe d'huile d'olive",
+    "1 c. à soupe de jus de citron",
+    "2 c. à soupe d'aneth frais (ou menthe)",
+    "½ c. à café de sel",
+    "1 pincée de poivre noir",
+  ],
+  steps: [
+    { title: "Préparer le concombre", text: "Râpez le concombre à gros trous. Saupoudrez de sel et laissez dégorger 10 min dans une passoire, puis pressez pour enlever l'excès d'eau." },
+    { title: "Préparer l'ail", text: "Pelez et écrasez finement les gousses d'ail." },
+    { title: "Mélanger", text: "Dans un bol, mélangez le yaourt, le concombre, l'ail, l'huile d'olive, le citron et l'aneth ciselé. Poivrez." },
+    { title: "Reposer au frais", text: "Couvrez et réfrigérez au moins 30 minutes pour que les saveurs se développent." },
+    { title: "Servir", text: "Versez dans un bol, faites un creux au centre, ajoutez un filet d'huile d'olive et quelques brins d'aneth. Servez frais avec du pain pita ou des crudités." },
+  ],
+  notes: "💡 Le secret : bien égoutter le concombre. Préférez un yaourt grec épais type Total.",
+  createdAt: new Date().toISOString(),
+};
+
+function formatCrudites(order, allCrudites) {
+  if (!order.crudites?.length) return null;
+  if (order.cruditesTout) {
+    const excl = allCrudites.filter(c => !order.crudites.includes(c));
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
     return excl.length > 0 ? "Tout sauf: "+excl.join(", ") : "Toutes crudités";
   }
   return "Crudités: "+o.crudites.join(", ");
@@ -270,6 +309,7 @@ function LoginScreen({ onLogin, theme, toggleTheme, members }) {
   );
 }
 
+<<<<<<< HEAD
 // ── Order detail cell (shared) ────────────────────────────────────────────────
 function DetailCell({ name, order, canEdit, sauces, crudites, boissons, extras, mealExtras, theme,
   handleDetail, handleSubDetail, toggleMulti, toggleCruditesTout, toggleExtraOption, pb, ps, newBoissonInput, setNewBoissonInput, isMobile }) {
@@ -300,11 +340,160 @@ function DetailCell({ name, order, canEdit, sauces, crudites, boissons, extras, 
         {canEdit && (newBoissonInput[name]||order.boisson||"").trim() && !boissons.includes((newBoissonInput[name]||order.boisson||"").trim()) && (
           <button className="pill-btn" onClick={async()=>{ const v=(newBoissonInput[name]||order.boisson||"").trim(); await pb([...boissons,v]); setNewBoissonInput(p=>({...p,[name]:""})); }}
             style={{ ...P("#38bdf8",false,false), padding:"4px 8px", fontSize:11 }}>+ Sauvegarder</button>
+=======
+// ── Cookido Tab ───────────────────────────────────────────────────────────────
+function CookidoTab({ T, isMobile }) {
+  const [recipes, setRecipes]         = useState([]);
+  const [selectedRecipe, setSelected] = useState(null);
+  const [showForm, setShowForm]       = useState(false);
+  const [initialized, setInitialized] = useState(false);
+  const [copiedLink, setCopiedLink]   = useState(false);
+  const [form, setForm] = useState({
+    name:"", description:"", category:"", servings:4,
+    prepTime:"", totalTime:"", ingredients:[""], steps:[{title:"",text:""}], notes:"",
+  });
+
+  // Hash routing: #cookido/ID
+  const openRecipe = (recipe) => {
+    setSelected(recipe);
+    window.location.hash = "cookido/" + recipe.id;
+  };
+  const closeRecipe = () => {
+    setSelected(null);
+    window.location.hash = "cookido";
+  };
+  const copyLink = () => {
+    const url = window.location.origin + window.location.pathname + "#cookido/" + selectedRecipe.id;
+    navigator.clipboard.writeText(url).then(()=>{ setCopiedLink(true); setTimeout(()=>setCopiedLink(false),2000); });
+  };
+
+  useEffect(()=>{
+    const unsub = onSnapshot(collection(db,"cookido"), snap=>{
+      const list = [];
+      snap.forEach(s => list.push({ id:s.id, ...s.data() }));
+      list.sort((a,b)=>(a.createdAt||"").localeCompare(b.createdAt||""));
+      setRecipes(list);
+      setInitialized(true);
+    });
+    return ()=>unsub();
+  },[]);
+
+  // On mount: check if URL hash points to a recipe
+  useEffect(()=>{
+    const hash = window.location.hash.replace("#","");
+    if (hash.startsWith("cookido/")) {
+      const id = hash.split("/")[1];
+      if (id && recipes.length > 0) {
+        const found = recipes.find(r=>r.id===id);
+        if (found) setSelected(found);
+      }
+    }
+  },[recipes]);
+
+  useEffect(()=>{
+    if (initialized && recipes.length===0) {
+      addDoc(collection(db,"cookido"), TZATZIKI_RECIPE);
+    }
+  },[initialized, recipes.length]);
+
+  const saveRecipe = async () => {
+    if (!form.name.trim()) return;
+    const data = {
+      ...form,
+      ingredients: form.ingredients.filter(i=>i.trim()),
+      steps: form.steps.filter(s=>s.title.trim()||s.text.trim()),
+      servings: Number(form.servings)||4,
+      prepTime: Number(form.prepTime)||0,
+      totalTime: Number(form.totalTime)||0,
+      createdAt: new Date().toISOString(),
+    };
+    await addDoc(collection(db,"cookido"), data);
+    setShowForm(false);
+    setForm({ name:"", description:"", category:"", servings:4, prepTime:"", totalTime:"", ingredients:[""], steps:[{title:"",text:""}], notes:"" });
+  };
+
+  const deleteRecipe = async (id) => {
+    if (!window.confirm("Supprimer cette recette ?")) return;
+    await deleteDoc(doc(db,"cookido",id));
+    if (selectedRecipe?.id===id) closeRecipe();
+  };
+
+  const updateIngredient = (i,val) => { const l=[...form.ingredients]; l[i]=val; setForm(f=>({...f,ingredients:l})); };
+  const addIngredient    = ()    => setForm(f=>({...f,ingredients:[...f.ingredients,""]}));
+  const removeIngredient = (i)   => setForm(f=>({...f,ingredients:f.ingredients.filter((_,idx)=>idx!==i)}));
+  const updateStep  = (i,field,val) => { const l=[...form.steps]; l[i]={...l[i],[field]:val}; setForm(f=>({...f,steps:l})); };
+  const addStep     = ()            => setForm(f=>({...f,steps:[...f.steps,{title:"",text:""}]}));
+  const removeStep  = (i)           => setForm(f=>({...f,steps:f.steps.filter((_,idx)=>idx!==i)}));
+
+  const inp = {background:T.bg,border:"1px solid "+T.border,borderRadius:10,color:T.text,padding:"8px 12px",fontSize:13,fontFamily:"'DM Sans',sans-serif",width:"100%"};
+  const addBtn = {background:T.text,color:T.bg,border:"none",borderRadius:10,padding:"10px 20px",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"'Syne',sans-serif"};
+  const accent = "#f97316";
+
+  if (selectedRecipe) return (
+    <div style={{animation:"slideDown 0.3s ease"}}>
+      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
+        <button onClick={closeRecipe} style={{background:"transparent",border:"1px solid "+T.border,color:T.textMuted,borderRadius:8,padding:"6px 14px",fontSize:13,cursor:"pointer"}}>← Retour</button>
+        <button onClick={copyLink} style={{background:copiedLink?accent+"22":"transparent",border:"1px solid "+(copiedLink?accent+"55":T.border),color:copiedLink?accent:T.textMuted,borderRadius:8,padding:"6px 14px",fontSize:13,cursor:"pointer",transition:"all 0.2s"}}>
+          {copiedLink?"✓ Lien copié !":"🔗 Copier le lien"}
+        </button>
+      </div>
+      <div style={{background:T.bg2,border:"1px solid "+T.border,borderRadius:16,padding:isMobile?"16px":"28px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:20,gap:12}}>
+          <div>
+            <h2 style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:isMobile?20:26,color:T.text,marginBottom:4}}>{selectedRecipe.name}</h2>
+            {selectedRecipe.description && <p style={{fontSize:14,color:T.textMuted,lineHeight:1.5}}>{selectedRecipe.description}</p>}
+          </div>
+          <button onClick={()=>deleteRecipe(selectedRecipe.id)} style={{background:"transparent",border:"1px solid #f8717155",color:"#f87171",borderRadius:8,padding:"6px 10px",fontSize:12,cursor:"pointer",flexShrink:0}}>🗑</button>
+        </div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:24}}>
+          {selectedRecipe.category && <span style={{background:accent+"22",color:accent,padding:"4px 12px",borderRadius:20,fontSize:12,fontWeight:600}}>{selectedRecipe.category}</span>}
+          {selectedRecipe.servings>0 && <span style={{background:T.bg3,color:T.textMuted,padding:"4px 12px",borderRadius:20,fontSize:12}}>👤 {selectedRecipe.servings} portions</span>}
+          {selectedRecipe.prepTime>0 && <span style={{background:T.bg3,color:T.textMuted,padding:"4px 12px",borderRadius:20,fontSize:12}}>⏱ Prépa {selectedRecipe.prepTime} min</span>}
+          {selectedRecipe.totalTime>0 && <span style={{background:T.bg3,color:T.textMuted,padding:"4px 12px",borderRadius:20,fontSize:12}}>⏰ Total {selectedRecipe.totalTime} min</span>}
+        </div>
+        {selectedRecipe.ingredients?.length>0 && (
+          <div style={{marginBottom:24}}>
+            <h3 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:15,color:T.text,marginBottom:12}}>
+              <span style={{background:accent+"22",color:accent,borderRadius:8,padding:"2px 8px",fontSize:12}}>Ingrédients</span>
+            </h3>
+            <ul style={{listStyle:"none",display:"flex",flexDirection:"column",gap:6}}>
+              {selectedRecipe.ingredients.map((ing,i)=>(
+                <li key={i} style={{display:"flex",alignItems:"center",gap:10,fontSize:14,color:T.text}}>
+                  <span style={{color:accent,fontWeight:700,fontSize:16}}>·</span>{ing}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {selectedRecipe.steps?.length>0 && (
+          <div style={{marginBottom:24}}>
+            <h3 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:15,color:T.text,marginBottom:12}}>
+              <span style={{background:accent+"22",color:accent,borderRadius:8,padding:"2px 8px",fontSize:12}}>Préparation</span>
+            </h3>
+            <div style={{display:"flex",flexDirection:"column",gap:12}}>
+              {selectedRecipe.steps.map((step,i)=>(
+                <div key={i} style={{display:"flex",gap:12,alignItems:"flex-start"}}>
+                  <span style={{background:accent,color:"#fff",borderRadius:"50%",width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,flexShrink:0,marginTop:1}}>{i+1}</span>
+                  <div>
+                    {step.title && <p style={{fontSize:13,fontWeight:700,color:T.text,marginBottom:3}}>{step.title}</p>}
+                    <p style={{fontSize:13,color:T.textMuted,lineHeight:1.6}}>{step.text}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {selectedRecipe.notes && (
+          <div style={{background:accent+"11",border:"1px solid "+accent+"33",borderRadius:10,padding:"12px 16px",fontSize:13,color:T.text,lineHeight:1.6}}>
+            {selectedRecipe.notes}
+          </div>
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
         )}
       </div>
     </div>
   );
 
+<<<<<<< HEAD
   if (order.choice==="ice-cream") return (
     <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
       <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
@@ -445,6 +634,108 @@ function DetailCell({ name, order, canEdit, sauces, crudites, boissons, extras, 
       </div>
       {/* Section 4: Boissons */}
       <BoissonSection/>
+=======
+  if (showForm) return (
+    <div style={{animation:"slideDown 0.3s ease"}}>
+      <button onClick={()=>setShowForm(false)} style={{background:"transparent",border:"1px solid "+T.border,color:T.textMuted,borderRadius:8,padding:"6px 14px",fontSize:13,cursor:"pointer",marginBottom:20}}>← Annuler</button>
+      <h2 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:18,color:T.text,marginBottom:24}}>Nouvelle recette</h2>
+      <div style={{display:"flex",flexDirection:"column",gap:16}}>
+        <div style={{display:"flex",flexDirection:isMobile?"column":"row",gap:12}}>
+          <div style={{flex:2}}>
+            <label style={{fontSize:11,color:T.textMuted,display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.07em"}}>Nom *</label>
+            <input style={inp} value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="ex: Tzatziki, Pesto…" />
+          </div>
+          <div style={{flex:1}}>
+            <label style={{fontSize:11,color:T.textMuted,display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.07em"}}>Catégorie</label>
+            <input style={inp} value={form.category} onChange={e=>setForm(f=>({...f,category:e.target.value}))} placeholder="ex: Sauce, Plat…" />
+          </div>
+        </div>
+        <div>
+          <label style={{fontSize:11,color:T.textMuted,display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.07em"}}>Description</label>
+          <textarea style={{...inp,resize:"none"}} rows={2} value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} placeholder="Courte description…" />
+        </div>
+        <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+          {[["servings","Portions","4"],["prepTime","Prépa (min)","15"],["totalTime","Total (min)","45"]].map(([field,label,ph])=>(
+            <div key={field} style={{flex:1,minWidth:90}}>
+              <label style={{fontSize:11,color:T.textMuted,display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.07em"}}>{label}</label>
+              <input style={inp} type="number" min={0} value={form[field]} onChange={e=>setForm(f=>({...f,[field]:e.target.value}))} placeholder={ph} />
+            </div>
+          ))}
+        </div>
+        <div>
+          <label style={{fontSize:11,color:T.textMuted,display:"block",marginBottom:8,textTransform:"uppercase",letterSpacing:"0.07em"}}>Ingrédients</label>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {form.ingredients.map((ing,i)=>(
+              <div key={i} style={{display:"flex",gap:6,alignItems:"center"}}>
+                <input style={{...inp,flex:1}} value={ing} onChange={e=>updateIngredient(i,e.target.value)} placeholder={`Ingrédient ${i+1}…`} />
+                {form.ingredients.length>1 && <button onClick={()=>removeIngredient(i)} style={{background:"transparent",border:"none",color:"#f87171",cursor:"pointer",fontSize:18,padding:"0 4px"}}>✕</button>}
+              </div>
+            ))}
+            <button onClick={addIngredient} style={{background:T.bg3,border:"1px dashed "+T.border,color:T.textMuted,borderRadius:8,padding:"7px",fontSize:13,cursor:"pointer",textAlign:"left"}}>+ Ajouter un ingrédient</button>
+          </div>
+        </div>
+        <div>
+          <label style={{fontSize:11,color:T.textMuted,display:"block",marginBottom:8,textTransform:"uppercase",letterSpacing:"0.07em"}}>Étapes</label>
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {form.steps.map((step,i)=>(
+              <div key={i} style={{background:T.bg3,border:"1px solid "+T.border,borderRadius:10,padding:"10px 12px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                  <span style={{background:accent,color:"#fff",borderRadius:"50%",width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0}}>{i+1}</span>
+                  <input style={{...inp,flex:1,padding:"5px 10px",background:T.bg2}} value={step.title} onChange={e=>updateStep(i,"title",e.target.value)} placeholder="Titre de l'étape…" />
+                  {form.steps.length>1 && <button onClick={()=>removeStep(i)} style={{background:"transparent",border:"none",color:"#f87171",cursor:"pointer",fontSize:16,padding:"0 2px"}}>✕</button>}
+                </div>
+                <textarea style={{...inp,background:T.bg2,resize:"none"}} rows={2} value={step.text} onChange={e=>updateStep(i,"text",e.target.value)} placeholder="Description…" />
+              </div>
+            ))}
+            <button onClick={addStep} style={{background:T.bg3,border:"1px dashed "+T.border,color:T.textMuted,borderRadius:8,padding:"7px",fontSize:13,cursor:"pointer",textAlign:"left"}}>+ Ajouter une étape</button>
+          </div>
+        </div>
+        <div>
+          <label style={{fontSize:11,color:T.textMuted,display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.07em"}}>Notes / Astuces</label>
+          <textarea style={{...inp,resize:"none"}} rows={2} value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="💡 Conseils, variantes…" />
+        </div>
+        <button style={{...addBtn,marginTop:4}} onClick={saveRecipe}>💾 Enregistrer la recette</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{animation:"slideDown 0.3s ease"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
+        <div>
+          <h2 style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:22,color:T.text}}>🍳 Cookido</h2>
+          <p style={{fontSize:13,color:T.textMuted,marginTop:2}}>Vos recettes de cuisine</p>
+        </div>
+        <button style={addBtn} onClick={()=>setShowForm(true)}>+ Nouvelle recette</button>
+      </div>
+      {recipes.length===0 && (
+        <div style={{textAlign:"center",color:T.textFaint,padding:60}}>
+          <div style={{fontSize:40,marginBottom:12}}>🍳</div>
+          <p>Aucune recette pour l'instant.</p>
+        </div>
+      )}
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"repeat(auto-fill,minmax(280px,1fr))",gap:14}}>
+        {recipes.map(recipe=>(
+          <div key={recipe.id} onClick={()=>openRecipe(recipe)}
+            style={{background:T.bg2,border:"1px solid "+T.border,borderRadius:14,padding:"18px 20px",cursor:"pointer",transition:"all 0.18s"}}
+            onMouseEnter={e=>{e.currentTarget.style.border="1px solid "+accent+"66";e.currentTarget.style.transform="translateY(-2px)";}}
+            onMouseLeave={e=>{e.currentTarget.style.border="1px solid "+T.border;e.currentTarget.style.transform="translateY(0)";}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:8}}>
+              <h3 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:16,color:T.text}}>{recipe.name}</h3>
+              <button onClick={e=>{e.stopPropagation();deleteRecipe(recipe.id);}}
+                style={{background:"transparent",border:"none",color:T.textFaint,cursor:"pointer",fontSize:15,padding:"0 0 0 8px",flexShrink:0}}>🗑</button>
+            </div>
+            {recipe.description && <p style={{fontSize:12,color:T.textMuted,marginBottom:10,lineHeight:1.5}}>{recipe.description}</p>}
+            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+              {recipe.category && <span style={{background:accent+"22",color:accent,padding:"2px 8px",borderRadius:20,fontSize:11,fontWeight:600}}>{recipe.category}</span>}
+              {recipe.servings>0 && <span style={{background:T.bg3,color:T.textMuted,padding:"2px 8px",borderRadius:20,fontSize:11}}>👤 {recipe.servings}</span>}
+              {recipe.totalTime>0 && <span style={{background:T.bg3,color:T.textMuted,padding:"2px 8px",borderRadius:20,fontSize:11}}>⏰ {recipe.totalTime} min</span>}
+              {recipe.ingredients?.length>0 && <span style={{background:T.bg3,color:T.textMuted,padding:"2px 8px",borderRadius:20,fontSize:11}}>📋 {recipe.ingredients.length} ingr.</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
     </div>
   );
 }
@@ -467,6 +758,7 @@ export default function App() {
   const [favNameInput, setFavNameInput]     = useState("");
   const [showFavModal, setShowFavModal]     = useState(false);
   const [newBoissonInput, setNewBoissonInput] = useState({});
+<<<<<<< HEAD
   const [newExtraOption, setNewExtraOption]   = useState({});
   const [newMemberName, setNewMemberName]     = useState("");
   const [newMemberCode, setNewMemberCode]     = useState("");
@@ -480,6 +772,27 @@ export default function App() {
   const [isMobile, setIsMobile]       = useState(()=>window.innerWidth<768);
   const detailTimers = useRef({});
   const theme = isDark ? T : LIGHT_T;
+=======
+  const [theme, setTheme]           = useState(()=>localStorage.getItem("lunch_theme")||"dark");
+  const [newMemberName, setNewMemberName] = useState("");
+  const [newMemberCode, setNewMemberCode] = useState("");
+  const [editingMember, setEditingMember] = useState(null);
+  const [newSauce, setNewSauce]     = useState("");
+  const [newCrudite, setNewCrudite] = useState("");
+  const [newBoisson, setNewBoisson] = useState("");
+  const [newExtraLabel, setNewExtraLabel]     = useState("");
+  const [newExtraApplies, setNewExtraApplies] = useState([]);
+  const [newExtraOption, setNewExtraOption]   = useState({});
+  const detailTimers = useRef({});
+  const T = theme==="dark" ? DARK : LIGHT;
+  const [isMobile, setIsMobile] = useState(()=>window.innerWidth < 768);
+
+  useEffect(()=>{
+    const handler = ()=>setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", handler);
+    return ()=>window.removeEventListener("resize", handler);
+  },[]);
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
 
   const toggleTheme = () => {
     const next = !isDark;
@@ -503,10 +816,17 @@ export default function App() {
     const u6 = onSnapshot(collection(db,"favorites"), snap=>{
       const d={};
       snap.forEach(s=>{
+<<<<<<< HEAD
         const data=s.data();
         if(data.list) d[s.id]=data.list;
         else if(data.choice) d[s.id]=[{id:"fav_legacy",name:"Mon favori",...data}];
         else d[s.id]=[];
+=======
+        const data = s.data();
+        if (data.list) d[s.id] = data.list;
+        else if (data.choice) d[s.id] = [{ id:"fav_legacy", name:"Mon favori", ...data }];
+        else d[s.id] = [];
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
       });
       setFavorites(d);
     });
@@ -529,14 +849,23 @@ export default function App() {
 
   if(!user) return <LoginScreen onLogin={setUser} theme={theme} toggleTheme={toggleTheme} members={members}/>;
 
+<<<<<<< HEAD
   // persist
+=======
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
   const pm = async l=>{setMembers(l);   await setDoc(doc(db,"config","members"), {list:l});};
   const ps = async l=>{setSauces(l);    await setDoc(doc(db,"config","sauces"),  {list:l});};
   const pc = async l=>{setCrudites(l);  await setDoc(doc(db,"config","crudites"),{list:l});};
   const pb = async l=>{setBoissons(l);  await setDoc(doc(db,"config","boissons"),{list:l});};
   const pe = async l=>{setExtras(l);    await setDoc(doc(db,"config","extras"),  {list:l});};
 
+<<<<<<< HEAD
   const names = user==="Admin" ? members.map(m=>m.username) : [user,...members.map(m=>m.username).filter(n=>n!==user)];
+=======
+  const names = user==="Admin"
+    ? members.map(m=>m.username)
+    : [user,...members.map(m=>m.username).filter(n=>n!==user)];
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
 
   const addMember    = async()=>{const n=newMemberName.trim(),c=newMemberCode.trim();if(!n||!c||members.find(m=>m.username===n))return;await pm([...members,{username:n,code:c}]);setNewMemberName("");setNewMemberCode("");};
   const removeMember = async n=>{await pm(members.filter(m=>m.username!==n));await deleteDoc(doc(db,"orders",n));};
@@ -553,11 +882,49 @@ export default function App() {
   const removeExtraOption=async(extraId,opt)=>{const updated=extras.map(e=>e.id===extraId?{...e,options:e.options.filter(o=>o!==opt)}:e);await pe(updated);};
   const toggleExtraApplies=meal=>{setNewExtraApplies(prev=>prev.includes(meal)?prev.filter(x=>x!==meal):[...prev,meal]);};
 
+<<<<<<< HEAD
+=======
+  const addExtraCategory = async()=>{
+    const label=newExtraLabel.trim();
+    if(!label||!newExtraApplies.length)return;
+    const id="extra_"+Date.now();
+    const accent=EXTRA_ACCENTS[extras.length%EXTRA_ACCENTS.length];
+    await pe([...extras,{id,label,options:[],appliesTo:newExtraApplies,accent}]);
+    setNewExtraLabel(""); setNewExtraApplies([]);
+  };
+  const removeExtraCategory = async id=>{await pe(extras.filter(e=>e.id!==id));};
+  const addExtraOption = async(extraId)=>{
+    const val=(newExtraOption[extraId]||"").trim();
+    if(!val)return;
+    const updated=extras.map(e=>e.id===extraId?{...e,options:[...e.options,val]}:e);
+    await pe(updated);
+    setNewExtraOption(prev=>({...prev,[extraId]:""}));
+  };
+  const removeExtraOption = async(extraId,opt)=>{
+    const updated=extras.map(e=>e.id===extraId?{...e,options:e.options.filter(o=>o!==opt)}:e);
+    await pe(updated);
+  };
+  const toggleExtraApplies = (meal)=>{
+    setNewExtraApplies(prev=>prev.includes(meal)?prev.filter(x=>x!==meal):[...prev,meal]);
+  };
+
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
   const toggleChoice=async(name,choice)=>{
     const cur=orders[name]||{};
     if(cur.choice===choice){await deleteDoc(doc(db,"orders",name));}
     else{await setDoc(doc(db,"orders",name),{choice,detail:"",sauces:[],crudites:[],cruditesTout:false,boules:"",snackType:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}});}
   };
+<<<<<<< HEAD
+=======
+  const toggleCruditesTout = async(name)=>{
+    const cur=orders[name]||{};
+    if(!cur.choice)return;
+    const wasTout=cur.cruditesTout||false;
+    const updated={...cur, cruditesTout:!wasTout, crudites:!wasTout?[...crudites]:[]};
+    setOrders(prev=>({...prev,[name]:updated}));
+    await setDoc(doc(db,"orders",name),updated);
+  };
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
   const handleDetail=(name,detail)=>{
     setOrders(prev=>({...prev,[name]:{...prev[name],detail}}));
     clearTimeout(detailTimers.current[name]);
@@ -569,6 +936,13 @@ export default function App() {
     setOrders(prev=>({...prev,[name]:updated}));
     await setDoc(doc(db,"orders",name),updated);
   };
+<<<<<<< HEAD
+=======
+  const handleBoissonInput = (name, val) => {
+    setNewBoissonInput(prev=>({...prev,[name]:val}));
+    handleSubDetail(name,"boisson",val);
+  };
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
   const toggleMulti=async(name,field,value)=>{
     const cur=orders[name]||{};if(!cur.choice)return;
     const current=cur[field]||[];
@@ -593,12 +967,19 @@ export default function App() {
     setOrders(prev=>({...prev,[name]:newOrder}));
     await setDoc(doc(db,"orders",name),newOrder);
   };
+<<<<<<< HEAD
   const togglePayment=async name=>{
     const current=payments[name]||false;
     const updated={...payments,[name]:!current};
+=======
+  const togglePayment = async name => {
+    const current = payments[name] || false;
+    const updated = { ...payments, [name]: !current };
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
     setPayments(updated);
     await setDoc(doc(db,"payments","today"),updated);
   };
+<<<<<<< HEAD
   const saveFavorite=async name=>{
     const cur=orders[name];if(!cur?.choice)return;
     const favName=favNameInput.trim()||formatOrder(cur,extras,crudites).slice(0,30)||"Mon favori";
@@ -611,6 +992,22 @@ export default function App() {
   const deleteFavorite=async(username,favId)=>{
     const existing=favorites[username]||[];
     await setDoc(doc(db,"favorites",username),{list:existing.filter(f=>f.id!==favId)});
+=======
+  const saveFavorite = async name => {
+    const cur = orders[name];
+    if (!cur?.choice) return;
+    const favName = favNameInput.trim() || formatOrder(cur,extras,crudites).slice(0,30) || "Mon favori";
+    const existing = favorites[name] || [];
+    const newFav = { id:"fav_"+Date.now(), name:favName, ...cur };
+    await setDoc(doc(db,"favorites",name), { list:[...existing, newFav] });
+    setFavNameInput(""); setShowFavModal(false);
+    setSavedMsg(true); setTimeout(()=>setSavedMsg(false),2500);
+  };
+  const deleteFavorite = async (username, favId) => {
+    const existing = favorites[username] || [];
+    const updated = existing.filter(f=>f.id!==favId);
+    await setDoc(doc(db,"favorites",username), { list:updated });
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
   };
   const resetAll=async()=>{
     if(!window.confirm("Archiver et effacer toutes les commandes du jour ?"))return;
@@ -645,6 +1042,7 @@ export default function App() {
     color:theme.textSub, fontSize:12, padding:"3px 12px", borderRadius:20,
   };
 
+<<<<<<< HEAD
   const extrasForMeal = choice => extras.filter(e=>e.appliesTo?.includes(choice));
 
   const detailCellProps = { sauces, crudites, boissons, extras, theme,
@@ -667,8 +1065,32 @@ export default function App() {
       </div>
     );
   };
+=======
+  const pill=(accent,active,disabled)=>({
+    background:active?accent:T.bg3, border:"1px solid "+(active?accent:T.border),
+    borderRadius:20, padding:"3px 10px", fontSize:12, color:active?"#fff":T.textMuted,
+    cursor:disabled?"not-allowed":"pointer", transition:"all 0.15s", fontFamily:"inherit",
+    whiteSpace:"nowrap", opacity:disabled?0.35:1,
+  });
+  const inp={background:T.bg,border:"1px solid "+T.border,borderRadius:10,color:T.text,padding:"10px 14px",fontSize:14,fontFamily:"'DM Sans',sans-serif"};
+  const addBtn={background:T.text,color:T.bg,border:"none",borderRadius:10,padding:"10px 20px",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"'Syne',sans-serif",whiteSpace:"nowrap"};
+  const secTitle={fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:18,marginBottom:18,color:T.text,display:"flex",alignItems:"center",gap:12};
+  const tdS={padding:"10px 16px",verticalAlign:"middle",borderBottom:"1px solid "+T.border2};
+  const thS={background:T.thBg,color:T.thColor,fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:"0.07em",padding:"12px 16px",textAlign:"left",borderBottom:"1px solid "+T.border};
+  const extrasForMeal = (choice) => extras.filter(e=>e.appliesTo?.includes(choice));
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
+
+  const allTabs = [
+    ["order","📋 Commander"],
+    ["summary","📊 Résumé"],
+    ["favorites","⭐ Favoris"],
+    ["history","📅 Historique"],
+    ["settings","⚙️ Config"],
+    ...(user==="Admin" ? [["cookido","🍳 Cookido"]] : []),
+  ];
 
   return (
+<<<<<<< HEAD
     <div style={{ minHeight:"100vh", background: isDark
       ? `radial-gradient(ellipse at 20% 0%, rgba(240,192,112,0.06) 0%, transparent 50%),
          radial-gradient(ellipse at 80% 100%, rgba(251,146,60,0.04) 0%, transparent 50%),
@@ -692,6 +1114,16 @@ export default function App() {
               display:"flex", alignItems:"center", gap:5, animation:status==="connecting"?"pulse 1.2s infinite":"none" }}>
               <span style={{ width:6, height:6, borderRadius:"50%", background:"currentColor", display:"inline-block" }}/>
               {status==="live"?"En direct":status==="error"?"Erreur":"Connexion…"}
+=======
+    <div style={{minHeight:"100vh",background:T.bg,fontFamily:"'DM Sans',sans-serif",color:T.text}}>
+      <style>{makeCssGlobal(T)}</style>
+      <header style={{background:T.bg2,borderBottom:"1px solid "+T.border,position:"sticky",top:0,zIndex:100}}>
+        <div style={{maxWidth:1200,margin:"0 auto",padding:"14px 24px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <span style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:20,color:T.text}}>🍽️ Lunch Orders</span>
+          <div style={{display:"flex",alignItems:"center",gap:14}}>
+            <span style={{fontSize:12,color:status==="live"?"#22c55e":status==="error"?"#f87171":"#f59e0b"}}>
+              {status==="live"?"● En direct":status==="error"?"● Erreur":"⟳ Connexion…"}
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
             </span>
             <button onClick={toggleTheme} style={{ ...glassCard(theme), padding:"6px 10px", fontSize:14, cursor:"pointer", color:theme.text, border:`1px solid ${theme.border}` }}>
               {isDark?"☀️":"🌙"}
@@ -707,6 +1139,7 @@ export default function App() {
               onClick={()=>setUser(null)}>Déconnexion</button>
           </div>
         </div>
+<<<<<<< HEAD
         <div style={{ maxWidth:1200, margin:"0 auto", padding:"0 20px", display:"flex", gap:2, overflowX:"auto" }}>
           {[["order","📋","Commander"],["summary","📊","Résumé"],["favorites","⭐","Favoris"],["history","📅","Historique"],["settings","⚙️","Config"]].map(([id,icon,label])=>(
             <button key={id} className="tab-btn"
@@ -716,14 +1149,22 @@ export default function App() {
                 fontFamily:"'DM Sans',sans-serif", transition:"all 0.2s", whiteSpace:"nowrap",
                 display:"flex", alignItems:"center", gap:5 }}
               onClick={()=>setTab(id)}>{icon} {label}</button>
+=======
+        <div style={{maxWidth:1200,margin:"0 auto",padding:"0 24px",display:"flex",overflowX:"auto"}}>
+          {allTabs.map(([id,label])=>(
+            <button key={id} style={{background:"transparent",border:"none",color:tab===id?T.text:T.textMuted,padding:"10px 18px",fontSize:13,fontWeight:600,cursor:"pointer",borderBottom:tab===id?"2px solid "+(id==="cookido"?"#f97316":T.text):"2px solid transparent",fontFamily:"'DM Sans',sans-serif",transition:"all 0.2s",whiteSpace:"nowrap"}}
+              onClick={()=>setTab(id)}>{label}</button>
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
           ))}
         </div>
       </header>
 
       <main style={{ maxWidth:1200, margin:"0 auto", padding: isMobile?"16px 12px":"28px 24px" }}>
 
-        {/* ════ ORDER TAB ════ */}
+        {tab==="cookido" && user==="Admin" && <CookidoTab T={T} isMobile={isMobile} />}
+
         {tab==="order" && (
+<<<<<<< HEAD
           <div style={{ animation:"slideDown 0.3s ease" }}>
 
             {/* Quick favorites */}
@@ -754,12 +1195,35 @@ export default function App() {
                         <div style={{ fontSize:11, color:isActive?theme.red:opt?.accent, marginTop:1 }}>
                           {isActive?"Cliquer pour effacer ✕":"Cliquer pour commander →"}
                         </div>
+=======
+          <div style={{animation:"slideDown 0.3s ease"}}>
+            {user!=="Admin" && (favorites[user]||[]).length > 0 && (
+              <div style={{marginBottom:20}}>
+                <div style={{fontSize:12,color:T.textFaint,marginBottom:8,display:"flex",alignItems:"center",gap:6}}>⭐ <span>Commande rapide depuis tes favoris</span></div>
+                <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                  {(favorites[user]||[]).map(fav=>{
+                    const opt = LUNCH_OPTIONS.find(o=>o.id===fav.choice);
+                    const {id:favId, name:favName, ...favOrder} = fav;
+                    const currentOrder = orders[user];
+                    const isActive = currentOrder?.choice===favOrder.choice && formatOrder(currentOrder,extras,crudites)===formatOrder(favOrder,extras,crudites);
+                    return (
+                      <button key={favId} onClick={async()=>{ if(isActive){await deleteDoc(doc(db,"orders",user));}else{await setDoc(doc(db,"orders",user),{...favOrder});} }}
+                        style={{background:isActive?opt?.accent+"22":T.bg2,border:"2px solid "+(isActive?opt?.accent:T.border),borderRadius:12,padding:"10px 16px",cursor:"pointer",textAlign:"left",transition:"all 0.2s",display:"flex",flexDirection:"column",gap:4,minWidth:isMobile?"calc(50% - 5px)":200,flex:isMobile?"1":"0 1 auto"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6,justifyContent:"space-between"}}>
+                          <span style={{fontSize:12,fontWeight:600,color:opt?.accent}}>{opt?.label}</span>
+                          {isActive && <span style={{fontSize:10,background:opt?.accent+"33",color:opt?.accent,padding:"1px 6px",borderRadius:10}}>✓ Actif</span>}
+                        </div>
+                        <div style={{fontSize:12,fontWeight:500,color:T.text}}>{favName}</div>
+                        <div style={{fontSize:11,color:T.textMuted,lineHeight:1.4}}>{formatOrder(favOrder,extras,crudites)||"Aucun détail"}</div>
+                        <div style={{fontSize:11,color:isActive?"#f87171":opt?.accent,marginTop:2}}>{isActive?"Cliquer pour effacer ✕":"Cliquer pour commander →"}</div>
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
                       </button>
                     );
                   })}
                 </div>
               </div>
             )}
+<<<<<<< HEAD
 
             {/* Table header */}
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16 }}>
@@ -795,11 +1259,99 @@ export default function App() {
                             <span style={{ fontSize:15, fontWeight:600, color:isMe?theme.amber:theme.text }}>{name}</span>
                             {isMe && <span style={{ fontSize:9, color:theme.textFaint, background:theme.bgInput, padding:"1px 6px", borderRadius:10 }}>toi</span>}
                             <span style={{ fontSize:11, color:theme.textFaint, marginLeft:"auto" }}>#{idx+1}</span>
+=======
+            <div style={{marginBottom:40}}>
+              <h2 style={secTitle}>Commandes du jour <span style={{background:T.bg3,color:T.textMuted,fontSize:12,padding:"3px 10px",borderRadius:20}}>{totalOrdered} / {names.length}</span></h2>
+              {isMobile && (
+                <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                  {names.map((name,idx)=>{
+                    const order=orders[name]||{};
+                    const chosen=LUNCH_OPTIONS.find(o=>o.id===order.choice);
+                    const canEdit=user===name||user==="Admin";
+                    const isMe=user===name;
+                    const mealExtras=extrasForMeal(order.choice);
+                    return (
+                      <div key={name} style={{background:T.bg2,border:"1px solid "+(isMe?(chosen?.accent||"#f59e0b"):T.border),borderRadius:14,padding:"16px",boxShadow:isMe?"0 0 0 2px "+(chosen?.accent||"#f59e0b")+"33":"none"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+                          <div style={{width:36,height:36,borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:700,flexShrink:0,background:chosen?chosen.accent+"28":T.bg3,color:chosen?chosen.accent:T.textMuted}}>{name[0].toUpperCase()}</div>
+                          <div style={{flex:1}}>
+                            <div style={{display:"flex",alignItems:"center",gap:8}}>
+                              <span style={{fontSize:15,fontWeight:600,color:isMe?"#f59e0b":T.text}}>{name}</span>
+                              {isMe && <span style={{fontSize:10,color:T.textFaint,background:T.bg3,padding:"1px 6px",borderRadius:10}}>toi</span>}
+                              <span style={{fontSize:12,color:T.textFaint,marginLeft:"auto"}}>#{idx+1}</span>
+                            </div>
+                            {chosen && <span style={{fontSize:12,color:chosen.accent}}>{chosen.label}</span>}
+                          </div>
+                          {user==="Admin" && <button style={{background:"transparent",border:"none",color:T.textFaint,fontSize:18,cursor:"pointer",padding:4}} onClick={()=>removeMember(name)}>✕</button>}
+                        </div>
+                        {canEdit && (
+                          <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
+                            {LUNCH_OPTIONS.map(opt=>(
+                              <button key={opt.id} style={{flex:1,minWidth:80,padding:"8px 4px",borderRadius:10,border:"1px solid "+(order.choice===opt.id?opt.accent:T.border),background:order.choice===opt.id?opt.accent:T.bg3,color:order.choice===opt.id?"#fff":T.textMuted,fontSize:12,fontWeight:600,cursor:"pointer",transition:"all 0.18s"}}
+                                onClick={()=>toggleChoice(name,opt.id)}>{opt.label}</button>
+                            ))}
+                          </div>
+                        )}
+                        {!canEdit && order.choice && <div style={{marginBottom:12}}><span style={{fontSize:13,color:chosen?.accent,fontWeight:600}}>{chosen?.label}</span></div>}
+                        {order.choice && (
+                          <div style={{display:"flex",flexDirection:"column",gap:8,paddingTop:12,borderTop:"1px solid "+T.border2}}>
+                            {order.choice==="ice-cream" && (<>
+                              <div style={{display:"flex",gap:6}}>{["1 boule","2 boules"].map(opt=>(<button key={opt} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"boules",order.boules===opt?"":opt)} style={pill("#ec4899",order.boules===opt,!canEdit)}>{opt}</button>))}</div>
+                              <input style={{width:"100%",background:T.bg,border:"1px solid #ec489966",borderRadius:8,color:T.text,padding:"8px 12px",fontSize:13,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.4}} disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?"Parfum(s)…":"🔒"} />
+                              <div style={{display:"flex",gap:6,alignItems:"center"}}><span style={{fontSize:11,color:T.textMuted,whiteSpace:"nowrap"}}>🥤 Boisson :</span><input style={{flex:1,background:T.bg,border:"1px solid "+T.border,borderRadius:8,color:T.text,padding:"6px 10px",fontSize:13,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.4}} disabled={!canEdit} value={order.boisson||""} onChange={e=>handleSubDetail(name,"boisson",e.target.value)} placeholder={canEdit?"ex: eau, coca…":"🔒"} /></div>
+                            </>)}
+                            {order.choice==="libanais" && (<>
+                              <textarea style={{width:"100%",background:T.bg,border:"1px solid #16a34a66",borderRadius:8,color:T.text,padding:"8px 12px",fontSize:13,fontFamily:"'DM Sans',sans-serif",lineHeight:1.5,opacity:canEdit?1:0.4,resize:"none"}} rows={2} disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?"Précise ta commande…":"🔒"} />
+                              <div style={{display:"flex",gap:6,alignItems:"center"}}><span style={{fontSize:11,color:T.textMuted,whiteSpace:"nowrap"}}>🥤 Boisson :</span><input style={{flex:1,background:T.bg,border:"1px solid "+T.border,borderRadius:8,color:T.text,padding:"6px 10px",fontSize:13,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.4}} disabled={!canEdit} value={order.boisson||""} onChange={e=>handleSubDetail(name,"boisson",e.target.value)} placeholder={canEdit?"ex: eau, coca…":"🔒"} /></div>
+                            </>)}
+                            {order.choice==="snack-merode" && (<>
+                              <div style={{paddingBottom:8,marginBottom:8,borderBottom:"1px dashed "+T.border}}>
+                                <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",marginBottom:6}}>
+                                  {["Durum","Bicky"].map(opt=>(<button key={opt} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"snackType",order.snackType===opt?"":opt)} style={pill("#0891b2",order.snackType===opt,!canEdit)}>{opt}</button>))}
+                                  <input style={{flex:1,minWidth:80,background:T.bg,border:"1px solid #0891b266",borderRadius:8,color:T.text,padding:"6px 10px",fontSize:13,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.4}} disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?(order.snackType?"ex: falafel…":"Précise…"):"🔒"} />
+                                </div>
+                                <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:6}}>
+                                  <span style={{fontSize:11,color:T.textFaint,width:"100%"}}>🫙 Sauce snack :</span>
+                                  {sauces.map(s=>(<button key={s} disabled={!canEdit} onClick={()=>canEdit&&toggleMulti(name,"sauces",s)} style={pill("#7c3aed",(order.sauces||[]).includes(s),!canEdit)}>{s}</button>))}
+                                </div>
+                                {mealExtras.map(ex=>(<div key={ex.id} style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:5}}><span style={{fontSize:11,color:ex.accent,width:"100%",fontWeight:500}}>➕ {ex.label} :</span>{ex.options.map(o=>(<button key={o} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)} style={pill(ex.accent,((order.extras||{})[ex.id]||[]).includes(o),!canEdit)}>{o}</button>))}</div>))}
+                                <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:6}}>{["Frite dedans","Frite à part"].map(opt=>(<button key={opt} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"frites",order.frites===opt?"":opt)} style={pill("#f59e0b",order.frites===opt,!canEdit)}>{opt}</button>))}</div>
+                              </div>
+                              <div style={{paddingBottom:8,marginBottom:8,borderBottom:"1px dashed "+T.border}}>
+                                <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center",marginBottom:6}}>
+                                  <span style={{fontSize:11,color:T.textFaint,width:"100%"}}>🍟 Frite extra :</span>
+                                  {["Petite","Moyenne","Grande"].map(opt=>(<button key={opt} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"friteSup",order.friteSup===opt?"":opt)} style={pill("#f97316",order.friteSup===opt,!canEdit)}>{opt}</button>))}
+                                </div>
+                                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                                  <span style={{fontSize:11,color:T.textFaint,width:"100%"}}>🥣 Sauce frite :</span>
+                                  {sauces.map(s=>(<button key={s} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"sauceFrite",order.sauceFrite===s?"":s)} style={pill("#f59e0b",order.sauceFrite===s,!canEdit)}>{s}</button>))}
+                                </div>
+                              </div>
+                              <div style={{paddingBottom:8,marginBottom:8,borderBottom:"1px dashed "+T.border}}>
+                                <span style={{fontSize:11,color:T.textFaint,display:"block",marginBottom:5}}>🥗 Crudités :</span>
+                                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                                  <button disabled={!canEdit} onClick={()=>canEdit&&toggleCruditesTout(name)} style={{...pill("#16a34a",order.cruditesTout,!canEdit),fontWeight:600}}>Tout</button>
+                                  {crudites.map(c=>(<button key={c} disabled={!canEdit} onClick={()=>canEdit&&toggleMulti(name,"crudites",c)} style={pill("#16a34a",(order.crudites||[]).includes(c),!canEdit)}>{c}</button>))}
+                                </div>
+                              </div>
+                              <div>
+                                <span style={{fontSize:11,color:T.textFaint,display:"block",marginBottom:5}}>🥤 Boisson :</span>
+                                <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:5}}>{boissons.map(b=>(<button key={b} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"boisson",order.boisson===b?"":b)} style={pill("#06b6d4",order.boisson===b,!canEdit)}>{b}</button>))}</div>
+                                <input style={{flex:1,background:T.bg,border:"1px solid #06b6d466",borderRadius:8,color:T.text,padding:"6px 10px",fontSize:12,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.4,width:"100%"}} disabled={!canEdit} value={newBoissonInput[name]??(!boissons.includes(order.boisson||"")?(order.boisson||""):"")} onChange={e=>handleBoissonInput(name,e.target.value)} placeholder={canEdit?"Autre boisson…":"🔒"} />
+                              </div>
+                            </>)}
+                            {formatOrderFull(order,extras,crudites).length>0 && (
+                              <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:4}}>
+                                {formatOrderFull(order,extras,crudites).map((line,i)=>(<span key={i} style={{fontSize:11,color:T.textMuted,background:T.bg3,padding:"2px 8px",borderRadius:20}}>{line.emoji} {line.text}</span>))}
+                              </div>
+                            )}
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
                           </div>
                           {chosen && <span style={{ fontSize:11, color:chosen.accent }}>{chosen.label}</span>}
                         </div>
                         {user==="Admin" && <button style={{ background:"transparent", border:"none", color:theme.textFaint, fontSize:16, cursor:"pointer" }} onClick={()=>removeMember(name)}>✕</button>}
                       </div>
+<<<<<<< HEAD
                       {canEdit && (
                         <div style={{ display:"flex", gap:6, marginBottom:12, flexWrap:"wrap" }}>
                           {LUNCH_OPTIONS.map(opt=>(
@@ -911,6 +1463,118 @@ export default function App() {
               <button style={{ ...glassCard(theme), padding:"8px 16px", color:theme.red,
                 border:`1px solid ${theme.red}33`, cursor:"pointer", fontSize:13, display:"flex", alignItems:"center", gap:6 }}
                 onClick={resetAll}>🗑 Réinitialiser</button>
+=======
+                    );
+                  })}
+                </div>
+              )}
+              {!isMobile && (
+                <div style={{overflowX:"auto",borderRadius:14,border:"1px solid "+T.border}}>
+                  <table style={{width:"100%",borderCollapse:"collapse",minWidth:820}}>
+                    <thead>
+                      <tr>
+                        <th style={{...thS,width:50,textAlign:"center"}}>#</th>
+                        <th style={{...thS,width:160}}>Nom</th>
+                        {LUNCH_OPTIONS.map(o=><th key={o.id} style={thS}>{o.label}</th>)}
+                        <th style={thS}>Détails</th>
+                        <th style={{...thS,width:44}}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {names.map((name,idx)=>{
+                        const order=orders[name]||{};
+                        const chosen=LUNCH_OPTIONS.find(o=>o.id===order.choice);
+                        const canEdit=user===name||user==="Admin";
+                        const isMe=user===name;
+                        const mealExtras=extrasForMeal(order.choice);
+                        return (
+                          <tr key={name} className="datarow" style={isMe?{background:T.bg3}:{}}>
+                            <td style={{...tdS,textAlign:"center"}}><span style={{fontSize:13,fontWeight:700,color:isMe?"#f59e0b":T.textFaint}}>{idx+1}</span></td>
+                            <td style={tdS}>
+                              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                                <div style={{width:32,height:32,borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,flexShrink:0,background:chosen?chosen.accent+"28":T.bg3,color:chosen?chosen.accent:T.textMuted}}>{name[0].toUpperCase()}</div>
+                                <div><span style={{fontSize:14,fontWeight:isMe?700:500,color:isMe?"#f59e0b":T.text}}>{name}</span>{isMe&&<span style={{display:"block",fontSize:10,color:T.textFaint}}>● toi</span>}</div>
+                              </div>
+                            </td>
+                            {LUNCH_OPTIONS.map(opt=>(
+                              <td key={opt.id} style={{...tdS,textAlign:"center"}}>
+                                <button style={{width:34,height:34,borderRadius:8,border:"1px solid "+(order.choice===opt.id?opt.accent:T.border),background:order.choice===opt.id?opt.accent:T.bg3,color:order.choice===opt.id?"#fff":T.textMuted,fontSize:15,cursor:canEdit?"pointer":"not-allowed",transition:"all 0.18s",opacity:canEdit?1:0.35}} onClick={()=>canEdit&&toggleChoice(name,opt.id)}>
+                                  {order.choice===opt.id?"✓":"○"}
+                                </button>
+                              </td>
+                            ))}
+                            <td style={tdS}>
+                              {!order.choice&&<span style={{fontSize:12,color:T.textFaint}}>{canEdit?"Choisis d'abord":"🔒"}</span>}
+                              {order.choice==="ice-cream"&&(
+                                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                                  <div style={{display:"flex",gap:6}}>{["1 boule","2 boules"].map(opt=>(<button key={opt} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"boules",order.boules===opt?"":opt)} style={pill("#ec4899",order.boules===opt,!canEdit)}>{opt}</button>))}</div>
+                                  <textarea style={{width:"100%",background:T.bg,border:"1px solid #ec489966",borderRadius:8,color:T.text,padding:"8px 10px",fontSize:13,fontFamily:"'DM Sans',sans-serif",lineHeight:1.5,opacity:canEdit?1:0.35}} rows={1} disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?"Parfum(s)…":"🔒"} />
+                                  <div style={{padding:"6px 0",borderTop:"1px dashed "+T.border}}>
+                                    <span style={{fontSize:11,color:T.textFaint,display:"block",marginBottom:5}}>🥤 Boisson :</span>
+                                    <div style={{display:"flex",flexWrap:"wrap",gap:5}}>{boissons.map(b=>(<button key={b} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"boisson",order.boisson===b?"":b)} style={pill("#06b6d4",order.boisson===b,!canEdit)}>{b}</button>))}</div>
+                                  </div>
+                                  {mealExtras.map(ex=>(<div key={ex.id} style={{display:"flex",flexWrap:"wrap",gap:5}}><span style={{fontSize:12,color:T.textMuted,width:"100%"}}>{ex.label} :</span>{ex.options.map(o=>(<button key={o} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)} style={pill(ex.accent,((order.extras||{})[ex.id]||[]).includes(o),!canEdit)}>{o}</button>))}</div>))}
+                                </div>
+                              )}
+                              {order.choice==="snack-merode"&&(
+                                <div style={{display:"flex",flexDirection:"column",gap:0}}>
+                                  <div style={{padding:"8px 0",borderBottom:"1px dashed "+T.border}}>
+                                    <div style={{display:"flex",gap:6,flexWrap:"wrap",alignItems:"center",marginBottom:6}}>
+                                      {["Durum","Bicky"].map(opt=>(<button key={opt} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"snackType",order.snackType===opt?"":opt)} style={pill("#0891b2",order.snackType===opt,!canEdit)}>{opt}</button>))}
+                                      <input style={{flex:1,minWidth:80,background:T.bg,border:"1px solid #0891b266",borderRadius:8,color:T.text,padding:"4px 8px",fontSize:13,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.35}} disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?(order.snackType?"ex: falafel…":"Précise…"):"🔒"} />
+                                    </div>
+                                    <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:5}}>{["Frite dedans","Frite à part"].map(opt=>(<button key={opt} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"frites",order.frites===opt?"":opt)} style={pill("#f59e0b",order.frites===opt,!canEdit)}>{opt}</button>))}</div>
+                                    <div style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:5}}><span style={{fontSize:11,color:T.textFaint,width:"100%"}}>🫙 Sauce du snack :</span>{sauces.map(s=>(<button key={s} disabled={!canEdit} onClick={()=>canEdit&&toggleMulti(name,"sauces",s)} style={pill("#7c3aed",(order.sauces||[]).includes(s),!canEdit)}>{s}</button>))}</div>
+                                    {mealExtras.map(ex=>(<div key={ex.id} style={{display:"flex",flexWrap:"wrap",gap:5,marginTop:5}}><span style={{fontSize:11,color:ex.accent,width:"100%",fontWeight:500}}>➕ {ex.label} :</span>{ex.options.map(o=>(<button key={o} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)} style={pill(ex.accent,((order.extras||{})[ex.id]||[]).includes(o),!canEdit)}>{o}</button>))}</div>))}
+                                  </div>
+                                  <div style={{padding:"8px 0",borderBottom:"1px dashed "+T.border}}>
+                                    <span style={{fontSize:11,color:T.textFaint,display:"block",marginBottom:5}}>🍟 Frite extra :</span>
+                                    <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:5}}>{["Petite","Moyenne","Grande"].map(opt=>(<button key={opt} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"friteSup",order.friteSup===opt?"":opt)} style={pill("#f97316",order.friteSup===opt,!canEdit)}>{opt}</button>))}</div>
+                                    <div style={{display:"flex",flexWrap:"wrap",gap:5}}><span style={{fontSize:11,color:T.textFaint,width:"100%"}}>🥣 Sauce frite :</span>{sauces.map(s=>(<button key={s} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"sauceFrite",order.sauceFrite===s?"":s)} style={pill("#f59e0b",order.sauceFrite===s,!canEdit)}>{s}</button>))}</div>
+                                  </div>
+                                  <div style={{padding:"8px 0",borderBottom:"1px dashed "+T.border}}>
+                                    <span style={{fontSize:11,color:T.textFaint,display:"block",marginBottom:5}}>🥗 Crudités :</span>
+                                    <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                                      <button disabled={!canEdit} onClick={()=>canEdit&&toggleCruditesTout(name)} style={{...pill("#16a34a",order.cruditesTout,!canEdit),fontWeight:600}}>Tout</button>
+                                      {crudites.map(c=>(<button key={c} disabled={!canEdit} onClick={()=>canEdit&&toggleMulti(name,"crudites",c)} style={pill("#16a34a",(order.crudites||[]).includes(c),!canEdit)}>{c}</button>))}
+                                    </div>
+                                  </div>
+                                  <div style={{padding:"8px 0"}}>
+                                    <span style={{fontSize:11,color:T.textFaint,display:"block",marginBottom:5}}>🥤 Boisson :</span>
+                                    <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:5}}>{boissons.map(b=>(<button key={b} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"boisson",order.boisson===b?"":b)} style={pill("#06b6d4",order.boisson===b,!canEdit)}>{b}</button>))}</div>
+                                    <input style={{width:"100%",background:T.bg,border:"1px solid #06b6d466",borderRadius:8,color:T.text,padding:"4px 8px",fontSize:12,fontFamily:"'DM Sans',sans-serif",opacity:canEdit?1:0.35}} disabled={!canEdit} value={!boissons.includes(order.boisson||"")?(order.boisson||""):""} onChange={e=>handleSubDetail(name,"boisson",e.target.value)} placeholder={canEdit?"Autre boisson…":"🔒"} />
+                                  </div>
+                                </div>
+                              )}
+                              {order.choice==="libanais"&&(
+                                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                                  <textarea style={{width:"100%",background:T.bg,border:"1px solid #16a34a66",borderRadius:8,color:T.text,padding:"8px 10px",fontSize:13,fontFamily:"'DM Sans',sans-serif",lineHeight:1.5,opacity:canEdit?1:0.35}} rows={2} disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder={canEdit?"Précise ta commande…":"🔒"} />
+                                  <div style={{padding:"6px 0",borderTop:"1px dashed "+T.border}}>
+                                    <span style={{fontSize:11,color:T.textFaint,display:"block",marginBottom:5}}>🥤 Boisson :</span>
+                                    <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:5}}>{boissons.map(b=>(<button key={b} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"boisson",order.boisson===b?"":b)} style={pill("#06b6d4",order.boisson===b,!canEdit)}>{b}</button>))}</div>
+                                  </div>
+                                  {mealExtras.map(ex=>(<div key={ex.id} style={{display:"flex",flexWrap:"wrap",gap:5}}><span style={{fontSize:12,color:T.textMuted,width:"100%"}}>{ex.label} :</span>{ex.options.map(o=>(<button key={o} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)} style={pill(ex.accent,((order.extras||{})[ex.id]||[]).includes(o),!canEdit)}>{o}</button>))}</div>))}
+                                </div>
+                              )}
+                            </td>
+                            <td style={{...tdS,textAlign:"center"}}>{user==="Admin"&&<button style={{background:"transparent",border:"none",color:T.textFaint,fontSize:16,cursor:"pointer",padding:4}} onClick={()=>removeMember(name)}>✕</button>}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {tab==="summary"&&(
+          <div style={{animation:"slideDown 0.3s ease"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+              <h2 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:18,color:T.text}}>Résumé des commandes</h2>
+              <button style={{background:T.bg2,color:"#f87171",border:"1px solid "+T.border,borderRadius:10,padding:"8px 16px",fontSize:13,cursor:"pointer"}} onClick={resetAll}>🗑 Réinitialiser le jour</button>
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
             </div>
 
             {/* Count cards */}
@@ -932,6 +1596,7 @@ export default function App() {
                 if(!people.length)return null;
                 const paidCount=people.filter(n=>payments[n]).length;
                 return (
+<<<<<<< HEAD
                   <div key={opt.id} style={{ ...glassCard(theme), border:`1px solid ${opt.accent}44`, overflow:"hidden" }}>
                     <div style={{ padding:"12px 20px", background:opt.glow, borderBottom:`1px solid ${opt.accent}33`,
                       display:"flex", alignItems:"center", justifyContent:"space-between" }}>
@@ -964,6 +1629,26 @@ export default function App() {
                           <div style={{ paddingLeft:30 }}>
                             <OrderPills order={orders[name]}/>
                           </div>
+=======
+                  <div key={opt.id} style={{background:T.bg2,border:"1px solid "+T.border,borderLeft:"3px solid "+opt.accent,borderRadius:12,padding:"16px 20px"}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                      <h3 style={{fontSize:14,fontWeight:700,color:opt.accent,fontFamily:"'Syne',sans-serif"}}>{opt.label}</h3>
+                      <span style={{fontSize:12,color:paidCount===people.length?"#22c55e":T.textMuted}}>💰 {paidCount}/{people.length} payé{paidCount>1?"s":""}</span>
+                    </div>
+                    {people.map((name,idx)=>{
+                      const paid=payments[name]||false;
+                      const lines=formatOrderFull(orders[name],extras,crudites);
+                      return (
+                        <div key={name} style={{padding:"10px 0",borderBottom:"1px solid "+T.border2,opacity:paid?0.6:1,transition:"opacity 0.2s"}}>
+                          <div style={{display:"flex",gap:12,alignItems:"center",marginBottom:lines.length?6:0}}>
+                            <span style={{fontSize:12,fontWeight:700,color:T.textFaint,minWidth:24,textAlign:"right"}}>{idx+1}.</span>
+                            <span style={{fontSize:13,fontWeight:600,color:T.text,textDecoration:paid?"line-through":"none",flex:1}}>{name}</span>
+                            <button onClick={()=>togglePayment(name)} style={{background:paid?"#22c55e22":"transparent",border:"1px solid "+(paid?"#22c55e55":T.border),borderRadius:8,padding:"3px 10px",fontSize:12,cursor:"pointer",color:paid?"#22c55e":T.textMuted,whiteSpace:"nowrap",flexShrink:0,transition:"all 0.2s"}}>{paid?"✓ Payé":"À payer"}</button>
+                            {name===user&&<button style={{background:"transparent",border:"1px solid "+T.border,fontSize:13,cursor:"pointer",padding:"3px 8px",color:T.textMuted,borderRadius:8,flexShrink:0,whiteSpace:"nowrap"}} onClick={()=>setShowFavModal(true)}>⭐ Sauvegarder</button>}
+                          </div>
+                          {lines.length>0 && <div style={{display:"flex",flexWrap:"wrap",gap:4,paddingLeft:36}}>{lines.map((line,i)=>(<span key={i} style={{fontSize:12,color:T.textMuted,background:T.bg3,padding:"2px 8px",borderRadius:20,display:"inline-flex",alignItems:"center",gap:4}}><span>{line.emoji}</span><span>{line.text}</span></span>))}</div>}
+                          {lines.length===0 && <span style={{fontSize:12,color:T.textFaint,paddingLeft:36}}><em>Aucun détail</em></span>}
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
                         </div>
                       );
                     })}
@@ -988,6 +1673,7 @@ export default function App() {
                 ))}
               </div>
             )}
+<<<<<<< HEAD
 
             {/* Save modal */}
             {showFavModal && (
@@ -1005,10 +1691,22 @@ export default function App() {
                     <button style={{ ...addBtn, flex:1 }} onClick={()=>saveFavorite(user)}>Sauvegarder</button>
                     <button style={{ background:"transparent", border:`1px solid ${theme.border}`, color:theme.textSub, borderRadius:10, padding:"10px 16px", fontSize:13, cursor:"pointer" }}
                       onClick={()=>setShowFavModal(false)}>Annuler</button>
+=======
+            {showFavModal && (
+              <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:999}} onClick={e=>e.target===e.currentTarget&&setShowFavModal(false)}>
+                <div style={{background:T.bg2,border:"1px solid "+T.border,borderRadius:16,padding:"24px",width:320,boxShadow:"0 24px 80px rgba(0,0,0,.4)"}}>
+                  <h3 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:16,color:T.text,marginBottom:6}}>⭐ Sauvegarder ce favori</h3>
+                  <p style={{fontSize:12,color:T.textMuted,marginBottom:16}}>Donne un nom à cette commande pour la retrouver facilement.</p>
+                  <input autoFocus style={{width:"100%",background:T.bg,border:"1px solid "+T.border,borderRadius:10,color:T.text,padding:"10px 14px",fontSize:14,fontFamily:"'DM Sans',sans-serif",marginBottom:12}} value={favNameInput} onChange={e=>setFavNameInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveFavorite(user)} placeholder="ex: Durum falafel habituel…" />
+                  <div style={{display:"flex",gap:8}}>
+                    <button style={{flex:1,background:T.text,color:T.bg,border:"none",borderRadius:10,padding:"10px",fontSize:14,fontWeight:700,cursor:"pointer",fontFamily:"'Syne',sans-serif"}} onClick={()=>saveFavorite(user)}>Sauvegarder</button>
+                    <button style={{background:"transparent",border:"1px solid "+T.border,color:T.textMuted,borderRadius:10,padding:"10px 16px",fontSize:13,cursor:"pointer"}} onClick={()=>setShowFavModal(false)}>Annuler</button>
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
                   </div>
                 </div>
               </div>
             )}
+<<<<<<< HEAD
 
             {savedMsg && (
               <div style={{ position:"fixed", bottom:32, left:"50%", transform:"translateX(-50%)",
@@ -1059,6 +1757,33 @@ export default function App() {
                             background:isActive?`${theme.red}11`:opt?.glow,
                             border:`1px solid ${isActive?`${theme.red}44`:opt?.accent+"44"}`,
                             color:isActive?theme.red:opt?.accent, fontWeight:600 }}
+=======
+            {savedMsg&&<div style={{position:"fixed",bottom:32,left:"50%",transform:"translateX(-50%)",background:T.bg2,border:"1px solid #f59e0b55",color:"#f59e0b",borderRadius:12,padding:"12px 24px",fontSize:14,animation:"toastIn 0.3s ease",zIndex:999}}>⭐ Commande sauvegardée comme favori !</div>}
+          </div>
+        )}
+
+        {tab==="favorites"&&(
+          <div style={{animation:"slideDown 0.3s ease"}}>
+            <h2 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:18,marginBottom:24,color:T.text}}>⭐ Commandes favorites</h2>
+            {user!=="Admin"&&(
+              (favorites[user]||[]).length===0?(
+                <div style={{textAlign:"center",color:T.textFaint,padding:60}}><div style={{fontSize:40,marginBottom:12}}>⭐</div><p>Tu n'as pas encore de favori.</p><p style={{fontSize:13,marginTop:8}}>Dans l'onglet Résumé, clique sur "⭐ Sauvegarder" à côté de ta commande.</p></div>
+              ):(
+                <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                  {(favorites[user]||[]).map(fav=>{
+                    const {id:favId,name:favName,...favOrder}=fav;
+                    const opt=LUNCH_OPTIONS.find(o=>o.id===favOrder.choice);
+                    const currentOrder=orders[user];
+                    const isActive=currentOrder?.choice===favOrder.choice&&formatOrder(currentOrder,extras,crudites)===formatOrder(favOrder,extras,crudites);
+                    return (
+                      <div key={favId} style={{background:T.bg2,border:"2px solid "+(isActive?opt?.accent:T.border),borderRadius:14,padding:"16px 20px",transition:"all 0.2s"}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:14,fontWeight:700,color:T.text}}>{favName}</span><span style={{fontSize:12,color:opt?.accent}}>{opt?.label}</span>{isActive&&<span style={{fontSize:10,background:opt?.accent+"33",color:opt?.accent,padding:"1px 8px",borderRadius:10}}>✓ Actif</span>}</div>
+                          <button style={{background:"transparent",border:"none",color:"#f87171",cursor:"pointer",fontSize:15,padding:4}} onClick={async()=>{if(window.confirm(`Supprimer "${favName}" ?`))await deleteFavorite(user,favId);}}>🗑</button>
+                        </div>
+                        <div style={{fontSize:12,color:T.textMuted,marginBottom:12,lineHeight:1.5}}>{formatOrder(favOrder,extras,crudites)||<em>Aucun détail</em>}</div>
+                        <button style={{background:isActive?"#f8717122":opt?.accent+"22",border:"1px solid "+(isActive?"#f8717155":opt?.accent+"55"),color:isActive?"#f87171":opt?.accent,borderRadius:8,padding:"6px 16px",fontSize:13,cursor:"pointer",width:"100%"}}
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
                           onClick={async()=>{ if(isActive){await deleteDoc(doc(db,"orders",user));}else{await setDoc(doc(db,"orders",user),{...favOrder});setTab("order");} }}>
                           {isActive?"✕ Effacer ma commande":"↩ Commander ça maintenant"}
                         </button>
@@ -1068,6 +1793,7 @@ export default function App() {
                 </div>
               )
             )}
+<<<<<<< HEAD
             {user==="Admin" && (
               Object.keys(favorites).length===0 ? (
                 <div style={{ ...glassCard(theme), padding:"48px", textAlign:"center", color:theme.textFaint }}>Aucun favori enregistré.</div>
@@ -1097,15 +1823,40 @@ export default function App() {
                             </div>
                           );
                         })}
+=======
+            {user==="Admin"&&(Object.keys(favorites).length===0?<p style={{color:T.textFaint,textAlign:"center",padding:48}}>Aucun favori enregistré.</p>:(
+              <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                {Object.entries(favorites).map(([username,favList])=>{
+                  if(!favList?.length)return null;
+                  return (
+                    <div key={username} style={{background:T.bg2,border:"1px solid "+T.border,borderRadius:12,padding:"16px 20px"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
+                        <div style={{width:28,height:28,borderRadius:6,background:T.bg3,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:T.textMuted}}>{username[0].toUpperCase()}</div>
+                        <span style={{fontSize:14,fontWeight:600,color:T.text}}>{username}</span>
+                        <span style={{fontSize:12,color:T.textMuted}}>{favList.length} favori{favList.length>1?"s":""}</span>
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
                       </div>
-                    );
-                  })}
-                </div>
-              )
-            )}
+                      {favList.map(fav=>{
+                        const {id:favId,name:favName,...favOrder}=fav;
+                        const opt=LUNCH_OPTIONS.find(o=>o.id===favOrder.choice);
+                        return (
+                          <div key={favId} style={{display:"flex",gap:12,alignItems:"center",padding:"8px 0",borderBottom:"1px solid "+T.border2}}>
+                            <span style={{fontSize:12,color:opt?.accent,minWidth:16}}>●</span>
+                            <span style={{fontSize:13,fontWeight:600,color:T.text,minWidth:120}}>{favName}</span>
+                            <span style={{fontSize:12,color:T.textMuted,flex:1}}>{formatOrder(favOrder,extras,crudites)||<em style={{opacity:0.4}}>Aucun détail</em>}</span>
+                            <button style={{background:"transparent",border:"none",color:T.textFaint,cursor:"pointer",fontSize:14,padding:4}} onClick={async()=>{if(window.confirm(`Supprimer "${favName}" de ${username} ?`))await deleteFavorite(username,favId);}}>🗑</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
           </div>
         )}
 
+<<<<<<< HEAD
         {/* ════ HISTORY TAB ════ */}
         {tab==="history" && (
           <div style={{ animation:"slideDown 0.3s ease" }}>
@@ -1116,10 +1867,17 @@ export default function App() {
                 <p>Aucun historique pour l'instant.</p>
               </div>
             )}
+=======
+        {tab==="history"&&(
+          <div style={{animation:"slideDown 0.3s ease"}}>
+            <h2 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:18,marginBottom:24,color:T.text}}>📅 Historique des commandes</h2>
+            {history.length===0&&<p style={{color:T.textFaint,textAlign:"center",padding:48}}>Aucun historique pour l'instant.</p>}
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
             {history.map(day=>{
               const visibleOrders=user==="Admin"?Object.entries(day.orders||{}):Object.entries(day.orders||{}).filter(([n])=>n===user);
               if(!visibleOrders.length)return null;
               return (
+<<<<<<< HEAD
                 <div key={day.id} style={{ ...glassCard(theme), marginBottom:14, overflow:"hidden" }}>
                   <div style={{ padding:"12px 20px", background:theme.bgSection, borderBottom:`1px solid ${theme.border}`,
                     display:"flex", alignItems:"center", justifyContent:"space-between" }}>
@@ -1139,6 +1897,18 @@ export default function App() {
                             onClick={()=>deleteHistory(day.id)}>🗑 Supprimer</button>
                         </>
                       )}
+=======
+                <div key={day.id} style={{background:T.bg2,border:"1px solid "+T.border,borderRadius:14,padding:"20px 24px",marginBottom:16}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+                    <h3 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:16,color:T.text}}>📆 {new Date(day.id).toLocaleDateString("fr-BE",{weekday:"long",day:"numeric",month:"long",year:"numeric"})}</h3>
+                    <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                      <span style={{background:T.bg3,color:T.textMuted,fontSize:12,padding:"3px 10px",borderRadius:20}}>{visibleOrders.length} commande{visibleOrders.length>1?"s":""}</span>
+                      {user==="Admin"&&(<>
+                        <button style={{background:"transparent",border:"1px solid #22c55e55",color:"#22c55e",borderRadius:8,padding:"4px 10px",fontSize:12,cursor:"pointer"}}
+                          onClick={async()=>{ if(!window.confirm("Restaurer ces commandes comme commandes du jour ?"))return; await Promise.all(Object.entries(day.orders||{}).map(([name,order])=>setDoc(doc(db,"orders",name),order))); if(day.payments)await setDoc(doc(db,"payments","today"),day.payments); }}>↩ Restaurer</button>
+                        <button style={{background:"transparent",border:"1px solid #f8717155",color:"#f87171",borderRadius:8,padding:"4px 10px",fontSize:12,cursor:"pointer"}} onClick={()=>deleteHistory(day.id)}>🗑 Supprimer</button>
+                      </>)}
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
                     </div>
                   </div>
                   {LUNCH_OPTIONS.map(opt=>{
@@ -1150,6 +1920,7 @@ export default function App() {
                         {people.map(([name,o],idx)=>{
                           const paid=(day.payments||{})[name]||false;
                           return (
+<<<<<<< HEAD
                             <div key={name} style={{ display:"flex", gap:10, alignItems:"flex-start", padding:"6px 0", borderBottom:`1px solid ${theme.borderSub}` }}>
                               <span style={{ fontSize:11, fontWeight:700, color:theme.textFaint, minWidth:20, textAlign:"right", marginTop:2 }}>{idx+1}.</span>
                               <div style={{ flex:1 }}>
@@ -1161,6 +1932,13 @@ export default function App() {
                                 color:paid?theme.green:theme.textFaint }}>
                                 {paid?"✓ Payé":"Non payé"}
                               </span>
+=======
+                            <div key={name} style={{display:"flex",gap:12,padding:"5px 0",borderBottom:"1px solid "+T.border2,alignItems:"center"}}>
+                              <span style={{fontSize:12,fontWeight:700,color:T.textFaint,minWidth:24,textAlign:"right"}}>{idx+1}.</span>
+                              <span style={{fontSize:13,fontWeight:600,minWidth:120,color:T.text,textDecoration:paid?"line-through":"none"}}>{name}</span>
+                              <span style={{fontSize:13,color:T.textMuted,flex:1}}>{formatOrder(o,extras)||<em style={{opacity:0.4}}>Aucun détail</em>}</span>
+                              <span style={{fontSize:12,padding:"2px 8px",borderRadius:20,background:paid?"#22c55e22":"#f8717122",color:paid?"#22c55e":"#f87171",flexShrink:0}}>{paid?"✓ Payé":"Non payé"}</span>
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
                             </div>
                           );
                         })}
@@ -1173,6 +1951,7 @@ export default function App() {
           </div>
         )}
 
+<<<<<<< HEAD
         {/* ════ CONFIG TAB ════ */}
         {tab==="settings" && (
           <div style={{ animation:"slideDown 0.3s ease" }}>
@@ -1190,6 +1969,17 @@ export default function App() {
                   <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
                     <input style={{ ...inp, flex:2, minWidth:140 }} value={newMemberName} onChange={e=>setNewMemberName(e.target.value)} placeholder="Nom…"/>
                     <input style={{ ...inp, flex:1, minWidth:100 }} value={newMemberCode} onChange={e=>setNewMemberCode(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addMember()} placeholder="Code…"/>
+=======
+        {tab==="settings"&&(
+          <div style={{animation:"slideDown 0.3s ease"}}>
+            {user!=="Admin"?<div style={{textAlign:"center",color:T.textFaint,padding:60}}>🔒 Réservé à l'Admin</div>:(
+              <div>
+                <div style={{marginBottom:40}}>
+                  <h2 style={secTitle}>👥 Gérer les membres</h2>
+                  <div style={{display:"flex",gap:10,marginBottom:20,flexWrap:"wrap"}}>
+                    <input style={{...inp,flex:2,minWidth:140}} value={newMemberName} onChange={e=>setNewMemberName(e.target.value)} placeholder="Nom…" />
+                    <input style={{...inp,flex:1,minWidth:100}} value={newMemberCode} onChange={e=>setNewMemberCode(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addMember()} placeholder="Code…" />
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
                     <button style={addBtn} onClick={addMember}>+ Ajouter</button>
                   </div>
                   <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
@@ -1202,6 +1992,7 @@ export default function App() {
                             <button style={{ ...addBtn, padding:"6px 14px", fontSize:13, background:`linear-gradient(135deg, ${theme.green}, #16a34a)` }} onClick={saveEdit}>✓ Sauver</button>
                             <button style={{ background:"transparent", border:`1px solid ${theme.border}`, color:theme.textSub, borderRadius:8, padding:"6px 12px", fontSize:13, cursor:"pointer" }} onClick={()=>setEditingMember(null)}>Annuler</button>
                           </div>
+<<<<<<< HEAD
                         ) : (
                           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
                             <div style={{ display:"flex", alignItems:"center", gap:12 }}>
@@ -1210,6 +2001,13 @@ export default function App() {
                                 <span style={{ fontSize:14, fontWeight:500, color:theme.text }}>{m.username}</span>
                                 <span style={{ marginLeft:10, fontSize:12, color:theme.textSub, background:theme.bgInput, border:`1px solid ${theme.border}`, padding:"1px 8px", borderRadius:20 }}>code : {m.code}</span>
                               </div>
+=======
+                        ):(
+                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                            <div style={{display:"flex",alignItems:"center",gap:12}}>
+                              <div style={{width:32,height:32,borderRadius:8,background:T.bg3,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:T.textMuted}}>{m.username[0].toUpperCase()}</div>
+                              <div><span style={{fontSize:14,fontWeight:500,color:T.text}}>{m.username}</span><span style={{marginLeft:12,fontSize:12,color:T.textMuted,background:T.bg3,padding:"2px 8px",borderRadius:20}}>code : {m.code}</span></div>
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
                             </div>
                             <div style={{ display:"flex", gap:8 }}>
                               <button style={{ background:"transparent", border:`1px solid ${theme.border}`, color:theme.textSub, borderRadius:8, padding:"4px 10px", fontSize:12, cursor:"pointer" }} onClick={()=>setEditingMember({...m})}>✏️</button>
@@ -1221,6 +2019,7 @@ export default function App() {
                     ))}
                   </div>
                 </div>
+<<<<<<< HEAD
 
                 {/* Sauces */}
                 {[
@@ -1287,11 +2086,50 @@ export default function App() {
                           onKeyDown={e=>e.key==="Enter"&&addExtraOption(ex.id)}
                           placeholder={`Nouvelle option…`}/>
                         <button style={{ ...addBtn, padding:"6px 14px", fontSize:13 }} onClick={()=>addExtraOption(ex.id)}>+ Ajouter</button>
+=======
+                {[["🥫 Gérer les sauces",sauces,newSauce,setNewSauce,addSauce,removeSauce,"Nouvelle sauce…","#7c3aed"],["🥗 Gérer les crudités",crudites,newCrudite,setNewCrudite,addCrudite,removeCrudite,"Nouvelle crudité…","#16a34a"],["🥤 Gérer les boissons",boissons,newBoisson,setNewBoisson,addBoisson,removeBoisson,"Nouvelle boisson…","#06b6d4"]].map(([title,list,val,setVal,addFn,removeFn,ph,color])=>(
+                  <div key={title} style={{marginBottom:40}}>
+                    <h2 style={secTitle}>{title}</h2>
+                    <div style={{display:"flex",gap:10,marginBottom:20}}>
+                      <input style={{...inp,flex:1}} value={val} onChange={e=>setVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addFn()} placeholder={ph} />
+                      <button style={addBtn} onClick={addFn}>+ Ajouter</button>
+                    </div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                      {list.map(s=>(<div key={s} style={{background:T.bg2,border:"1px solid "+color+"44",borderRadius:20,padding:"5px 12px",display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:13,color:T.text}}>{s}</span><button style={{background:"none",border:"none",color:"#f87171",cursor:"pointer",fontSize:14,padding:"0 0 0 6px"}} onClick={()=>removeFn(s)}>✕</button></div>))}
+                    </div>
+                  </div>
+                ))}
+                <div style={{marginBottom:40}}>
+                  <h2 style={secTitle}>➕ Catégories personnalisées</h2>
+                  <div style={{background:T.bg2,border:"1px solid "+T.border,borderRadius:12,padding:"16px 20px",marginBottom:20}}>
+                    <p style={{fontSize:13,color:T.textMuted,marginBottom:12}}>Nouvelle catégorie</p>
+                    <input style={{...inp,marginBottom:12}} value={newExtraLabel} onChange={e=>setNewExtraLabel(e.target.value)} placeholder="Nom de la catégorie (ex: Toppings, Dips…)" />
+                    <div style={{marginBottom:12}}>
+                      <p style={{fontSize:12,color:T.textMuted,marginBottom:8}}>Applicable à :</p>
+                      <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                        {LUNCH_OPTIONS.map(opt=>(<button key={opt.id} onClick={()=>toggleExtraApplies(opt.id)} style={{...pill(opt.accent,newExtraApplies.includes(opt.id),false),padding:"5px 14px",fontSize:13}}>{opt.label}</button>))}
+                      </div>
+                    </div>
+                    <button style={{...addBtn,background:newExtraLabel&&newExtraApplies.length?T.text:"#444",cursor:newExtraLabel&&newExtraApplies.length?"pointer":"not-allowed"}} onClick={addExtraCategory}>+ Créer la catégorie</button>
+                  </div>
+                  {extras.length===0&&<p style={{color:T.textFaint,fontSize:13}}>Aucune catégorie personnalisée pour l'instant.</p>}
+                  {extras.map(ex=>(
+                    <div key={ex.id} style={{background:T.bg2,border:"1px solid "+T.border,borderLeft:"3px solid "+ex.accent,borderRadius:12,padding:"16px 20px",marginBottom:12}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+                        <div><span style={{fontSize:15,fontWeight:700,color:T.text}}>{ex.label}</span><span style={{marginLeft:10,fontSize:12,color:T.textMuted}}>→ {ex.appliesTo.map(id=>LUNCH_OPTIONS.find(o=>o.id===id)?.label).join(", ")}</span></div>
+                        <button style={{background:"transparent",border:"1px solid #f8717155",color:"#f87171",borderRadius:8,padding:"4px 10px",fontSize:12,cursor:"pointer"}} onClick={()=>removeExtraCategory(ex.id)}>🗑 Supprimer</button>
+                      </div>
+                      <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:10}}>
+                        {ex.options.map(o=>(<div key={o} style={{background:T.bg3,border:"1px solid "+T.border,borderRadius:20,padding:"4px 12px",display:"flex",alignItems:"center",gap:4}}><span style={{fontSize:13,color:T.text}}>{o}</span><button style={{background:"none",border:"none",color:"#f87171",cursor:"pointer",fontSize:13,padding:"0 0 0 4px"}} onClick={()=>removeExtraOption(ex.id,o)}>✕</button></div>))}
+                      </div>
+                      <div style={{display:"flex",gap:8}}>
+                        <input style={{...inp,flex:1,padding:"6px 12px",fontSize:13}} value={newExtraOption[ex.id]||""} onChange={e=>setNewExtraOption(prev=>({...prev,[ex.id]:e.target.value}))} onKeyDown={e=>e.key==="Enter"&&addExtraOption(ex.id)} placeholder={`Nouvelle option pour "${ex.label}"…`} />
+                        <button style={{...addBtn,padding:"6px 14px",fontSize:13}} onClick={()=>addExtraOption(ex.id)}>+ Ajouter</button>
+>>>>>>> e2952baf39616b632e3501ef076ef4a59de0d45c
                       </div>
                     </div>
                   ))}
                 </div>
-
               </div>
             )}
           </div>
