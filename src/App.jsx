@@ -633,67 +633,90 @@ export default function App() {
 
       {/* ── Sidebar ── */}
       {!isMobile && (
-        <aside style={{width:200,background:`linear-gradient(180deg, ${T.sidebarBg||T.sidebar} 0%, ${T.sidebar} 100%)`,
-          display:"flex",flexDirection:"column",position:"sticky",top:0,height:"100vh",flexShrink:0}}>
+        <aside style={{width:72,background:`linear-gradient(180deg, ${T.sidebarBg||T.sidebar} 0%, ${T.sidebar} 100%)`,
+          display:"flex",flexDirection:"column",position:"sticky",top:0,height:"100vh",flexShrink:0,
+          zIndex:10}}>
+
           {/* Logo */}
-          <div style={{padding:"24px 16px 16px",borderBottom:`1px solid ${T.sidebarBorder||"rgba(255,252,245,0.12)"}`}}>
-            <div style={{display:"flex",alignItems:"center",gap:10}}>
-              <div style={{width:40,height:40,borderRadius:12,background:"rgba(255,252,245,0.18)",
-                display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>🍽️</div>
-              <div>
-                <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,
-                  color:"#fff",letterSpacing:"-0.2px",lineHeight:1.1}}>LUNCH</div>
-                <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,
-                  color:"rgba(255,252,245,0.7)",letterSpacing:"-0.2px",lineHeight:1.1}}>ORDERS</div>
-              </div>
+          <div style={{padding:"20px 0 16px",display:"flex",flexDirection:"column",alignItems:"center",
+            borderBottom:`1px solid rgba(255,252,245,0.12)`,marginBottom:8}}>
+            <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:11,
+              color:"#fff",letterSpacing:"0.5px",lineHeight:1.2,textAlign:"center"}}>
+              <div>LUNCH</div>
+              <div style={{opacity:0.6}}>ORD</div>
             </div>
           </div>
 
           {/* Nav */}
-          <nav style={{flex:1,padding:"12px 8px"}}>
-            {navItems.map(item=>(
-              <button key={item.id} className={`nav-item${tab===item.id?" active":""}`}
-                onClick={()=>setTab(item.id)}
-                style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"9px 12px",
-                  borderRadius:10,border:"none",cursor:"pointer",
-                  background:tab===item.id?"rgba(255,252,245,0.18)":"transparent",
-                  color:tab===item.id?"#fff":"rgba(255,252,245,0.65)",
-                  fontSize:13,fontWeight:tab===item.id?600:400,
-                  fontFamily:"'DM Sans',sans-serif",textAlign:"left",marginBottom:2}}>
-                <span style={{fontSize:15,opacity:tab===item.id?1:0.8}}>{item.icon}</span>
-                {item.label}
-                {tab===item.id && (
-                  <span style={{marginLeft:"auto",width:5,height:5,borderRadius:"50%",background:"#fff",opacity:0.8}}/>
-                )}
-              </button>
-            ))}
+          <nav style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",padding:"4px 0",gap:2}}>
+            {navItems.map(item=>{
+              const isActive = tab===item.id;
+              return (
+                <div key={item.id} style={{width:"100%",position:"relative",display:"flex",alignItems:"center",justifyContent:"flex-end"}}>
+                  {/* White sliding tab */}
+                  {isActive && (
+                    <div style={{
+                      position:"absolute",
+                      right:0,
+                      width:52,
+                      height:52,
+                      background:T.bgCard,
+                      borderRadius:"12px 0 0 12px",
+                      zIndex:1,
+                      // notch effect top
+                      boxShadow:`4px 0 0 0 ${T.bgCard}`,
+                    }}>
+                      {/* top notch */}
+                      <div style={{position:"absolute",top:-16,right:0,width:16,height:16,
+                        background:"transparent",
+                        boxShadow:`8px 8px 0 8px ${T.bgCard}`,
+                        borderRadius:"0 0 12px 0"}}/>
+                      {/* bottom notch */}
+                      <div style={{position:"absolute",bottom:-16,right:0,width:16,height:16,
+                        background:"transparent",
+                        boxShadow:`8px -8px 0 8px ${T.bgCard}`,
+                        borderRadius:"0 12px 0 0"}}/>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={()=>setTab(item.id)}
+                    style={{
+                      position:"relative", zIndex:2,
+                      width:52, height:52,
+                      display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
+                      gap:2, border:"none", cursor:"pointer",
+                      background:"transparent",
+                      borderRadius: isActive ? "12px 0 0 12px" : "10px",
+                      color: isActive ? T.accent : "rgba(255,252,245,0.65)",
+                      transition:"color 0.2s",
+                    }}
+                    title={item.label}
+                  >
+                    <span style={{fontSize:18,lineHeight:1}}>{item.icon}</span>
+                    <span style={{fontSize:8,fontWeight:600,opacity:0.8,fontFamily:"'DM Sans',sans-serif",
+                      letterSpacing:"0.02em"}}>{item.label.slice(0,3).toUpperCase()}</span>
+                  </button>
+                </div>
+              );
+            })}
           </nav>
 
-          {/* User + status */}
-          <div style={{padding:"14px",borderTop:`1px solid ${T.sidebarBorder||"rgba(255,252,245,0.12)"}`}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-              <Avatar name={user} size={30}/>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:12,fontWeight:600,color:"#fff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{user}</div>
-                <div style={{fontSize:10,color:"rgba(255,252,245,0.55)",display:"flex",alignItems:"center",gap:4}}>
-                  <span style={{width:5,height:5,borderRadius:"50%",
-                    background:status==="live"?"#6fcf97":status==="error"?"#eb5757":"#f2994a",
-                    display:"inline-block"}}/>
-                  {status==="live"?"En direct":"…"}
-                </div>
-              </div>
-            </div>
-            <div style={{display:"flex",gap:5}}>
+          {/* User */}
+          <div style={{padding:"12px 0 16px",display:"flex",flexDirection:"column",alignItems:"center",gap:8,
+            borderTop:`1px solid rgba(255,252,245,0.12)`}}>
+            <Avatar name={user} size={28}/>
+            <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"center"}}>
               <button onClick={toggleTheme}
-                style={{flex:1,background:"rgba(255,252,245,0.12)",border:"none",borderRadius:7,
-                  padding:"6px",fontSize:13,cursor:"pointer",color:"#fff"}}>
+                style={{background:"rgba(255,252,245,0.12)",border:"none",borderRadius:7,
+                  padding:"4px 8px",fontSize:12,cursor:"pointer",color:"#fff"}}>
                 {isDark?"☀️":"🌙"}
               </button>
               <button onClick={()=>setUser(null)}
-                style={{flex:2,background:"rgba(255,252,245,0.12)",border:"none",borderRadius:7,
-                  padding:"6px 8px",fontSize:11,cursor:"pointer",color:"rgba(255,252,245,0.7)",
+                style={{background:"rgba(255,252,245,0.12)",border:"none",borderRadius:7,
+                  padding:"3px 6px",fontSize:9,cursor:"pointer",color:"rgba(255,252,245,0.7)",
                   fontFamily:"'DM Sans',sans-serif"}}>
-                Déconnexion
+                Exit
               </button>
             </div>
           </div>
