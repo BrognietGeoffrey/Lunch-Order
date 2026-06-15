@@ -732,7 +732,7 @@ export default function App() {
                   >
                     <span style={{fontSize:19,lineHeight:1}}>{item.icon}</span>
                     <span style={{fontSize:8,fontWeight:600,fontFamily:"'DM Sans',sans-serif",
-                      letterSpacing:"0.04em",opacity:0.8}}>{item.label.slice(0,3).toUpperCase()}</span>
+                      letterSpacing:"0.04em",opacity:0.8}}>{item.label}</span>
                   </button>
                 </div>
               );
