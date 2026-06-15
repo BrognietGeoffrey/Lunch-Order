@@ -41,9 +41,12 @@ const LUNCH_OPTIONS = [
 // ── Themes ────────────────────────────────────────────────────────────────────
 const LIGHT = {
   isDark: false,
-  sidebar:     "#2c1f0e",
-  sidebarText: "rgba(255,248,235,0.6)",
-  sidebarActive:"#f5efe6",
+  sidebar:      "#c4a882",
+  sidebarBg:    "#d4b896",
+  sidebarText:  "rgba(255,252,245,0.7)",
+  sidebarActive:"#ffffff",
+  sidebarHover: "rgba(255,252,245,0.15)",
+  sidebarBorder:"rgba(255,252,245,0.12)",
   bg:          "#f5f0e8",
   bgCard:      "#ffffff",
   bgHover:     "#faf7f2",
@@ -63,9 +66,12 @@ const LIGHT = {
 };
 const DARK = {
   isDark: true,
-  sidebar:     "#1a1208",
-  sidebarText: "rgba(245,239,230,0.5)",
+  sidebar:      "#2a1f14",
+  sidebarBg:    "#1e1610",
+  sidebarText:  "rgba(245,239,230,0.5)",
   sidebarActive:"#f5efe6",
+  sidebarHover: "rgba(245,239,230,0.06)",
+  sidebarBorder:"rgba(245,239,230,0.08)",
   bg:          "#0f0c08",
   bgCard:      "#1c1610",
   bgHover:     "#231c14",
@@ -152,12 +158,11 @@ const CSS = (T) => `
   @keyframes shake     { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 40%{transform:translateX(8px)} }
   @keyframes slideIn   { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
   @keyframes toastIn   { from{opacity:0;transform:translateX(-50%) translateY(12px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
-  .nav-item:hover { background: rgba(245,239,230,0.08) !important; }
-  .nav-item.active { background: rgba(245,239,230,0.15) !important; }
+  .nav-item { transition: background 0.15s, color 0.15s; }
+  .nav-item:hover { background: ${T.sidebarHover||"rgba(255,252,245,0.12)"} !important; color: #fff !important; }
+  .nav-item.active { background: rgba(255,252,245,0.18) !important; color: #fff !important; }
   .row-hover:hover { background: ${T.bgHover} !important; }
   .btn-ghost:hover { background: ${T.bgTag} !important; }
-  .accordion-card { transition: box-shadow 0.2s; }
-  .accordion-card:hover { box-shadow: ${T.shadowHover} !important; }
 `;
 
 // ── Components ────────────────────────────────────────────────────────────────
@@ -390,7 +395,7 @@ function LoginScreen({ onLogin, T, isDark, toggleTheme, members }) {
         animation:shake?"shake 0.5s":"fadeUp 0.5s both"}}>
 
         {/* Left panel */}
-        <div style={{width:280,background:T.sidebar,padding:48,display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
+        <div style={{width:280,background:`linear-gradient(180deg, ${T.sidebarBg||T.sidebar} 0%, ${T.sidebar} 100%)`,padding:48,display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
           <div>
             <div style={{width:48,height:48,borderRadius:14,background:"rgba(245,239,230,0.15)",
               display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,marginBottom:32}}>🍽️</div>
@@ -628,62 +633,66 @@ export default function App() {
 
       {/* ── Sidebar ── */}
       {!isMobile && (
-        <aside style={{width:220,background:T.sidebar,display:"flex",flexDirection:"column",
-          position:"sticky",top:0,height:"100vh",flexShrink:0}}>
+        <aside style={{width:200,background:`linear-gradient(180deg, ${T.sidebarBg||T.sidebar} 0%, ${T.sidebar} 100%)`,
+          display:"flex",flexDirection:"column",position:"sticky",top:0,height:"100vh",flexShrink:0}}>
           {/* Logo */}
-          <div style={{padding:"28px 20px 20px",borderBottom:"1px solid rgba(245,239,230,0.08)"}}>
+          <div style={{padding:"24px 16px 16px",borderBottom:`1px solid ${T.sidebarBorder||"rgba(255,252,245,0.12)"}`}}>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
-              <div style={{width:36,height:36,borderRadius:10,background:"rgba(245,239,230,0.12)",
-                display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>🍽️</div>
-              <span style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:16,
-                color:"#f5efe6",letterSpacing:"-0.3px"}}>Lunch Orders</span>
+              <div style={{width:40,height:40,borderRadius:12,background:"rgba(255,252,245,0.18)",
+                display:"flex",alignItems:"center",justifyContent:"center",fontSize:20}}>🍽️</div>
+              <div>
+                <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,
+                  color:"#fff",letterSpacing:"-0.2px",lineHeight:1.1}}>LUNCH</div>
+                <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:13,
+                  color:"rgba(255,252,245,0.7)",letterSpacing:"-0.2px",lineHeight:1.1}}>ORDERS</div>
+              </div>
             </div>
           </div>
 
           {/* Nav */}
-          <nav style={{flex:1,padding:"12px 10px"}}>
+          <nav style={{flex:1,padding:"12px 8px"}}>
             {navItems.map(item=>(
               <button key={item.id} className={`nav-item${tab===item.id?" active":""}`}
                 onClick={()=>setTab(item.id)}
-                style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"10px 12px",
+                style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"9px 12px",
                   borderRadius:10,border:"none",cursor:"pointer",
-                  background:tab===item.id?"rgba(245,239,230,0.15)":"transparent",
-                  color:tab===item.id?"#f5efe6":T.sidebarText,
+                  background:tab===item.id?"rgba(255,252,245,0.18)":"transparent",
+                  color:tab===item.id?"#fff":"rgba(255,252,245,0.65)",
                   fontSize:13,fontWeight:tab===item.id?600:400,
-                  fontFamily:"'DM Sans',sans-serif",textAlign:"left",marginBottom:2,
-                  transition:"all 0.15s"}}>
-                <span style={{fontSize:16}}>{item.icon}</span>
+                  fontFamily:"'DM Sans',sans-serif",textAlign:"left",marginBottom:2}}>
+                <span style={{fontSize:15,opacity:tab===item.id?1:0.8}}>{item.icon}</span>
                 {item.label}
                 {tab===item.id && (
-                  <span style={{marginLeft:"auto",width:4,height:4,borderRadius:"50%",background:"#f5efe6"}}/>
+                  <span style={{marginLeft:"auto",width:5,height:5,borderRadius:"50%",background:"#fff",opacity:0.8}}/>
                 )}
               </button>
             ))}
           </nav>
 
           {/* User + status */}
-          <div style={{padding:"16px",borderTop:"1px solid rgba(245,239,230,0.08)"}}>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-              <Avatar name={user} size={32}/>
+          <div style={{padding:"14px",borderTop:`1px solid ${T.sidebarBorder||"rgba(255,252,245,0.12)"}`}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+              <Avatar name={user} size={30}/>
               <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:600,color:"#f5efe6",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{user}</div>
-                <div style={{fontSize:11,color:T.sidebarText,display:"flex",alignItems:"center",gap:4}}>
+                <div style={{fontSize:12,fontWeight:600,color:"#fff",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{user}</div>
+                <div style={{fontSize:10,color:"rgba(255,252,245,0.55)",display:"flex",alignItems:"center",gap:4}}>
                   <span style={{width:5,height:5,borderRadius:"50%",
-                    background:status==="live"?"#5a8f7b":status==="error"?"#c0553a":"#c97a4a",
+                    background:status==="live"?"#6fcf97":status==="error"?"#eb5757":"#f2994a",
                     display:"inline-block"}}/>
                   {status==="live"?"En direct":"…"}
                 </div>
               </div>
             </div>
-            <div style={{display:"flex",gap:6}}>
+            <div style={{display:"flex",gap:5}}>
               <button onClick={toggleTheme}
-                style={{flex:1,background:"rgba(245,239,230,0.08)",border:"none",borderRadius:7,
-                  padding:"6px",fontSize:14,cursor:"pointer",color:"#f5efe6"}}>
+                style={{flex:1,background:"rgba(255,252,245,0.12)",border:"none",borderRadius:7,
+                  padding:"6px",fontSize:13,cursor:"pointer",color:"#fff"}}>
                 {isDark?"☀️":"🌙"}
               </button>
               <button onClick={()=>setUser(null)}
-                style={{flex:2,background:"rgba(245,239,230,0.08)",border:"none",borderRadius:7,
-                  padding:"6px 10px",fontSize:11,cursor:"pointer",color:T.sidebarText,fontFamily:"'DM Sans',sans-serif"}}>
+                style={{flex:2,background:"rgba(255,252,245,0.12)",border:"none",borderRadius:7,
+                  padding:"6px 8px",fontSize:11,cursor:"pointer",color:"rgba(255,252,245,0.7)",
+                  fontFamily:"'DM Sans',sans-serif"}}>
                 Déconnexion
               </button>
             </div>
