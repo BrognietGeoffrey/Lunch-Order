@@ -126,9 +126,9 @@ function formatOrderFull(o, extras=[], allCrudites=[]) {
     if (o.boisson)    lines.push({ emoji:"🥤", text: o.boisson });
   } else if (o.choice==="ice-cream") {
     if (o.boules)  lines.push({ emoji:"🍦", text: o.boules });
-    if (o.boule1 && o.boule2) lines.push({ emoji:"✨", text: `${o.boule1} + ${o.boule2}` });
+    if (o.boules==="2 boules" && o.boule1 && o.boule2) lines.push({ emoji:"✨", text: `${o.boule1} + ${o.boule2}` });
     else if (o.boule1) lines.push({ emoji:"✨", text: o.boule1 });
-    else if (o.detail) lines.push({ emoji:"✨", text: o.detail }); // legacy
+    else if (o.detail) lines.push({ emoji:"✨", text: o.detail });
     extras.filter(ex=>ex.appliesTo?.includes("ice-cream")).forEach(ex=>{
       (o.extras||{})[ex.id]?.forEach(opt=>lines.push({ emoji:"➕", text: opt }));
     });
@@ -1070,7 +1070,7 @@ export default function App() {
                               <span style={{fontSize:14,fontWeight:isMe?700:500,color:isMe?T.accent:T.text}}>{name}</span>
                               {isMe && <span style={{fontSize:9,background:T.bgTag,color:T.textFaint,padding:"1px 6px",borderRadius:10}}>toi</span>}
                             </div>
-                            {chosen && !isMe && <div style={{marginTop:2}}><OrderPills order={order} extras={extras} crudites={crudites}/></div>}
+                            {chosen && <div style={{marginTop:2}}><OrderPills order={order} extras={extras} crudites={crudites}/></div>}
                           </div>
                           {canEdit && (
                             <div style={{display:"flex",gap:5,flexShrink:0}}>
