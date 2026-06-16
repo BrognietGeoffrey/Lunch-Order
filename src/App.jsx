@@ -667,6 +667,7 @@ export default function App() {
     { id:"summary",  icon:"📊", label:"Résumé" },
     { id:"favorites",icon:"⭐", label:"Favoris" },
     { id:"history",  icon:"📅", label:"Historique" },
+    { id:"menu",     icon:"🍽️", label:"Menu" },
     { id:"settings", icon:"⚙️", label:"Config" },
   ];
 
@@ -1291,6 +1292,117 @@ export default function App() {
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* ════ MENU TAB ════ */}
+          {tab==="menu" && (
+            <div style={{animation:"slideIn 0.25s ease"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24,flexWrap:"wrap",gap:10}}>
+                <div>
+                  <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:22,color:T.text,marginBottom:2}}>🥪 Menu Snack Merode</h1>
+                  <a href="https://www.takeaway.com/be-fr/menu/snack-merode" target="_blank" rel="noopener noreferrer"
+                    style={{fontSize:12,color:T.textSub,textDecoration:"none",display:"flex",alignItems:"center",gap:4}}>
+                    📎 Voir sur Takeaway.com ↗
+                  </a>
+                </div>
+              </div>
+
+              {[
+                {
+                  cat:"🥗 Assiettes", accent:"#5a8f7b", items:[
+                    {name:"Assiette mixte",          price:"20,00"},
+                    {name:"Assiette brochette boeuf",price:"18,60"},
+                    {name:"Assiette brochette poulet",price:"18,60"},
+                    {name:"Assiette pitta",           price:"18,60"},
+                    {name:"Assiette kefta",           price:"18,60"},
+                    {name:"Assiette falafel",         price:"16,00"},
+                    {name:"Assiette cuisse de poulet",price:"17,00"},
+                    {name:"Assiette poulycroc",       price:"13,00"},
+                    {name:"Assiette fish",            price:"13,00"},
+                    {name:"Assiette chick fingers",   price:"13,00"},
+                    {name:"Assiette calamars",        price:"16,00"},
+                    {name:"Assiette fricadelle",      price:"13,00"},
+                    {name:"Assiette boulette",        price:"13,50"},
+                    {name:"Assiette hamburger",       price:"12,00"},
+                  ]
+                },
+                {
+                  cat:"🥙 Dürüms & Sandwichs", accent:"#c97a4a", items:[
+                    {name:"Durum poulet",    price:""},
+                    {name:"Durum kefta",     price:""},
+                    {name:"Durum falafel",   price:""},
+                    {name:"Durum mixte",     price:""},
+                    {name:"Bicky burger",    price:""},
+                    {name:"Pitta",           price:""},
+                  ]
+                },
+                {
+                  cat:"🍔 Burgers", accent:"#9b7fa6", items:[
+                    {name:"Hamburger",       price:""},
+                    {name:"Cheeseburger",    price:""},
+                    {name:"Poulycroc",       price:""},
+                    {name:"Fish burger",     price:""},
+                  ]
+                },
+                {
+                  cat:"🍟 Frites & Snacks", accent:"#c97a4a", items:[
+                    {name:"Frites petite",   price:""},
+                    {name:"Frites moyenne",  price:""},
+                    {name:"Frites grande",   price:""},
+                    {name:"Fricadelle",      price:""},
+                    {name:"Boulette",        price:""},
+                    {name:"Calamars",        price:""},
+                    {name:"Chick fingers",   price:""},
+                  ]
+                },
+                {
+                  cat:"🫙 Sauces", accent:"#9b7fa6", items:[
+                    {name:"Mayo",price:""},{name:"Ketchup",price:""},{name:"Andalouse",price:""},
+                    {name:"Samourai",price:""},{name:"Pickles",price:""},{name:"Cocktail",price:""},
+                    {name:"Ail",price:""},{name:"Moutarde",price:""},
+                  ]
+                },
+                {
+                  cat:"🥤 Boissons", accent:"#7a9ab5", items:[
+                    {name:"Coca-Cola",price:""},{name:"Fanta",price:""},{name:"Ice Tea",price:""},
+                    {name:"Eau",price:""},{name:"Jus d'orange",price:""},
+                  ]
+                },
+              ].map(section=>(
+                <div key={section.cat} style={{background:T.bgCard,border:`1px solid ${T.border}`,
+                  borderRadius:14,marginBottom:14,overflow:"hidden",boxShadow:T.shadow}}>
+                  {/* Section header */}
+                  <div style={{padding:"12px 20px",background:`${section.accent}12`,
+                    borderBottom:`1px solid ${section.accent}22`}}>
+                    <span style={{fontSize:14,fontWeight:700,color:section.accent,fontFamily:"'Syne',sans-serif"}}>
+                      {section.cat}
+                    </span>
+                  </div>
+                  {/* Items */}
+                  <div style={{display:"flex",flexWrap:"wrap",gap:0}}>
+                    {section.items.map((item,i)=>(
+                      <div key={item.name} style={{
+                        width: section.items.length>6 ? "50%" : "100%",
+                        padding:"10px 20px",
+                        borderBottom:`1px solid ${T.borderLight}`,
+                        borderRight: i%2===0&&section.items.length>6?`1px solid ${T.borderLight}`:"none",
+                        display:"flex",alignItems:"center",justifyContent:"space-between",
+                        background:"transparent",
+                      }}>
+                        <span style={{fontSize:13,color:T.text}}>{item.name}</span>
+                        {item.price && (
+                          <span style={{fontSize:13,fontWeight:600,color:section.accent}}>€ {item.price}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+
+              <p style={{fontSize:11,color:T.textFaint,textAlign:"center",marginTop:8}}>
+                Les prix peuvent varier · <a href="https://www.takeaway.com/be-fr/menu/snack-merode" target="_blank" rel="noopener noreferrer" style={{color:T.textSub}}>Menu complet sur Takeaway ↗</a>
+              </p>
             </div>
           )}
 
