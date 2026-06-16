@@ -697,6 +697,7 @@ export default function App() {
     "Sorbet Cassis 🌿","Sorbet Kiwi Pomme Verte 🌿","Vanille sans sucre",
   ]);
   const [newSpecial, setNewSpecial] = useState("");
+  const [menuToast, setMenuToast]   = useState("");
   const [snackMenu, setSnackMenu]       = useState(null);
   const [libanaisMenu, setLibanaisMenu] = useState(null);
   const [boubouleMenuSaved, setBoubouleMenuSaved] = useState(null);
@@ -1491,6 +1492,33 @@ export default function App() {
             <div style={{animation:"slideIn 0.25s ease"}}>
               <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:22,color:T.text,marginBottom:20}}>🍽️ Menus</h1>
 
+              {/* Banner: current order + link back */}
+              {user!=="Admin" && orders[user]?.choice && (
+                <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:12,
+                  padding:"10px 16px",marginBottom:16,display:"flex",alignItems:"center",
+                  justifyContent:"space-between",gap:12,boxShadow:T.shadow}}>
+                  <span style={{fontSize:13,color:T.textSub}}>
+                    🛒 Ma commande : <strong style={{color:T.text}}>{formatOrder(orders[user],extras,crudites)||"En cours…"}</strong>
+                  </span>
+                  <button onClick={()=>setTab("order")}
+                    style={{background:T.sidebar,color:"#fff",border:"none",borderRadius:8,
+                      padding:"6px 14px",fontSize:12,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>
+                    → Voir ma commande
+                  </button>
+                </div>
+              )}
+              {user!=="Admin" && !orders[user]?.choice && (
+                <div style={{background:T.bgTag,borderRadius:10,padding:"9px 14px",marginBottom:16,
+                  fontSize:12,color:T.textSub,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <span>💡 Clique sur <strong>+ Commander</strong> sur un item pour pré-remplir ta commande</span>
+                  <button onClick={()=>setTab("order")}
+                    style={{background:"transparent",border:`1px solid ${T.border}`,color:T.textSub,
+                      borderRadius:8,padding:"4px 10px",fontSize:11,cursor:"pointer",whiteSpace:"nowrap",marginLeft:8}}>
+                    → Commander
+                  </button>
+                </div>
+              )}
+
               {/* Sub-tabs */}
               <div style={{display:"flex",gap:8,marginBottom:24,borderBottom:`1px solid ${T.border}`,paddingBottom:0,flexWrap:"wrap"}}>
                 {[
@@ -1617,7 +1645,6 @@ export default function App() {
                       }}
                       onOrder={canOrder ? async(item)=>{
                         const nameParts = item.name.split(" ");
-                        const snackType = isDurum ? (nameParts[1]==="pitta"||nameParts[1]==="Pitta" ? "Durum" : nameParts[1]?.toLowerCase().includes("bicky")?"Bicky":"Durum") : "Bicky";
                         const detail = nameParts.slice(1).join(" ");
                         await setDoc(doc(db,"orders",user),{
                           ...( orders[user]||{choice:"snack-merode",sauces:[],crudites:[],cruditesTout:false,boules:"",boule1:"",boule2:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}} ),
@@ -1625,7 +1652,8 @@ export default function App() {
                           snackType: isDurum?"Durum":"Bicky",
                           detail,
                         });
-                        setTab("order");
+                        setMenuToast(`✓ ${item.name} ajouté !`);
+                        setTimeout(()=>setMenuToast(""),2500);
                       } : null}/>;
                   })}
                   <p style={{fontSize:11,color:T.textFaint,textAlign:"center",marginTop:8}}>
@@ -1700,7 +1728,8 @@ export default function App() {
                           choice:"libanais",
                           detail: item.name,
                         });
-                        setTab("order");
+                        setMenuToast(`✓ ${item.name} ajouté !`);
+                        setTimeout(()=>setMenuToast(""),2500);
                       } : null}/>;
                   })}
                   <p style={{fontSize:11,color:T.textFaint,textAlign:"center",marginTop:8}}>
@@ -1739,8 +1768,18 @@ export default function App() {
                     }}
                     onOrder={user!=="Admin" ? async(item)=>{
                       const cur=orders[user]||{};
-                      await setDoc(doc(db,"orders",user),{...cur,choice:"ice-cream",boules:cur.boules||"1 boule",boule1:item.name,boule2:"",sauces:[],crudites:[],cruditesTout:false,snackType:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}});
-                      setTab("order");
+                      const already = cur.choice==="ice-cream";
+                      const b1 = already ? (cur.boule1||"") : "";
+                      const b2 = already ? (cur.boule2||"") : "";
+                      const newB1 = b1 || item.name;
+                      const newB2 = b1 && !b2 ? item.name : b2;
+                      const boules = newB2 ? "2 boules" : "1 boule";
+                      await setDoc(doc(db,"orders",user),{
+                        ...(already?cur:{sauces:[],crudites:[],cruditesTout:false,snackType:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}}),
+                        choice:"ice-cream", boules, boule1:newB1, boule2:newB2,
+                      });
+                      setMenuToast(`✓ ${item.name} ajouté !`);
+                      setTimeout(()=>setMenuToast(""),2500);
                     }:null}/>
 
                   {/* Les spéciaux */}
@@ -1755,8 +1794,18 @@ export default function App() {
                     }}
                     onOrder={user!=="Admin" ? async(item)=>{
                       const cur=orders[user]||{};
-                      await setDoc(doc(db,"orders",user),{...cur,choice:"ice-cream",boules:cur.boules||"1 boule",boule1:item.name,boule2:"",sauces:[],crudites:[],cruditesTout:false,snackType:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}});
-                      setTab("order");
+                      const already = cur.choice==="ice-cream";
+                      const b1 = already ? (cur.boule1||"") : "";
+                      const b2 = already ? (cur.boule2||"") : "";
+                      const newB1 = b1 || item.name;
+                      const newB2 = b1 && !b2 ? item.name : b2;
+                      const boules = newB2 ? "2 boules" : "1 boule";
+                      await setDoc(doc(db,"orders",user),{
+                        ...(already?cur:{sauces:[],crudites:[],cruditesTout:false,snackType:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}}),
+                        choice:"ice-cream", boules, boule1:newB1, boule2:newB2,
+                      });
+                      setMenuToast(`✓ ${item.name} ajouté !`);
+                      setTimeout(()=>setMenuToast(""),2500);
                     }:null}/>
 
                   <p style={{fontSize:11,color:T.textFaint,textAlign:"center",marginTop:8}}>
@@ -1764,6 +1813,21 @@ export default function App() {
                   </p>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Menu toast */}
+          {menuToast && (
+            <div style={{position:"fixed",bottom:32,left:"50%",transform:"translateX(-50%)",
+              background:T.bgCard,border:`1px solid ${T.border}`,color:T.accent,
+              padding:"10px 20px",fontSize:13,borderRadius:12,animation:"toastIn 0.3s ease",
+              zIndex:999,boxShadow:T.shadow,display:"flex",alignItems:"center",gap:10}}>
+              <span>{menuToast}</span>
+              <button onClick={()=>setTab("order")}
+                style={{background:T.sidebar,color:"#fff",border:"none",borderRadius:7,
+                  padding:"4px 10px",fontSize:11,cursor:"pointer",fontWeight:600}}>
+                → Commander
+              </button>
             </div>
           )}
           {/* ════ CONFIG TAB ════ */}
