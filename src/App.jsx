@@ -649,8 +649,9 @@ export default function App() {
     "Sorbet Cassis 🌿","Sorbet Kiwi Pomme Verte 🌿","Vanille sans sucre",
   ]);
   const [newSpecial, setNewSpecial] = useState("");
-  const [snackMenu, setSnackMenu]     = useState(null); // null = use defaults
+  const [snackMenu, setSnackMenu]       = useState(null);
   const [libanaisMenu, setLibanaisMenu] = useState(null);
+  const [boubouleMenuSaved, setBoubouleMenuSaved] = useState(null);
   const [isDark, setIsDark]   = useState(()=>localStorage.getItem("lunch_theme")==="dark");
   const [isMobile, setIsMobile] = useState(()=>window.innerWidth<768);
   const detailTimers = useRef({});
@@ -677,7 +678,8 @@ export default function App() {
     const u9=onSnapshot(doc(db,"config","boubouleSpeciaux"), s=>{if(s.exists()&&s.data().list)setBoubouleSpeciaux(s.data().list);});
     const u10=onSnapshot(doc(db,"config","snackMenu"), s=>{if(s.exists()&&s.data().sections)setSnackMenu(s.data().sections);});
     const u11=onSnapshot(doc(db,"config","libanaisMenu"), s=>{if(s.exists()&&s.data().sections)setLibanaisMenu(s.data().sections);});
-    return ()=>{u1();u2();u3();u4();u4b();u5();u6();u7();u8();u9();u10();u11();};
+    const u12=onSnapshot(doc(db,"config","boubouleMenu"), s=>{if(s.exists())setBoubouleMenuSaved(s.data());});
+    return ()=>{u1();u2();u3();u4();u4b();u5();u6();u7();u8();u9();u10();u11();u12();};
   },[]);
 
   useEffect(()=>{
@@ -1636,92 +1638,32 @@ export default function App() {
                   </div>
 
                   {/* Les classiques */}
-                  <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:14,
-                    marginBottom:12,overflow:"hidden",boxShadow:T.shadow}}>
-                    <div style={{padding:"11px 20px",background:"#f5c6d022",
-                      borderBottom:`1px solid #c97a8f22`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                      <span style={{fontSize:14,fontWeight:700,color:"#c97a8f",fontFamily:"'Syne',sans-serif"}}>
-                        🍨 Les classiques
-                      </span>
-                      <span style={{fontSize:11,color:"#c97a8f",opacity:0.7}}>Toujours disponibles</span>
-                    </div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:0}}>
-                      {[
-                        "Vanille de Madagascar","Kulfi",
-                        "Stracciatella","Cerise Amarena",
-                        "Caramel Beurre Salé","Café",
-                        "Spéculoos","Sorbet Citron 🌿",
-                        "Noisette du Piémont","Sorbet Fruit de la Passion 🌿",
-                        "Pistache d'Iran","Sorbet Chocolat 70% 🌿",
-                      ].map((name,i)=>(
-                        <div key={name} style={{padding:"9px 20px",
-                          borderBottom:i<10?`1px solid ${T.borderLight}`:"none",
-                          borderRight:i%2===0?`1px solid ${T.borderLight}`:"none",
-                          fontSize:13,color:T.text,
-                          display:"flex",alignItems:"center",gap:6}}>
-                          {name.includes("🌿") ? (
-                            <span style={{color:"#5a8f7b"}}>{name}</span>
-                          ) : name}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  <MenuSection key="classiques" section={{
+                    cat:"🍨 Les classiques", accent:"#c97a8f",
+                    items: boubouleMenuSaved?.classiques || [
+                      {name:"Vanille de Madagascar"},{name:"Kulfi"},
+                      {name:"Stracciatella"},{name:"Cerise Amarena"},
+                      {name:"Caramel Beurre Salé"},{name:"Café"},
+                      {name:"Spéculoos"},{name:"Sorbet Citron 🌿"},
+                      {name:"Noisette du Piémont"},{name:"Sorbet Fruit de la Passion 🌿"},
+                      {name:"Pistache d'Iran"},{name:"Sorbet Chocolat 70% 🌿"},
+                    ]
+                  }} T={T} isAdmin={user==="Admin"}
+                    onSave={async(cat,items)=>{
+                      const cur=boubouleMenuSaved||{};
+                      await setDoc(doc(db,"config","boubouleMenu"),{...cur,classiques:items});
+                    }}/>
 
                   {/* Les spéciaux */}
-                  <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:14,
-                    marginBottom:12,overflow:"hidden",boxShadow:T.shadow}}>
-                    <div style={{padding:"11px 20px",background:"#f5c6d022",
-                      borderBottom:`1px solid #c97a8f22`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                      <span style={{fontSize:14,fontWeight:700,color:"#c97a8f",fontFamily:"'Syne',sans-serif"}}>
-                        ✨ Les spéciaux <span style={{fontSize:11,fontWeight:400,opacity:0.7}}>— change chaque semaine</span>
-                      </span>
-                    </div>
-                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:0}}>
-                      {boubouleSpeciaux.map((name,i)=>(
-                        <div key={name} style={{padding:"9px 20px",
-                          borderBottom:i<boubouleSpeciaux.length-2?`1px solid ${T.borderLight}`:"none",
-                          borderRight:i%2===0?`1px solid ${T.borderLight}`:"none",
-                          fontSize:13,color:T.text,display:"flex",alignItems:"center",justifyContent:"space-between",gap:6}}>
-                          <span style={{color:name.includes("🌿")?"#5a8f7b":T.text}}>{name}</span>
-                          {user==="Admin" && (
-                            <button onClick={async()=>{
-                              const updated=boubouleSpeciaux.filter((_,idx)=>idx!==i);
-                              setBoubouleSpeciaux(updated);
-                              await setDoc(doc(db,"config","boubouleSpeciaux"),{list:updated});
-                            }} style={{background:"none",border:"none",color:T.textFaint,cursor:"pointer",fontSize:12,padding:"0 2px",flexShrink:0}}>✕</button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    {/* Admin: add special */}
-                    {user==="Admin" && (
-                      <div style={{padding:"12px 20px",borderTop:`1px solid ${T.borderLight}`,
-                        display:"flex",gap:8,alignItems:"center"}}>
-                        <input value={newSpecial} onChange={e=>setNewSpecial(e.target.value)}
-                          onKeyDown={async e=>{
-                            if(e.key==="Enter"&&newSpecial.trim()){
-                              const updated=[...boubouleSpeciaux,newSpecial.trim()];
-                              setBoubouleSpeciaux(updated);
-                              await setDoc(doc(db,"config","boubouleSpeciaux"),{list:updated});
-                              setNewSpecial("");
-                            }
-                          }}
-                          placeholder="Ajouter un parfum spécial… (+ 🌿 si sorbet)"
-                          style={{flex:1,background:T.bgInput,border:`1px solid ${T.border}`,
-                            borderRadius:8,color:T.text,padding:"7px 12px",fontSize:13,fontFamily:"'DM Sans',sans-serif"}}/>
-                        <button onClick={async()=>{
-                          if(!newSpecial.trim())return;
-                          const updated=[...boubouleSpeciaux,newSpecial.trim()];
-                          setBoubouleSpeciaux(updated);
-                          await setDoc(doc(db,"config","boubouleSpeciaux"),{list:updated});
-                          setNewSpecial("");
-                        }} style={{background:T.sidebar,color:"#fff",border:"none",borderRadius:8,
-                          padding:"7px 14px",fontSize:13,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>
-                          + Ajouter
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  <MenuSection key="speciaux" section={{
+                    cat:"✨ Les spéciaux", accent:"#9b7fa6",
+                    items: boubouleSpeciaux.map(n=>({name:n}))
+                  }} T={T} isAdmin={user==="Admin"}
+                    onSave={async(cat,items)=>{
+                      const list=items.map(i=>i.name);
+                      setBoubouleSpeciaux(list);
+                      await setDoc(doc(db,"config","boubouleSpeciaux"),{list});
+                    }}/>
 
                   <p style={{fontSize:11,color:T.textFaint,textAlign:"center",marginTop:8}}>
                     🌿 = végane · Parfums mis à jour chaque semaine par l'Admin
