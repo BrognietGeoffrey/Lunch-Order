@@ -534,7 +534,7 @@ function LoginScreen({ onLogin, T, isDark, toggleTheme, members }) {
   );
 }
 
-function MenuSection({section, T, isAdmin, onSave}) {
+function MenuSection({section, T, isAdmin, onSave, onOrder}) {
   const [items, setItems]       = useState(section.items);
   const [editIdx, setEditIdx]   = useState(null);
   const [editItem, setEditItem] = useState({name:"",price:"",desc:""});
@@ -617,6 +617,14 @@ function MenuSection({section, T, isAdmin, onSave}) {
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
                   {item.price && <span style={{fontSize:13,fontWeight:600,color:section.accent}}>€ {item.price}</span>}
+                  {onOrder && (
+                    <button onClick={()=>onOrder(item)}
+                      style={{background:section.accent+"18",border:`1px solid ${section.accent}44`,
+                        color:section.accent,borderRadius:20,padding:"3px 10px",fontSize:11,
+                        cursor:"pointer",whiteSpace:"nowrap",fontWeight:500}}>
+                      + Commander
+                    </button>
+                  )}
                   {isAdmin && (
                     <>
                       <button onClick={()=>startEdit(i)}
@@ -1596,12 +1604,29 @@ export default function App() {
                   ].map(section=>{
                     const saved=snackMenu?.find(s=>s.cat===section.cat);
                     const merged=saved?{...section,items:saved.items}:section;
+                    // determine snackType from category
+                    const isDurum = section.cat.includes("Dürüm");
+                    const isSandwich = section.cat.includes("Sandwich");
+                    const isBurger = section.cat.includes("Burger");
+                    const canOrder = user!=="Admin" && (isDurum||isSandwich||isBurger);
                     return <MenuSection key={section.cat} section={merged} T={T} isAdmin={user==="Admin"}
                       onSave={async(cat,items)=>{
                         const cur=snackMenu||[];
                         const upd=cur.find(s=>s.cat===cat)?cur.map(s=>s.cat===cat?{...s,items}:s):[...cur,{cat,items}];
                         await setDoc(doc(db,"config","snackMenu"),{sections:upd});
-                      }}/>;
+                      }}
+                      onOrder={canOrder ? async(item)=>{
+                        const nameParts = item.name.split(" ");
+                        const snackType = isDurum ? (nameParts[1]==="pitta"||nameParts[1]==="Pitta" ? "Durum" : nameParts[1]?.toLowerCase().includes("bicky")?"Bicky":"Durum") : "Bicky";
+                        const detail = nameParts.slice(1).join(" ");
+                        await setDoc(doc(db,"orders",user),{
+                          ...( orders[user]||{choice:"snack-merode",sauces:[],crudites:[],cruditesTout:false,boules:"",boule1:"",boule2:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}} ),
+                          choice:"snack-merode",
+                          snackType: isDurum?"Durum":"Bicky",
+                          detail,
+                        });
+                        setTab("order");
+                      } : null}/>;
                   })}
                   <p style={{fontSize:11,color:T.textFaint,textAlign:"center",marginTop:8}}>
                     Prix Takeaway · peuvent différer sur place
@@ -1662,12 +1687,21 @@ export default function App() {
                   ].map(section=>{
                     const saved=libanaisMenu?.find(s=>s.cat===section.cat);
                     const merged=saved?{...section,items:saved.items}:section;
+                    const isOrderable = user!=="Admin" && !section.cat.includes("Frites");
                     return <MenuSection key={section.cat} section={merged} T={T} isAdmin={user==="Admin"}
                       onSave={async(cat,items)=>{
                         const cur=libanaisMenu||[];
                         const upd=cur.find(s=>s.cat===cat)?cur.map(s=>s.cat===cat?{...s,items}:s):[...cur,{cat,items}];
                         await setDoc(doc(db,"config","libanaisMenu"),{sections:upd});
-                      }}/>;
+                      }}
+                      onOrder={isOrderable ? async(item)=>{
+                        await setDoc(doc(db,"orders",user),{
+                          ...( orders[user]||{choice:"libanais",sauces:[],crudites:[],cruditesTout:false,boules:"",boule1:"",boule2:"",snackType:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}} ),
+                          choice:"libanais",
+                          detail: item.name,
+                        });
+                        setTab("order");
+                      } : null}/>;
                   })}
                   <p style={{fontSize:11,color:T.textFaint,textAlign:"center",marginTop:8}}>
                     Prix Deliveroo · peuvent différer sur place · Minimum de commande : 5 €
@@ -1702,7 +1736,12 @@ export default function App() {
                     onSave={async(cat,items)=>{
                       const cur=boubouleMenuSaved||{};
                       await setDoc(doc(db,"config","boubouleMenu"),{...cur,classiques:items});
-                    }}/>
+                    }}
+                    onOrder={user!=="Admin" ? async(item)=>{
+                      const cur=orders[user]||{};
+                      await setDoc(doc(db,"orders",user),{...cur,choice:"ice-cream",boules:cur.boules||"1 boule",boule1:item.name,boule2:"",sauces:[],crudites:[],cruditesTout:false,snackType:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}});
+                      setTab("order");
+                    }:null}/>
 
                   {/* Les spéciaux */}
                   <MenuSection key="speciaux" section={{
@@ -1713,7 +1752,12 @@ export default function App() {
                       const list=items.map(i=>i.name);
                       setBoubouleSpeciaux(list);
                       await setDoc(doc(db,"config","boubouleSpeciaux"),{list});
-                    }}/>
+                    }}
+                    onOrder={user!=="Admin" ? async(item)=>{
+                      const cur=orders[user]||{};
+                      await setDoc(doc(db,"orders",user),{...cur,choice:"ice-cream",boules:cur.boules||"1 boule",boule1:item.name,boule2:"",sauces:[],crudites:[],cruditesTout:false,snackType:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}});
+                      setTab("order");
+                    }:null}/>
 
                   <p style={{fontSize:11,color:T.textFaint,textAlign:"center",marginTop:8}}>
                     🌿 = végane · Parfums mis à jour chaque semaine par l'Admin
