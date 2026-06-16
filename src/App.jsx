@@ -698,6 +698,7 @@ export default function App() {
   ]);
   const [newSpecial, setNewSpecial] = useState("");
   const [menuToast, setMenuToast]   = useState("");
+  const [sauceModal, setSauceModal] = useState(null); // {sauceName}
   const [snackMenu, setSnackMenu]       = useState(null);
   const [libanaisMenu, setLibanaisMenu] = useState(null);
   const [boubouleMenuSaved, setBoubouleMenuSaved] = useState(null);
@@ -1632,29 +1633,65 @@ export default function App() {
                   ].map(section=>{
                     const saved=snackMenu?.find(s=>s.cat===section.cat);
                     const merged=saved?{...section,items:saved.items}:section;
-                    // determine snackType from category
-                    const isDurum = section.cat.includes("Dürüm");
-                    const isSandwich = section.cat.includes("Sandwich");
-                    const isBurger = section.cat.includes("Burger");
-                    const canOrder = user!=="Admin" && (isDurum||isSandwich||isBurger);
-                    return <MenuSection key={section.cat} section={merged} T={T} isAdmin={user==="Admin"}
-                      onSave={async(cat,items)=>{
-                        const cur=snackMenu||[];
-                        const upd=cur.find(s=>s.cat===cat)?cur.map(s=>s.cat===cat?{...s,items}:s):[...cur,{cat,items}];
-                        await setDoc(doc(db,"config","snackMenu"),{sections:upd});
-                      }}
-                      onOrder={canOrder ? async(item)=>{
-                        const nameParts = item.name.split(" ");
-                        const detail = nameParts.slice(1).join(" ");
-                        await setDoc(doc(db,"orders",user),{
-                          ...( orders[user]||{choice:"snack-merode",sauces:[],crudites:[],cruditesTout:false,boules:"",boule1:"",boule2:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}} ),
-                          choice:"snack-merode",
-                          snackType: isDurum?"Durum":"Bicky",
-                          detail,
-                        });
-                        setMenuToast(`✓ ${item.name} ajouté !`);
-                        setTimeout(()=>setMenuToast(""),2500);
-                      } : null}/>;
+                    if(user==="Admin") return <MenuSection key={section.cat} section={merged} T={T} isAdmin={true}
+                      onSave={async(cat,items)=>{const cur=snackMenu||[];const upd=cur.find(s=>s.cat===cat)?cur.map(s=>s.cat===cat?{...s,items}:s):[...cur,{cat,items}];await setDoc(doc(db,"config","snackMenu"),{sections:upd});}}/>;
+
+                    const toast = (msg) => { setMenuToast(`✓ ${msg}`); setTimeout(()=>setMenuToast(""),2500); };
+                    const base = () => orders[user]?.choice==="snack-merode"
+                      ? orders[user]
+                      : {choice:"snack-merode",sauces:[],crudites:[],cruditesTout:false,boules:"",boule1:"",boule2:"",snackType:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}};
+
+                    let onOrder = null;
+
+                    if(section.cat.includes("Dürüm")) {
+                      onOrder = async(item)=>{
+                        await setDoc(doc(db,"orders",user),{...base(),choice:"snack-merode",snackType:"Durum",detail:item.name.replace(/^Durum\s*/i,"")});
+                        toast(item.name);
+                      };
+                    } else if(section.cat.includes("Sandwich")) {
+                      onOrder = async(item)=>{
+                        await setDoc(doc(db,"orders",user),{...base(),choice:"snack-merode",snackType:"Bicky",detail:item.name.replace(/^Sandwich\s*/i,"")});
+                        toast(item.name);
+                      };
+                    } else if(section.cat.includes("Burger")) {
+                      onOrder = async(item)=>{
+                        await setDoc(doc(db,"orders",user),{...base(),choice:"snack-merode",snackType:"Bicky",detail:item.name.replace(/^Burger\s*/i,"")});
+                        toast(item.name);
+                      };
+                    } else if(section.cat.includes("Snack") || section.cat.includes("🍗")) {
+                      onOrder = async(item)=>{
+                        await setDoc(doc(db,"orders",user),{...base(),choice:"snack-merode",detail:item.name});
+                        toast(item.name);
+                      };
+                    } else if(section.cat.includes("Kapsalon")) {
+                      onOrder = async(item)=>{
+                        await setDoc(doc(db,"orders",user),{...base(),choice:"snack-merode",detail:item.name});
+                        toast(item.name);
+                      };
+                    } else if(section.cat.includes("Frites")) {
+                      onOrder = async(item)=>{
+                        const cur=base();
+                        await setDoc(doc(db,"orders",user),{...cur,choice:"snack-merode",friteSup:item.name.replace(/^Petite\s*/i,"Petite").replace(/^Moyenne\s*/i,"Moyenne").replace(/^Grande\s*/i,"Grande")});
+                        toast(item.name+" ajoutée");
+                      };
+                    } else if(section.cat.includes("Sauce")) {
+                      onOrder = async(item)=>{ setSauceModal({sauceName:item.name}); };
+                    } else if(section.cat.includes("Boisson")) {
+                      onOrder = async(item)=>{
+                        const cur=base();
+                        await setDoc(doc(db,"orders",user),{...cur,choice:"snack-merode",boisson:item.name});
+                        toast(item.name+" ajoutée");
+                      };
+                    } else if(section.cat.includes("Assiette")) {
+                      onOrder = async(item)=>{
+                        await setDoc(doc(db,"orders",user),{...base(),choice:"snack-merode",detail:item.name});
+                        toast(item.name);
+                      };
+                    }
+
+                    return <MenuSection key={section.cat} section={merged} T={T} isAdmin={false}
+                      onSave={async(cat,items)=>{const cur=snackMenu||[];const upd=cur.find(s=>s.cat===cat)?cur.map(s=>s.cat===cat?{...s,items}:s):[...cur,{cat,items}];await setDoc(doc(db,"config","snackMenu"),{sections:upd});}}
+                      onOrder={onOrder}/>;
                   })}
                   <p style={{fontSize:11,color:T.textFaint,textAlign:"center",marginTop:8}}>
                     Prix Takeaway · peuvent différer sur place
@@ -1715,22 +1752,24 @@ export default function App() {
                   ].map(section=>{
                     const saved=libanaisMenu?.find(s=>s.cat===section.cat);
                     const merged=saved?{...section,items:saved.items}:section;
-                    const isOrderable = user!=="Admin" && !section.cat.includes("Frites");
-                    return <MenuSection key={section.cat} section={merged} T={T} isAdmin={user==="Admin"}
-                      onSave={async(cat,items)=>{
-                        const cur=libanaisMenu||[];
-                        const upd=cur.find(s=>s.cat===cat)?cur.map(s=>s.cat===cat?{...s,items}:s):[...cur,{cat,items}];
-                        await setDoc(doc(db,"config","libanaisMenu"),{sections:upd});
-                      }}
-                      onOrder={isOrderable ? async(item)=>{
-                        await setDoc(doc(db,"orders",user),{
-                          ...( orders[user]||{choice:"libanais",sauces:[],crudites:[],cruditesTout:false,boules:"",boule1:"",boule2:"",snackType:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}} ),
-                          choice:"libanais",
-                          detail: item.name,
-                        });
-                        setMenuToast(`✓ ${item.name} ajouté !`);
-                        setTimeout(()=>setMenuToast(""),2500);
-                      } : null}/>;
+                    if(user==="Admin") return <MenuSection key={section.cat} section={merged} T={T} isAdmin={true}
+                      onSave={async(cat,items)=>{const cur=libanaisMenu||[];const upd=cur.find(s=>s.cat===cat)?cur.map(s=>s.cat===cat?{...s,items}:s):[...cur,{cat,items}];await setDoc(doc(db,"config","libanaisMenu"),{sections:upd});}}/>;
+
+                    const toast=(msg)=>{ setMenuToast(`✓ ${msg}`); setTimeout(()=>setMenuToast(""),2500); };
+                    const base=()=>orders[user]?.choice==="libanais"?orders[user]
+                      :{choice:"libanais",sauces:[],crudites:[],cruditesTout:false,boules:"",boule1:"",boule2:"",snackType:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}};
+
+                    let onOrder = null;
+                    if(!section.cat.includes("Frites")) {
+                      onOrder = async(item)=>{
+                        await setDoc(doc(db,"orders",user),{...base(),choice:"libanais",detail:item.name});
+                        toast(item.name);
+                      };
+                    }
+
+                    return <MenuSection key={section.cat} section={merged} T={T} isAdmin={false}
+                      onSave={async(cat,items)=>{const cur=libanaisMenu||[];const upd=cur.find(s=>s.cat===cat)?cur.map(s=>s.cat===cat?{...s,items}:s):[...cur,{cat,items}];await setDoc(doc(db,"config","libanaisMenu"),{sections:upd});}}
+                      onOrder={onOrder}/>;
                   })}
                   <p style={{fontSize:11,color:T.textFaint,textAlign:"center",marginTop:8}}>
                     Prix Deliveroo · peuvent différer sur place · Minimum de commande : 5 €
@@ -1813,6 +1852,52 @@ export default function App() {
                   </p>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Sauce modal */}
+          {sauceModal && (
+            <div style={{position:"fixed",inset:0,background:"rgba(44,31,14,0.4)",backdropFilter:"blur(4px)",
+              display:"flex",alignItems:"center",justifyContent:"center",zIndex:999}}
+              onClick={e=>e.target===e.currentTarget&&setSauceModal(null)}>
+              <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:16,
+                padding:"24px",width:300,boxShadow:"0 24px 60px rgba(44,31,14,0.15)"}}>
+                <h3 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:16,color:T.text,marginBottom:6}}>
+                  🫙 {sauceModal.sauceName}
+                </h3>
+                <p style={{fontSize:13,color:T.textSub,marginBottom:16}}>Où ajouter cette sauce ?</p>
+                <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                  <button style={{background:"#9b7fa618",border:"1px solid #9b7fa644",color:"#9b7fa6",
+                    borderRadius:10,padding:"10px",fontSize:13,cursor:"pointer",fontWeight:500}}
+                    onClick={async()=>{
+                      const cur=orders[user]?.choice==="snack-merode"?orders[user]
+                        :{choice:"snack-merode",sauces:[],crudites:[],cruditesTout:false,boules:"",boule1:"",boule2:"",snackType:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}};
+                      const newSauces=[...(cur.sauces||[])];
+                      if(!newSauces.includes(sauceModal.sauceName)) newSauces.push(sauceModal.sauceName);
+                      await setDoc(doc(db,"orders",user),{...cur,choice:"snack-merode",sauces:newSauces});
+                      setMenuToast(`✓ ${sauceModal.sauceName} ajoutée au snack`);
+                      setTimeout(()=>setMenuToast(""),2500);
+                      setSauceModal(null);
+                    }}>
+                    🫙 Sauce dans le snack
+                  </button>
+                  <button style={{background:"#c8922a18",border:"1px solid #c8922a44",color:"#c8922a",
+                    borderRadius:10,padding:"10px",fontSize:13,cursor:"pointer",fontWeight:500}}
+                    onClick={async()=>{
+                      const cur=orders[user]?.choice==="snack-merode"?orders[user]
+                        :{choice:"snack-merode",sauces:[],crudites:[],cruditesTout:false,boules:"",boule1:"",boule2:"",snackType:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}};
+                      await setDoc(doc(db,"orders",user),{...cur,choice:"snack-merode",sauceFrite:sauceModal.sauceName});
+                      setMenuToast(`✓ ${sauceModal.sauceName} ajoutée aux frites`);
+                      setTimeout(()=>setMenuToast(""),2500);
+                      setSauceModal(null);
+                    }}>
+                    🥣 Sauce pour les frites
+                  </button>
+                  <button style={{background:"transparent",border:`1px solid ${T.border}`,color:T.textSub,
+                    borderRadius:10,padding:"8px",fontSize:12,cursor:"pointer"}}
+                    onClick={()=>setSauceModal(null)}>Annuler</button>
+                </div>
+              </div>
             </div>
           )}
 
