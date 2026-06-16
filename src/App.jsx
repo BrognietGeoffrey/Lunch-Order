@@ -1544,12 +1544,12 @@ export default function App() {
                   ].map(section=>{
                     const saved=snackMenu?.find(s=>s.cat===section.cat);
                     const merged=saved?{...section,items:saved.items}:section;
-                    return MenuSection({section:merged,T,isAdmin:user==="Admin",
-                      onSave:async(cat,items)=>{
+                    return <MenuSection key={section.cat} section={merged} T={T} isAdmin={user==="Admin"}
+                      onSave={async(cat,items)=>{
                         const cur=snackMenu||[];
                         const upd=cur.find(s=>s.cat===cat)?cur.map(s=>s.cat===cat?{...s,items}:s):[...cur,{cat,items}];
                         await setDoc(doc(db,"config","snackMenu"),{sections:upd});
-                      }});
+                      }}/>;
                   })}
                   <p style={{fontSize:11,color:T.textFaint,textAlign:"center",marginTop:8}}>
                     Prix Takeaway · peuvent différer sur place
@@ -1610,12 +1610,12 @@ export default function App() {
                   ].map(section=>{
                     const saved=libanaisMenu?.find(s=>s.cat===section.cat);
                     const merged=saved?{...section,items:saved.items}:section;
-                    return MenuSection({section:merged,T,isAdmin:user==="Admin",
-                      onSave:async(cat,items)=>{
+                    return <MenuSection key={section.cat} section={merged} T={T} isAdmin={user==="Admin"}
+                      onSave={async(cat,items)=>{
                         const cur=libanaisMenu||[];
                         const upd=cur.find(s=>s.cat===cat)?cur.map(s=>s.cat===cat?{...s,items}:s):[...cur,{cat,items}];
                         await setDoc(doc(db,"config","libanaisMenu"),{sections:upd});
-                      }});
+                      }}/>;
                   })}
                   <p style={{fontSize:11,color:T.textFaint,textAlign:"center",marginTop:8}}>
                     Prix Deliveroo · peuvent différer sur place · Minimum de commande : 5 €
