@@ -1671,16 +1671,22 @@ export default function App() {
                     } else if(section.cat.includes("Frites")) {
                       onOrder = async(item)=>{
                         const cur=base();
-                        await setDoc(doc(db,"orders",user),{...cur,choice:"snack-merode",friteSup:item.name.replace(/^Petite\s*/i,"Petite").replace(/^Moyenne\s*/i,"Moyenne").replace(/^Grande\s*/i,"Grande")});
-                        toast(item.name+" ajoutée");
+                        // map "Petite frite" → "Petite", "Moyenne" → "Moyenne", "Grande" → "Grande"
+                        const size = item.name.replace(/\s*frite\s*/i,"").trim();
+                        const mapped = ["Petite","Moyenne","Grande"].find(s=>size.toLowerCase().includes(s.toLowerCase())) || size;
+                        await setDoc(doc(db,"orders",user),{...cur,choice:"snack-merode",friteSup:mapped});
+                        toast("Frite "+mapped+" ajoutée");
                       };
                     } else if(section.cat.includes("Sauce")) {
                       onOrder = async(item)=>{ setSauceModal({sauceName:item.name}); };
                     } else if(section.cat.includes("Boisson")) {
                       onOrder = async(item)=>{
                         const cur=base();
-                        await setDoc(doc(db,"orders",user),{...cur,choice:"snack-merode",boisson:item.name});
-                        toast(item.name+" ajoutée");
+                        // strip size info for matching (e.g. "Coca-Cola 33cl" → "Coca-Cola")
+                        const bName = item.name;
+                        if(!boissons.includes(bName)) await pb([...boissons, bName]);
+                        await setDoc(doc(db,"orders",user),{...cur,choice:"snack-merode",boisson:bName});
+                        toast(bName+" ajoutée");
                       };
                     } else if(section.cat.includes("Assiette")) {
                       onOrder = async(item)=>{
@@ -1870,12 +1876,16 @@ export default function App() {
                   <button style={{background:"#9b7fa618",border:"1px solid #9b7fa644",color:"#9b7fa6",
                     borderRadius:10,padding:"10px",fontSize:13,cursor:"pointer",fontWeight:500}}
                     onClick={async()=>{
+                      const s=sauceModal.sauceName;
                       const cur=orders[user]?.choice==="snack-merode"?orders[user]
                         :{choice:"snack-merode",sauces:[],crudites:[],cruditesTout:false,boules:"",boule1:"",boule2:"",snackType:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}};
                       const newSauces=[...(cur.sauces||[])];
-                      if(!newSauces.includes(sauceModal.sauceName)) newSauces.push(sauceModal.sauceName);
+                      if(!newSauces.includes(s)) newSauces.push(s);
+                      // auto-add to list if missing
+                      const updatedList = sauces.includes(s) ? sauces : [...sauces, s];
+                      if(!sauces.includes(s)) await ps(updatedList);
                       await setDoc(doc(db,"orders",user),{...cur,choice:"snack-merode",sauces:newSauces});
-                      setMenuToast(`✓ ${sauceModal.sauceName} ajoutée au snack`);
+                      setMenuToast(`✓ ${s} ajoutée au snack`);
                       setTimeout(()=>setMenuToast(""),2500);
                       setSauceModal(null);
                     }}>
@@ -1884,10 +1894,13 @@ export default function App() {
                   <button style={{background:"#c8922a18",border:"1px solid #c8922a44",color:"#c8922a",
                     borderRadius:10,padding:"10px",fontSize:13,cursor:"pointer",fontWeight:500}}
                     onClick={async()=>{
+                      const s=sauceModal.sauceName;
                       const cur=orders[user]?.choice==="snack-merode"?orders[user]
                         :{choice:"snack-merode",sauces:[],crudites:[],cruditesTout:false,boules:"",boule1:"",boule2:"",snackType:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}};
-                      await setDoc(doc(db,"orders",user),{...cur,choice:"snack-merode",sauceFrite:sauceModal.sauceName});
-                      setMenuToast(`✓ ${sauceModal.sauceName} ajoutée aux frites`);
+                      // auto-add to list if missing
+                      if(!sauces.includes(s)) await ps([...sauces, s]);
+                      await setDoc(doc(db,"orders",user),{...cur,choice:"snack-merode",sauceFrite:s});
+                      setMenuToast(`✓ ${s} ajoutée aux frites`);
                       setTimeout(()=>setMenuToast(""),2500);
                       setSauceModal(null);
                     }}>
