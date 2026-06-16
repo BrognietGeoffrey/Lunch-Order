@@ -1302,98 +1302,132 @@ export default function App() {
                 <div>
                   <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:22,color:T.text,marginBottom:2}}>🥪 Menu Snack Merode</h1>
                   <a href="https://www.takeaway.com/be-fr/menu/snack-merode" target="_blank" rel="noopener noreferrer"
-                    style={{fontSize:12,color:T.textSub,textDecoration:"none",display:"flex",alignItems:"center",gap:4}}>
-                    📎 Voir sur Takeaway.com ↗
-                  </a>
+                    style={{fontSize:12,color:T.textSub,textDecoration:"none"}}>📎 Voir sur Takeaway.com ↗</a>
                 </div>
               </div>
 
               {[
                 {
                   cat:"🥗 Assiettes", accent:"#5a8f7b", items:[
-                    {name:"Assiette mixte",          price:"20,00"},
-                    {name:"Assiette brochette boeuf",price:"18,60"},
-                    {name:"Assiette brochette poulet",price:"18,60"},
-                    {name:"Assiette pitta",           price:"18,60"},
-                    {name:"Assiette kefta",           price:"18,60"},
-                    {name:"Assiette falafel",         price:"16,00"},
-                    {name:"Assiette cuisse de poulet",price:"17,00"},
-                    {name:"Assiette poulycroc",       price:"13,00"},
-                    {name:"Assiette fish",            price:"13,00"},
-                    {name:"Assiette chick fingers",   price:"13,00"},
-                    {name:"Assiette calamars",        price:"16,00"},
-                    {name:"Assiette fricadelle",      price:"13,00"},
-                    {name:"Assiette boulette",        price:"13,50"},
-                    {name:"Assiette hamburger",       price:"12,00"},
+                    {name:"Assiette mixte",             price:"20,00"},
+                    {name:"Assiette brochette de boeuf",price:"18,60"},
+                    {name:"Assiette brochette de poulet",price:"18,60"},
+                    {name:"Assiette pitta",             price:"18,60"},
+                    {name:"Assiette kefta",             price:"18,60"},
+                    {name:"Assiette falafel",           price:"16,00"},
+                    {name:"Assiette cuisse de poulet",  price:"17,00"},
+                    {name:"Assiette poulycroc",         price:"13,00"},
+                    {name:"Assiette fish",              price:"13,00"},
+                    {name:"Assiette chick fingers",     price:"13,00"},
+                    {name:"Assiette calamars",          price:"16,00"},
+                    {name:"Assiette fricadelle",        price:"13,00"},
+                    {name:"Assiette boulette",          price:"13,50"},
+                    {name:"Assiette hamburger",         price:"12,00"},
                   ]
                 },
                 {
-                  cat:"🥙 Dürüms & Sandwichs", accent:"#c97a4a", items:[
-                    {name:"Durum poulet",    price:""},
-                    {name:"Durum kefta",     price:""},
-                    {name:"Durum falafel",   price:""},
-                    {name:"Durum mixte",     price:""},
-                    {name:"Bicky burger",    price:""},
-                    {name:"Pitta",           price:""},
+                  cat:"🫕 Kapsalon", accent:"#9b7fa6", items:[
+                    {name:"Kapsalon pita",   price:"14,00"},
+                    {name:"Kapsalon poulet", price:"14,00"},
+                  ]
+                },
+                {
+                  cat:"🥖 Sandwichs", accent:"#c8922a", items:[
+                    {name:"Sandwich pitta",      price:"10,00"},
+                    {name:"Sandwich poulet",     price:"10,00"},
+                    {name:"Sandwich kefta",      price:"10,00"},
+                    {name:"Sandwich falafel (4 pièces)", price:"9,50"},
+                    {name:"Sandwich poulycroc",  price:"9,00"},
+                    {name:"Sandwich fish",       price:"9,00"},
+                    {name:"Sandwich fricadelle", price:"9,00"},
+                    {name:"Sandwich mexicano",   price:"9,00"},
+                    {name:"Sandwich hamburger",  price:"9,00"},
+                  ]
+                },
+                {
+                  cat:"🥙 Dürüms", accent:"#c97a4a", items:[
+                    {name:"Durum pitta",          price:"10,00"},
+                    {name:"Durum poulet",         price:"10,00"},
+                    {name:"Durum kefta",          price:"10,00"},
+                    {name:"Durum falafel (4 pièces)", price:"9,50"},
+                    {name:"Durum poulycroc",      price:"9,00"},
+                    {name:"Durum fish",           price:"9,00"},
+                    {name:"Durum fricadelle",     price:"9,00"},
+                    {name:"Durum mexicano",       price:"9,00"},
                   ]
                 },
                 {
                   cat:"🍔 Burgers", accent:"#9b7fa6", items:[
-                    {name:"Hamburger",       price:""},
-                    {name:"Cheeseburger",    price:""},
-                    {name:"Poulycroc",       price:""},
-                    {name:"Fish burger",     price:""},
+                    {name:"Burger hamburger", price:"5,50"},
+                    {name:"Burger fish",      price:"6,50"},
+                    {name:"Burger kefta",     price:"6,50"},
                   ]
                 },
                 {
-                  cat:"🍟 Frites & Snacks", accent:"#c97a4a", items:[
-                    {name:"Frites petite",   price:""},
-                    {name:"Frites moyenne",  price:""},
-                    {name:"Frites grande",   price:""},
-                    {name:"Fricadelle",      price:""},
-                    {name:"Boulette",        price:""},
-                    {name:"Calamars",        price:""},
-                    {name:"Chick fingers",   price:""},
+                  cat:"🍗 Snacks", accent:"#c97a4a", items:[
+                    {name:"Poulet",           price:"6,00"},
+                    {name:"Boeuf",            price:"6,00"},
+                    {name:"Falafel (4 pièces)",price:"4,00"},
+                    {name:"Poulycroc",        price:"5,00"},
+                    {name:"Fish",             price:"5,00"},
+                    {name:"Fricadelle",       price:"4,00"},
+                    {name:"Boulette",         price:"4,50"},
+                    {name:"Mexicano",         price:"4,50"},
+                    {name:"Cuisse de poulet", price:"5,50"},
+                    {name:"Chick fingers",    price:"4,50"},
+                  ]
+                },
+                {
+                  cat:"🍟 Frites", accent:"#c8922a", items:[
+                    {name:"Petite frite", price:"4,80"},
                   ]
                 },
                 {
                   cat:"🫙 Sauces", accent:"#9b7fa6", items:[
-                    {name:"Mayo",price:""},{name:"Ketchup",price:""},{name:"Andalouse",price:""},
-                    {name:"Samourai",price:""},{name:"Pickles",price:""},{name:"Cocktail",price:""},
-                    {name:"Ail",price:""},{name:"Moutarde",price:""},
+                    {name:"Samurai",       price:"1,50"},
+                    {name:"Andalouse",     price:"1,50"},
+                    {name:"Mayonnaise",    price:"1,50"},
+                    {name:"Pili pili",     price:"1,50"},
+                    {name:"Tartare",       price:"1,50"},
+                    {name:"Ketchup",       price:"1,50"},
+                    {name:"Curry ketchup", price:"1,50"},
+                    {name:"Cocktail",      price:"1,50"},
+                    {name:"Américaine",    price:"1,50"},
+                    {name:"Brasil",        price:"1,50"},
+                    {name:"Sauce à l'ail", price:"1,50"},
+                    {name:"Sauce pita",    price:"1,50"},
                   ]
                 },
                 {
                   cat:"🥤 Boissons", accent:"#7a9ab5", items:[
-                    {name:"Coca-Cola",price:""},{name:"Fanta",price:""},{name:"Ice Tea",price:""},
-                    {name:"Eau",price:""},{name:"Jus d'orange",price:""},
+                    {name:"Coca-Cola 33cl",       price:"2,70"},
+                    {name:"Coca-Cola Zero 33cl",  price:"2,70"},
+                    {name:"Ayran 25cl",           price:"2,70"},
+                    {name:"Tropico Original 33cl",price:"2,70"},
+                    {name:"Fanta 33cl",           price:"2,70"},
+                    {name:"Ice Tea 33cl",         price:"2,70"},
+                    {name:"Oasis pomme poire 33cl",price:"2,70"},
+                    {name:"Eau plate 50cl",       price:"2,70"},
+                    {name:"Eau pétillante 50cl",  price:"2,70"},
                   ]
                 },
               ].map(section=>(
                 <div key={section.cat} style={{background:T.bgCard,border:`1px solid ${T.border}`,
-                  borderRadius:14,marginBottom:14,overflow:"hidden",boxShadow:T.shadow}}>
-                  {/* Section header */}
-                  <div style={{padding:"12px 20px",background:`${section.accent}12`,
-                    borderBottom:`1px solid ${section.accent}22`}}>
-                    <span style={{fontSize:14,fontWeight:700,color:section.accent,fontFamily:"'Syne',sans-serif"}}>
-                      {section.cat}
-                    </span>
+                  borderRadius:14,marginBottom:12,overflow:"hidden",boxShadow:T.shadow}}>
+                  <div style={{padding:"11px 20px",background:`${section.accent}12`,
+                    borderBottom:`1px solid ${section.accent}22`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                    <span style={{fontSize:14,fontWeight:700,color:section.accent,fontFamily:"'Syne',sans-serif"}}>{section.cat}</span>
+                    <span style={{fontSize:11,color:section.accent,opacity:0.7}}>{section.items.length} article{section.items.length>1?"s":""}</span>
                   </div>
-                  {/* Items */}
-                  <div style={{display:"flex",flexWrap:"wrap",gap:0}}>
+                  <div>
                     {section.items.map((item,i)=>(
                       <div key={item.name} style={{
-                        width: section.items.length>6 ? "50%" : "100%",
-                        padding:"10px 20px",
-                        borderBottom:`1px solid ${T.borderLight}`,
-                        borderRight: i%2===0&&section.items.length>6?`1px solid ${T.borderLight}`:"none",
+                        padding:"9px 20px",
+                        borderBottom: i<section.items.length-1?`1px solid ${T.borderLight}`:"none",
                         display:"flex",alignItems:"center",justifyContent:"space-between",
-                        background:"transparent",
                       }}>
                         <span style={{fontSize:13,color:T.text}}>{item.name}</span>
-                        {item.price && (
-                          <span style={{fontSize:13,fontWeight:600,color:section.accent}}>€ {item.price}</span>
-                        )}
+                        <span style={{fontSize:13,fontWeight:600,color:section.accent,flexShrink:0,marginLeft:12}}>€ {item.price}</span>
                       </div>
                     ))}
                   </div>
@@ -1401,7 +1435,9 @@ export default function App() {
               ))}
 
               <p style={{fontSize:11,color:T.textFaint,textAlign:"center",marginTop:8}}>
-                Les prix peuvent varier · <a href="https://www.takeaway.com/be-fr/menu/snack-merode" target="_blank" rel="noopener noreferrer" style={{color:T.textSub}}>Menu complet sur Takeaway ↗</a>
+                Prix Takeaway · peuvent différer sur place ·{" "}
+                <a href="https://www.takeaway.com/be-fr/menu/snack-merode" target="_blank" rel="noopener noreferrer"
+                  style={{color:T.textSub}}>Menu complet ↗</a>
               </p>
             </div>
           )}
