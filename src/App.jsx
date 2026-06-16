@@ -494,28 +494,122 @@ function LoginScreen({ onLogin, T, isDark, toggleTheme, members }) {
   );
 }
 
-function MenuSection({section, T}) {
+function MenuSection({section, T, isAdmin, onSave}) {
+  const [items, setItems]       = useState(section.items);
+  const [editIdx, setEditIdx]   = useState(null);
+  const [editItem, setEditItem] = useState({name:"",price:"",desc:""});
+  const [newItem, setNewItem]   = useState({name:"",price:"",desc:""});
+  const [showAdd, setShowAdd]   = useState(false);
+
+  // sync if parent data changes
+  useEffect(()=>{ setItems(section.items); },[section.items]);
+
+  const save = async(updated) => {
+    setItems(updated);
+    if(onSave) await onSave(section.cat, updated);
+  };
+
+  const startEdit = (i) => { setEditIdx(i); setEditItem({...items[i]}); };
+  const cancelEdit = () => { setEditIdx(null); };
+  const saveEdit = async() => {
+    if(!editItem.name.trim()) return;
+    const updated = items.map((it,i)=>i===editIdx?{...editItem}:it);
+    await save(updated);
+    setEditIdx(null);
+  };
+  const deleteItem = async(i) => {
+    const updated = items.filter((_,idx)=>idx!==i);
+    await save(updated);
+    if(editIdx===i) setEditIdx(null);
+  };
+  const addItem = async() => {
+    if(!newItem.name.trim()) return;
+    const updated = [...items, {...newItem}];
+    await save(updated);
+    setNewItem({name:"",price:"",desc:""});
+    setShowAdd(false);
+  };
+
+  const inpS = {background:T.bgInput,border:`1px solid ${T.border}`,borderRadius:7,
+    color:T.text,padding:"5px 8px",fontSize:12,fontFamily:"'DM Sans',sans-serif"};
+
   return (
-    <div key={section.cat} style={{background:T.bgCard,border:`1px solid ${T.border}`,
+    <div style={{background:T.bgCard,border:`1px solid ${T.border}`,
       borderRadius:14,marginBottom:12,overflow:"hidden",boxShadow:T.shadow}}>
       <div style={{padding:"11px 20px",background:`${section.accent}12`,
         borderBottom:`1px solid ${section.accent}22`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <span style={{fontSize:14,fontWeight:700,color:section.accent,fontFamily:"'Syne',sans-serif"}}>{section.cat}</span>
-        <span style={{fontSize:11,color:section.accent,opacity:0.7}}>{section.items.length} article{section.items.length>1?"s":""}</span>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontSize:11,color:section.accent,opacity:0.7}}>{items.length} article{items.length>1?"s":""}</span>
+          {isAdmin && (
+            <button onClick={()=>setShowAdd(v=>!v)}
+              style={{background:section.accent+"18",border:`1px solid ${section.accent}44`,
+                color:section.accent,borderRadius:6,padding:"2px 8px",fontSize:11,cursor:"pointer"}}>
+              {showAdd?"✕":"+ Ajouter"}
+            </button>
+          )}
+        </div>
       </div>
+
       <div>
-        {section.items.map((item,i)=>(
-          <div key={item.name} style={{padding:"9px 20px",
-            borderBottom:i<section.items.length-1?`1px solid ${T.borderLight}`:"none",
-            display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
-            <div>
-              <div style={{fontSize:13,color:T.text}}>{item.name}</div>
-              {item.desc && <div style={{fontSize:11,color:T.textFaint,marginTop:1}}>{item.desc}</div>}
-            </div>
-            <span style={{fontSize:13,fontWeight:600,color:section.accent,flexShrink:0}}>€ {item.price}</span>
+        {items.map((item,i)=>(
+          <div key={i} style={{borderBottom:i<items.length-1?`1px solid ${T.borderLight}`:"none"}}>
+            {editIdx===i ? (
+              /* ── Edit row ── */
+              <div style={{padding:"10px 16px",display:"flex",flexWrap:"wrap",gap:6,alignItems:"center",background:T.bgHover}}>
+                <input style={{...inpS,flex:2,minWidth:120}} value={editItem.name}
+                  onChange={e=>setEditItem(p=>({...p,name:e.target.value}))} placeholder="Nom…"/>
+                <input style={{...inpS,width:70}} value={editItem.price}
+                  onChange={e=>setEditItem(p=>({...p,price:e.target.value}))} placeholder="Prix…"/>
+                <input style={{...inpS,flex:3,minWidth:150}} value={editItem.desc||""}
+                  onChange={e=>setEditItem(p=>({...p,desc:e.target.value}))} placeholder="Description (optionnel)…"/>
+                <button onClick={saveEdit}
+                  style={{background:T.green,color:"#fff",border:"none",borderRadius:7,padding:"5px 10px",fontSize:12,cursor:"pointer",fontWeight:600}}>✓</button>
+                <button onClick={cancelEdit}
+                  style={{background:"transparent",border:`1px solid ${T.border}`,color:T.textSub,borderRadius:7,padding:"5px 8px",fontSize:12,cursor:"pointer"}}>✕</button>
+              </div>
+            ) : (
+              /* ── Display row ── */
+              <div style={{padding:"9px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:13,color:T.text}}>{item.name}</div>
+                  {item.desc && <div style={{fontSize:11,color:T.textFaint,marginTop:1}}>{item.desc}</div>}
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+                  {item.price && <span style={{fontSize:13,fontWeight:600,color:section.accent}}>€ {item.price}</span>}
+                  {isAdmin && (
+                    <>
+                      <button onClick={()=>startEdit(i)}
+                        style={{background:"transparent",border:`1px solid ${T.border}`,color:T.textSub,
+                          borderRadius:6,padding:"2px 6px",fontSize:11,cursor:"pointer"}}>✏️</button>
+                      <button onClick={()=>deleteItem(i)}
+                        style={{background:"transparent",border:"none",color:T.textFaint,fontSize:13,cursor:"pointer",padding:2}}>✕</button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
+
+      {/* ── Add row ── */}
+      {isAdmin && showAdd && (
+        <div style={{padding:"10px 16px",borderTop:`1px solid ${T.borderLight}`,
+          display:"flex",flexWrap:"wrap",gap:6,alignItems:"center",background:T.bgHover}}>
+          <input style={{...inpS,flex:2,minWidth:120}} value={newItem.name}
+            onChange={e=>setNewItem(p=>({...p,name:e.target.value}))}
+            onKeyDown={e=>e.key==="Enter"&&addItem()} placeholder="Nom…"/>
+          <input style={{...inpS,width:70}} value={newItem.price}
+            onChange={e=>setNewItem(p=>({...p,price:e.target.value}))} placeholder="Prix…"/>
+          <input style={{...inpS,flex:3,minWidth:150}} value={newItem.desc}
+            onChange={e=>setNewItem(p=>({...p,desc:e.target.value}))}
+            onKeyDown={e=>e.key==="Enter"&&addItem()} placeholder="Description (optionnel)…"/>
+          <button onClick={addItem}
+            style={{background:T.sidebar,color:"#fff",border:"none",borderRadius:7,
+              padding:"5px 12px",fontSize:12,cursor:"pointer",fontWeight:600,whiteSpace:"nowrap"}}>+ Ajouter</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -555,6 +649,8 @@ export default function App() {
     "Sorbet Cassis 🌿","Sorbet Kiwi Pomme Verte 🌿","Vanille sans sucre",
   ]);
   const [newSpecial, setNewSpecial] = useState("");
+  const [snackMenu, setSnackMenu]     = useState(null); // null = use defaults
+  const [libanaisMenu, setLibanaisMenu] = useState(null);
   const [isDark, setIsDark]   = useState(()=>localStorage.getItem("lunch_theme")==="dark");
   const [isMobile, setIsMobile] = useState(()=>window.innerWidth<768);
   const detailTimers = useRef({});
@@ -579,7 +675,9 @@ export default function App() {
     const u7=onSnapshot(collection(db,"history"),   s=>{const days=[];s.forEach(x=>days.push({id:x.id,...x.data()}));days.sort((a,b)=>b.id.localeCompare(a.id));setHistory(days);});
     const u8=onSnapshot(doc(db,"payments","today"), s=>{if(s.exists())setPayments(s.data());else setPayments({});});
     const u9=onSnapshot(doc(db,"config","boubouleSpeciaux"), s=>{if(s.exists()&&s.data().list)setBoubouleSpeciaux(s.data().list);});
-    return ()=>{u1();u2();u3();u4();u4b();u5();u6();u7();u8();u9();};
+    const u10=onSnapshot(doc(db,"config","snackMenu"), s=>{if(s.exists()&&s.data().sections)setSnackMenu(s.data().sections);});
+    const u11=onSnapshot(doc(db,"config","libanaisMenu"), s=>{if(s.exists()&&s.data().sections)setLibanaisMenu(s.data().sections);});
+    return ()=>{u1();u2();u3();u4();u4b();u5();u6();u7();u8();u9();u10();u11();};
   },[]);
 
   useEffect(()=>{
@@ -1443,7 +1541,16 @@ export default function App() {
                       {name:"Eau plate 50cl",        price:"2,70"},
                       {name:"Eau pétillante 50cl",   price:"2,70"},
                     ]},
-                  ].map(section=>MenuSection({section, T}))}
+                  ].map(section=>{
+                    const saved=snackMenu?.find(s=>s.cat===section.cat);
+                    const merged=saved?{...section,items:saved.items}:section;
+                    return MenuSection({section:merged,T,isAdmin:user==="Admin",
+                      onSave:async(cat,items)=>{
+                        const cur=snackMenu||[];
+                        const upd=cur.find(s=>s.cat===cat)?cur.map(s=>s.cat===cat?{...s,items}:s):[...cur,{cat,items}];
+                        await setDoc(doc(db,"config","snackMenu"),{sections:upd});
+                      }});
+                  })}
                   <p style={{fontSize:11,color:T.textFaint,textAlign:"center",marginTop:8}}>
                     Prix Takeaway · peuvent différer sur place
                   </p>
@@ -1500,7 +1607,16 @@ export default function App() {
                     { cat:"🍟 Frites", accent:"#c8922a", items:[
                       {name:"Frites", price:"4,50"},
                     ]},
-                  ].map(section=>MenuSection({section, T}))}
+                  ].map(section=>{
+                    const saved=libanaisMenu?.find(s=>s.cat===section.cat);
+                    const merged=saved?{...section,items:saved.items}:section;
+                    return MenuSection({section:merged,T,isAdmin:user==="Admin",
+                      onSave:async(cat,items)=>{
+                        const cur=libanaisMenu||[];
+                        const upd=cur.find(s=>s.cat===cat)?cur.map(s=>s.cat===cat?{...s,items}:s):[...cur,{cat,items}];
+                        await setDoc(doc(db,"config","libanaisMenu"),{sections:upd});
+                      }});
+                  })}
                   <p style={{fontSize:11,color:T.textFaint,textAlign:"center",marginTop:8}}>
                     Prix Deliveroo · peuvent différer sur place · Minimum de commande : 5 €
                   </p>
