@@ -1502,14 +1502,6 @@ export default function App() {
             </div>
           )}
             <div style={{animation:"slideIn 0.25s ease"}}>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:24,flexWrap:"wrap",gap:10}}>
-                <div>
-                  <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:22,color:T.text,marginBottom:2}}>🥪 Menu Snack Merode</h1>
-                  <a href="https://www.takeaway.com/be-fr/menu/snack-merode" target="_blank" rel="noopener noreferrer"
-                    style={{fontSize:12,color:T.textSub,textDecoration:"none"}}>📎 Voir sur Takeaway.com ↗</a>
-                </div>
-              </div>
-
           {/* ════ CONFIG TAB ════ */}
           {tab==="settings" && (
             <div style={{animation:"slideIn 0.25s ease"}}>
