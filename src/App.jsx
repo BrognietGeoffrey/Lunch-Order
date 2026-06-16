@@ -266,7 +266,11 @@ function DetailCell({ name, order, canEdit, sauces, crudites, boissons, extras, 
           <div style={{display:"flex",gap:5}}>
             {["1 boule","2 boules"].map(o=>(
               <Pill key={o} label={o} active={order.boules===o} accent={opt.accent}
-                disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"boules",order.boules===o?"":o)}/>
+                disabled={!canEdit} onClick={()=>{
+                  if(!canEdit)return;
+                  if(o==="1 boule") handleSubDetail(name,"boule2","");
+                  handleSubDetail(name,"boules",order.boules===o?"":o);
+                }}/>
             ))}
           </div>
         </div>
