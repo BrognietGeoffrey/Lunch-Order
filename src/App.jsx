@@ -126,7 +126,9 @@ function formatOrderFull(o, extras=[], allCrudites=[]) {
     if (o.boisson)    lines.push({ emoji:"🥤", text: o.boisson });
   } else if (o.choice==="ice-cream") {
     if (o.boules)  lines.push({ emoji:"🍦", text: o.boules });
-    if (o.detail)  lines.push({ emoji:"✨", text: o.detail });
+    if (o.boule1 && o.boule2) lines.push({ emoji:"✨", text: `${o.boule1} + ${o.boule2}` });
+    else if (o.boule1) lines.push({ emoji:"✨", text: o.boule1 });
+    else if (o.detail) lines.push({ emoji:"✨", text: o.detail }); // legacy
     extras.filter(ex=>ex.appliesTo?.includes("ice-cream")).forEach(ex=>{
       (o.extras||{})[ex.id]?.forEach(opt=>lines.push({ emoji:"➕", text: opt }));
     });
@@ -216,7 +218,7 @@ function OrderPills({ order, extras=[], crudites=[] }) {
 // ── Detail cell ───────────────────────────────────────────────────────────────
 function DetailCell({ name, order, canEdit, sauces, crudites, boissons, extras, mealExtras,
   handleDetail, handleSubDetail, toggleMulti, toggleCruditesTout, toggleExtraOption,
-  pb, ps, newBoissonInput, setNewBoissonInput, T }) {
+  pb, ps, newBoissonInput, setNewBoissonInput, T, boubouleParfums=[] }) {
 
   const sauceRef = useRef(null);
   const sauceFriteRef = useRef(null);
@@ -250,30 +252,66 @@ function DetailCell({ name, order, canEdit, sauces, crudites, boissons, extras, 
     </div>
   );
 
-  if (order.choice==="ice-cream") return (
-    <div style={{display:"flex",flexDirection:"column",gap:10}}>
-      <div>
-        <p style={{fontSize:11,color:T.textFaint,marginBottom:5}}>🍦 Boules</p>
-        <div style={{display:"flex",gap:5}}>
-          {["1 boule","2 boules"].map(o=><Pill key={o} label={o} active={order.boules===o} accent={opt.accent} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"boules",order.boules===o?"":o)}/>)}
-        </div>
-      </div>
-      <div>
-        <p style={{fontSize:11,color:T.textFaint,marginBottom:5}}>✨ Parfum(s)</p>
-        <input style={{width:"100%",background:T.bgInput,border:`1px solid ${T.border}`,borderRadius:8,
-          color:T.text,padding:"6px 10px",fontSize:13,opacity:canEdit?1:0.4}}
-          disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder="ex: chocolat, vanille…"/>
-      </div>
-      {mealExtras.map(ex=>(
-        <div key={ex.id}>
-          <p style={{fontSize:11,color:T.textFaint,marginBottom:5}}>➕ {ex.label}</p>
-          <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-            {ex.options.map(o=><Pill key={o} label={o} active={((order.extras||{})[ex.id]||[]).includes(o)} accent={ex.accent} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)}/>)}
+  if (order.choice==="ice-cream") {
+    // parse selected flavours
+    const boule1 = order.boule1 || "";
+    const boule2 = order.boule2 || "";
+    const is2 = order.boules==="2 boules";
+
+    return (
+      <div style={{display:"flex",flexDirection:"column",gap:10}}>
+        {/* Boules */}
+        <div>
+          <p style={{fontSize:11,color:T.textFaint,marginBottom:5}}>🍦 Nombre de boules</p>
+          <div style={{display:"flex",gap:5}}>
+            {["1 boule","2 boules"].map(o=>(
+              <Pill key={o} label={o} active={order.boules===o} accent={opt.accent}
+                disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"boules",order.boules===o?"":o)}/>
+            ))}
           </div>
         </div>
-      ))}
-    </div>
-  );
+
+        {/* Boule 1 */}
+        {order.boules && (
+          <div>
+            <p style={{fontSize:11,color:T.textFaint,marginBottom:5}}>✨ {is2?"Boule 1":"Parfum"}</p>
+            <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+              {boubouleParfums.map(p=>(
+                <Pill key={p.name} label={p.name}
+                  active={boule1===p.name} accent={opt.accent}
+                  disabled={!canEdit}
+                  onClick={()=>canEdit&&handleSubDetail(name,"boule1",boule1===p.name?"":p.name)}/>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Boule 2 */}
+        {is2 && (
+          <div>
+            <p style={{fontSize:11,color:T.textFaint,marginBottom:5}}>✨ Boule 2</p>
+            <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+              {boubouleParfums.map(p=>(
+                <Pill key={p.name} label={p.name}
+                  active={boule2===p.name} accent={opt.accent}
+                  disabled={!canEdit}
+                  onClick={()=>canEdit&&handleSubDetail(name,"boule2",boule2===p.name?"":p.name)}/>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {mealExtras.map(ex=>(
+          <div key={ex.id}>
+            <p style={{fontSize:11,color:T.textFaint,marginBottom:5}}>➕ {ex.label}</p>
+            <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+              {ex.options.map(o=><Pill key={o} label={o} active={((order.extras||{})[ex.id]||[]).includes(o)} accent={ex.accent} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)}/>)}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   if (order.choice==="libanais") return (
     <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -714,7 +752,7 @@ export default function App() {
   const toggleChoice=async(name,choice)=>{
     const cur=orders[name]||{};
     if(cur.choice===choice)await deleteDoc(doc(db,"orders",name));
-    else await setDoc(doc(db,"orders",name),{choice,detail:"",sauces:[],crudites:[],cruditesTout:false,boules:"",snackType:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}});
+    else await setDoc(doc(db,"orders",name),{choice,detail:"",sauces:[],crudites:[],cruditesTout:false,boules:"",boule1:"",boule2:"",snackType:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}});
   };
   const handleDetail=(name,detail)=>{
     setOrders(prev=>({...prev,[name]:{...prev[name],detail}}));
@@ -785,7 +823,17 @@ export default function App() {
 
   const detailCellProps={ sauces,crudites,boissons,extras,T,
     handleDetail,handleSubDetail,toggleMulti,toggleCruditesTout,toggleExtraOption,
-    pb,ps,newBoissonInput,setNewBoissonInput };
+    pb,ps,newBoissonInput,setNewBoissonInput,
+    boubouleParfums: [
+      ...(boubouleMenuSaved?.classiques || [
+        {name:"Vanille de Madagascar"},{name:"Kulfi"},{name:"Stracciatella"},
+        {name:"Cerise Amarena"},{name:"Caramel Beurre Salé"},{name:"Café"},
+        {name:"Spéculoos"},{name:"Sorbet Citron 🌿"},{name:"Noisette du Piémont"},
+        {name:"Sorbet Fruit de la Passion 🌿"},{name:"Pistache d'Iran"},{name:"Sorbet Chocolat 70% 🌿"},
+      ]),
+      ...(boubouleSpeciaux.map(n=>({name:n}))),
+    ],
+  };
 
   const inp={ width:"100%", background:T.bgInput, border:`1px solid ${T.border}`, borderRadius:8,
     color:T.text, padding:"8px 12px", fontSize:14, fontFamily:"'DM Sans',sans-serif" };
