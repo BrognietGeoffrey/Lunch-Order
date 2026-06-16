@@ -676,7 +676,7 @@ export default function App() {
 
       {/* ── Sidebar ── */}
       {!isMobile && (
-        <aside style={{width:72,background:`linear-gradient(180deg, ${T.sidebarBg||T.sidebar} 0%, ${T.sidebar} 100%)`,
+        <aside style={{width:90,background:`linear-gradient(180deg, ${T.sidebarBg||T.sidebar} 0%, ${T.sidebar} 100%)`,
           display:"flex",flexDirection:"column",position:"sticky",top:0,height:"100vh",flexShrink:0,
           zIndex:10, overflow:"visible"}}>
 
@@ -700,7 +700,7 @@ export default function App() {
                   {/* Sliding tab — uses page bg color */}
                   {isActive && (
                     <div style={{
-                      position:"absolute", right:0, width:56, height:56,
+                      position:"absolute", right:0, width:74, height:56,
                       background:tabColor, borderRadius:"14px 0 0 14px", zIndex:1,
                     }}>
                       {/* top curved notch */}
@@ -719,7 +719,7 @@ export default function App() {
                     onClick={()=>setTab(item.id)}
                     style={{
                       position:"relative", zIndex:2,
-                      width:56, height:56,
+                      width:74, height:56,
                       display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
                       gap:3, border:"none", cursor:"pointer",
                       background:"transparent",
@@ -801,7 +801,7 @@ export default function App() {
                   fontFamily:"'DM Sans',sans-serif",transition:"color 0.15s"}}>
                 <span style={{fontSize:20}}>{item.icon}</span>
                 <span style={{fontSize:9,fontWeight:tab===item.id?700:400,letterSpacing:"0.03em"}}>
-                  {item.label.slice(0,3).toUpperCase()}
+                  {item.label}
                 </span>
               </button>
             ))}
