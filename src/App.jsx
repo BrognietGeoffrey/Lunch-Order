@@ -550,6 +550,11 @@ export default function App() {
   const [openHistory, setOpenHistory]         = useState({});
   const [viewMode, setViewMode]               = useState("accordion");
   const [activeMenu, setActiveMenu]           = useState("snack");
+  const [boubouleSpeciaux, setBoubouleSpeciaux] = useState([
+    "Bueno","Oréo","Menthe Choco","Mascarpone Fruits des Bois",
+    "Sorbet Cassis 🌿","Sorbet Kiwi Pomme Verte 🌿","Vanille sans sucre",
+  ]);
+  const [newSpecial, setNewSpecial] = useState("");
   const [isDark, setIsDark]   = useState(()=>localStorage.getItem("lunch_theme")==="dark");
   const [isMobile, setIsMobile] = useState(()=>window.innerWidth<768);
   const detailTimers = useRef({});
@@ -573,7 +578,8 @@ export default function App() {
     });
     const u7=onSnapshot(collection(db,"history"),   s=>{const days=[];s.forEach(x=>days.push({id:x.id,...x.data()}));days.sort((a,b)=>b.id.localeCompare(a.id));setHistory(days);});
     const u8=onSnapshot(doc(db,"payments","today"), s=>{if(s.exists())setPayments(s.data());else setPayments({});});
-    return ()=>{u1();u2();u3();u4();u4b();u5();u6();u7();u8();};
+    const u9=onSnapshot(doc(db,"config","boubouleSpeciaux"), s=>{if(s.exists()&&s.data().list)setBoubouleSpeciaux(s.data().list);});
+    return ()=>{u1();u2();u3();u4();u4b();u5();u6();u7();u8();u9();};
   },[]);
 
   useEffect(()=>{
@@ -1328,10 +1334,11 @@ export default function App() {
               <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:22,color:T.text,marginBottom:20}}>🍽️ Menus</h1>
 
               {/* Sub-tabs */}
-              <div style={{display:"flex",gap:8,marginBottom:24,borderBottom:`1px solid ${T.border}`,paddingBottom:0}}>
+              <div style={{display:"flex",gap:8,marginBottom:24,borderBottom:`1px solid ${T.border}`,paddingBottom:0,flexWrap:"wrap"}}>
                 {[
-                  {id:"snack",    label:"🥪 Snack Merode",  accent:"#c97a4a"},
-                  {id:"libanais", label:"🥙 Snack Libanais", accent:"#5a8f7b"},
+                  {id:"snack",     label:"🥪 Snack Merode",   accent:"#c97a4a"},
+                  {id:"libanais",  label:"🥙 Snack Libanais",  accent:"#5a8f7b"},
+                  {id:"bouboule",  label:"🍦 Bou·Boul·e",      accent:"#c97a8f"},
                 ].map(m=>(
                   <button key={m.id} onClick={()=>setActiveMenu(m.id)}
                     style={{padding:"8px 18px",border:"none",borderRadius:"8px 8px 0 0",
@@ -1496,6 +1503,112 @@ export default function App() {
                   ].map(section=>MenuSection({section, T}))}
                   <p style={{fontSize:11,color:T.textFaint,textAlign:"center",marginTop:8}}>
                     Prix Deliveroo · peuvent différer sur place · Minimum de commande : 5 €
+                  </p>
+                </div>
+              )}
+
+              {/* ── Bou·Boul·e ── */}
+              {activeMenu==="bouboule" && (
+                <div>
+                  {/* Header card */}
+                  <div style={{background:"linear-gradient(135deg, #f5c6d0, #e8a0b0)",borderRadius:16,
+                    padding:"24px",marginBottom:20,textAlign:"center",boxShadow:T.shadow}}>
+                    <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:28,
+                      color:"#fff",letterSpacing:"-0.5px",marginBottom:4}}>BOU·BOUL·E</div>
+                    <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:14,color:"rgba(255,255,255,0.85)",
+                      fontStyle:"italic"}}>Parfums de la semaine</div>
+                  </div>
+
+                  {/* Les classiques */}
+                  <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:14,
+                    marginBottom:12,overflow:"hidden",boxShadow:T.shadow}}>
+                    <div style={{padding:"11px 20px",background:"#f5c6d022",
+                      borderBottom:`1px solid #c97a8f22`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                      <span style={{fontSize:14,fontWeight:700,color:"#c97a8f",fontFamily:"'Syne',sans-serif"}}>
+                        🍨 Les classiques
+                      </span>
+                      <span style={{fontSize:11,color:"#c97a8f",opacity:0.7}}>Toujours disponibles</span>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:0}}>
+                      {[
+                        "Vanille de Madagascar","Kulfi",
+                        "Stracciatella","Cerise Amarena",
+                        "Caramel Beurre Salé","Café",
+                        "Spéculoos","Sorbet Citron 🌿",
+                        "Noisette du Piémont","Sorbet Fruit de la Passion 🌿",
+                        "Pistache d'Iran","Sorbet Chocolat 70% 🌿",
+                      ].map((name,i)=>(
+                        <div key={name} style={{padding:"9px 20px",
+                          borderBottom:i<10?`1px solid ${T.borderLight}`:"none",
+                          borderRight:i%2===0?`1px solid ${T.borderLight}`:"none",
+                          fontSize:13,color:T.text,
+                          display:"flex",alignItems:"center",gap:6}}>
+                          {name.includes("🌿") ? (
+                            <span style={{color:"#5a8f7b"}}>{name}</span>
+                          ) : name}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Les spéciaux */}
+                  <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:14,
+                    marginBottom:12,overflow:"hidden",boxShadow:T.shadow}}>
+                    <div style={{padding:"11px 20px",background:"#f5c6d022",
+                      borderBottom:`1px solid #c97a8f22`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                      <span style={{fontSize:14,fontWeight:700,color:"#c97a8f",fontFamily:"'Syne',sans-serif"}}>
+                        ✨ Les spéciaux <span style={{fontSize:11,fontWeight:400,opacity:0.7}}>— change chaque semaine</span>
+                      </span>
+                    </div>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:0}}>
+                      {boubouleSpeciaux.map((name,i)=>(
+                        <div key={name} style={{padding:"9px 20px",
+                          borderBottom:i<boubouleSpeciaux.length-2?`1px solid ${T.borderLight}`:"none",
+                          borderRight:i%2===0?`1px solid ${T.borderLight}`:"none",
+                          fontSize:13,color:T.text,display:"flex",alignItems:"center",justifyContent:"space-between",gap:6}}>
+                          <span style={{color:name.includes("🌿")?"#5a8f7b":T.text}}>{name}</span>
+                          {user==="Admin" && (
+                            <button onClick={async()=>{
+                              const updated=boubouleSpeciaux.filter((_,idx)=>idx!==i);
+                              setBoubouleSpeciaux(updated);
+                              await setDoc(doc(db,"config","boubouleSpeciaux"),{list:updated});
+                            }} style={{background:"none",border:"none",color:T.textFaint,cursor:"pointer",fontSize:12,padding:"0 2px",flexShrink:0}}>✕</button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {/* Admin: add special */}
+                    {user==="Admin" && (
+                      <div style={{padding:"12px 20px",borderTop:`1px solid ${T.borderLight}`,
+                        display:"flex",gap:8,alignItems:"center"}}>
+                        <input value={newSpecial} onChange={e=>setNewSpecial(e.target.value)}
+                          onKeyDown={async e=>{
+                            if(e.key==="Enter"&&newSpecial.trim()){
+                              const updated=[...boubouleSpeciaux,newSpecial.trim()];
+                              setBoubouleSpeciaux(updated);
+                              await setDoc(doc(db,"config","boubouleSpeciaux"),{list:updated});
+                              setNewSpecial("");
+                            }
+                          }}
+                          placeholder="Ajouter un parfum spécial… (+ 🌿 si sorbet)"
+                          style={{flex:1,background:T.bgInput,border:`1px solid ${T.border}`,
+                            borderRadius:8,color:T.text,padding:"7px 12px",fontSize:13,fontFamily:"'DM Sans',sans-serif"}}/>
+                        <button onClick={async()=>{
+                          if(!newSpecial.trim())return;
+                          const updated=[...boubouleSpeciaux,newSpecial.trim()];
+                          setBoubouleSpeciaux(updated);
+                          await setDoc(doc(db,"config","boubouleSpeciaux"),{list:updated});
+                          setNewSpecial("");
+                        }} style={{background:T.sidebar,color:"#fff",border:"none",borderRadius:8,
+                          padding:"7px 14px",fontSize:13,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>
+                          + Ajouter
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <p style={{fontSize:11,color:T.textFaint,textAlign:"center",marginTop:8}}>
+                    🌿 = végane · Parfums mis à jour chaque semaine par l'Admin
                   </p>
                 </div>
               )}
