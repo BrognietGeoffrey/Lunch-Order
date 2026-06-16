@@ -1501,7 +1501,6 @@ export default function App() {
               )}
             </div>
           )}
-            <div style={{animation:"slideIn 0.25s ease"}}>
           {/* ════ CONFIG TAB ════ */}
           {tab==="settings" && (
             <div style={{animation:"slideIn 0.25s ease"}}>
