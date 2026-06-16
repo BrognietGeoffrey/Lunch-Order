@@ -130,7 +130,6 @@ function formatOrderFull(o, extras=[], allCrudites=[]) {
     extras.filter(ex=>ex.appliesTo?.includes("ice-cream")).forEach(ex=>{
       (o.extras||{})[ex.id]?.forEach(opt=>lines.push({ emoji:"➕", text: opt }));
     });
-    if (o.boisson) lines.push({ emoji:"🥤", text: o.boisson });
   } else {
     if (o.detail)  lines.push({ emoji:"🥙", text: o.detail });
     extras.filter(ex=>ex.appliesTo?.includes("libanais")).forEach(ex=>{
@@ -273,7 +272,6 @@ function DetailCell({ name, order, canEdit, sauces, crudites, boissons, extras, 
           </div>
         </div>
       ))}
-      <BoissonSection/>
     </div>
   );
 
