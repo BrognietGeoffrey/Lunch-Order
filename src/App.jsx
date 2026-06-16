@@ -997,7 +997,7 @@ export default function App() {
               {/* ── VIEW A: Accordion ── */}
               {viewMode==="accordion" && (
                 <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                  {names.map((name,idx)=>{
+                  {(user==="Admin" ? names : names.filter(n=>n===user)).map((name,idx)=>{
                     const order=orders[name]||{};
                     const chosen=LUNCH_OPTIONS.find(o=>o.id===order.choice);
                     const canEdit=user===name||user==="Admin";
