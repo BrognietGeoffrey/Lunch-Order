@@ -207,7 +207,8 @@ function OrderPills({ order, extras=[], crudites=[] }) {
     <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
       {lines.map((line,i)=>(
         <span key={i} style={{background:"#f5f0e8",border:"1px solid #e8e0d0",borderRadius:20,
-          padding:"2px 10px",fontSize:11,color:"#8a7560",display:"inline-flex",alignItems:"center",gap:3}}>
+          padding:"2px 10px",fontSize:11,color:"#8a7560",display:"inline-flex",alignItems:"center",
+          gap:3,maxWidth:"100%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"normal",wordBreak:"break-word"}}>
           {line.emoji} {line.text}
         </span>
       ))}
@@ -1190,15 +1191,15 @@ export default function App() {
               </div>
 
               {/* Counts */}
-              <div style={{display:"flex",gap:12,marginBottom:24,flexWrap:"wrap"}}>
+              <div style={{display:"flex",gap:isMobile?8:12,marginBottom:isMobile?16:24,flexWrap:"wrap"}}>
                 {LUNCH_OPTIONS.map(opt=>(
-                  <div key={opt.id} style={{flex:1,minWidth:120,background:counts[opt.id]>0?opt.bg:T.bgCard,
-                    border:`1.5px solid ${counts[opt.id]>0?opt.accent:T.border}`,borderRadius:14,
-                    padding:"18px 20px",boxShadow:T.shadow}}>
-                    <div style={{fontSize:38,fontWeight:800,fontFamily:"'Syne',sans-serif",
+                  <div key={opt.id} style={{flex:1,minWidth:isMobile?80:120,background:counts[opt.id]>0?opt.bg:T.bgCard,
+                    border:`1.5px solid ${counts[opt.id]>0?opt.accent:T.border}`,borderRadius:12,
+                    padding:isMobile?"12px 14px":"18px 20px",boxShadow:T.shadow}}>
+                    <div style={{fontSize:isMobile?28:38,fontWeight:800,fontFamily:"'Syne',sans-serif",
                       color:counts[opt.id]>0?opt.accent:T.textFaint,lineHeight:1}}>{counts[opt.id]}</div>
-                    <div style={{fontSize:13,color:counts[opt.id]>0?opt.accent:T.textSub,marginTop:4}}>
-                      {opt.emoji} {opt.label}
+                    <div style={{fontSize:isMobile?11:13,color:counts[opt.id]>0?opt.accent:T.textSub,marginTop:4}}>
+                      {opt.emoji} {isMobile?opt.label.split(" ")[0]+" "+opt.label.split(" ").slice(1).join(" "):opt.label}
                     </div>
                   </div>
                 ))}
