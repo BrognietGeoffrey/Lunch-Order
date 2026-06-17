@@ -1821,7 +1821,11 @@ export default function App() {
                                 headers:{"Content-Type":"application/json"},
                                 body: JSON.stringify({ imageBase64: base64, mediaType })
                               });
-                              const parsed = await response.json();
+                              const rawText = await response.text();
+                              console.log("API response:", rawText);
+                              let parsed;
+                              try { parsed = JSON.parse(rawText); }
+                              catch(e) { throw new Error("Réponse serveur invalide: " + rawText.slice(0,200)); }
                               if(parsed.error) throw new Error(parsed.error + (parsed.detail?" — "+parsed.detail:""));
                               setBoubouleAI({loading:false, extracted:parsed, preview:true});
                             } catch(err) {
