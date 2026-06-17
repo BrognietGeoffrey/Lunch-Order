@@ -698,7 +698,8 @@ export default function App() {
   ]);
   const [newSpecial, setNewSpecial] = useState("");
   const [menuToast, setMenuToast]   = useState("");
-  const [sauceModal, setSauceModal] = useState(null); // {sauceName}
+  const [sauceModal, setSauceModal] = useState(null);
+  const [boubouleAI, setBoubouleAI] = useState({ loading:false, extracted:null, preview:false }); // {sauceName}
   const [snackMenu, setSnackMenu]       = useState(null);
   const [libanaisMenu, setLibanaisMenu] = useState(null);
   const [boubouleMenuSaved, setBoubouleMenuSaved] = useState(null);
@@ -1788,12 +1789,121 @@ export default function App() {
                 <div>
                   {/* Header card */}
                   <div style={{background:"linear-gradient(135deg, #f5c6d0, #e8a0b0)",borderRadius:16,
-                    padding:"24px",marginBottom:20,textAlign:"center",boxShadow:T.shadow}}>
+                    padding:"24px",marginBottom:20,textAlign:"center",boxShadow:T.shadow,position:"relative"}}>
                     <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:28,
                       color:"#fff",letterSpacing:"-0.5px",marginBottom:4}}>BOU·BOUL·E</div>
                     <div style={{fontFamily:"'DM Sans',sans-serif",fontSize:14,color:"rgba(255,255,255,0.85)",
                       fontStyle:"italic"}}>Parfums de la semaine</div>
+                    {/* Admin: upload button */}
+                    {user==="Admin" && (
+                      <label style={{position:"absolute",top:12,right:12,
+                        background:"rgba(255,255,255,0.25)",border:"1px solid rgba(255,255,255,0.4)",
+                        borderRadius:10,padding:"6px 12px",fontSize:12,fontWeight:600,
+                        color:"#fff",cursor:"pointer",display:"flex",alignItems:"center",gap:6}}>
+                        {boubouleAI.loading ? "⏳ Analyse…" : "📸 Mettre à jour"}
+                        <input type="file" accept="image/*" style={{display:"none"}}
+                          onChange={async(e)=>{
+                            const file = e.target.files?.[0];
+                            if(!file) return;
+                            setBoubouleAI({loading:true, extracted:null, preview:false});
+                            try {
+                              // Convert to base64
+                              const base64 = await new Promise((res,rej)=>{
+                                const r = new FileReader();
+                                r.onload=()=>res(r.result.split(",")[1]);
+                                r.onerror=()=>rej(new Error("Read failed"));
+                                r.readAsDataURL(file);
+                              });
+                              const mediaType = file.type || "image/jpeg";
+
+                              // Call Claude Vision
+                              const response = await fetch("https://api.anthropic.com/v1/messages",{
+                                method:"POST",
+                                headers:{"Content-Type":"application/json"},
+                                body: JSON.stringify({
+                                  model:"claude-sonnet-4-6",
+                                  max_tokens:1000,
+                                  messages:[{
+                                    role:"user",
+                                    content:[
+                                      {type:"image",source:{type:"base64",media_type:mediaType,data:base64}},
+                                      {type:"text",text:`Cette image montre les parfums de glace disponibles chez Bou·Boul·e.
+Extrais UNIQUEMENT les noms des parfums en deux catégories : "classiques" et "speciaux".
+Réponds UNIQUEMENT en JSON valide, sans markdown, sans explication :
+{"classiques":["nom1","nom2"],"speciaux":["nom3","nom4"]}
+Si un parfum a 🌿 ou "sorbet végane", garde l'emoji 🌿 dans le nom.`}
+                                    ]
+                                  }]
+                                })
+                              });
+                              const data = await response.json();
+                              const text = data.content?.map(c=>c.text||"").join("").trim();
+                              const clean = text.replace(/```json|```/g,"").trim();
+                              const parsed = JSON.parse(clean);
+                              setBoubouleAI({loading:false, extracted:parsed, preview:true});
+                            } catch(err) {
+                              console.error(err);
+                              setBoubouleAI({loading:false, extracted:null, preview:false});
+                              alert("Erreur lors de l'analyse. Réessaie.");
+                            }
+                            e.target.value="";
+                          }}/>
+                      </label>
+                    )}
                   </div>
+
+                  {/* AI Preview Modal */}
+                  {boubouleAI.preview && boubouleAI.extracted && (
+                    <div style={{background:T.bgCard,border:`2px solid #c97a8f`,borderRadius:14,
+                      padding:"20px",marginBottom:16,boxShadow:T.shadow}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                        <h3 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:15,color:"#c97a8f"}}>
+                          ✨ Parfums détectés — confirmer ?
+                        </h3>
+                        <button onClick={()=>setBoubouleAI({loading:false,extracted:null,preview:false})}
+                          style={{background:"none",border:"none",color:T.textFaint,fontSize:18,cursor:"pointer"}}>✕</button>
+                      </div>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+                        {["classiques","speciaux"].map(cat=>(
+                          <div key={cat}>
+                            <p style={{fontSize:12,fontWeight:600,color:T.textSub,marginBottom:6,textTransform:"uppercase",letterSpacing:"0.05em"}}>
+                              {cat==="classiques"?"🍨 Classiques":"✨ Spéciaux"}
+                            </p>
+                            <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                              {(boubouleAI.extracted[cat]||[]).map(n=>(
+                                <span key={n} style={{background:"#f5c6d022",border:"1px solid #c97a8f44",
+                                  borderRadius:20,padding:"3px 10px",fontSize:12,color:T.text}}>{n}</span>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{display:"flex",gap:8}}>
+                        <button onClick={async()=>{
+                          const {classiques=[],speciaux=[]}=boubouleAI.extracted;
+                          // Save classiques
+                          await setDoc(doc(db,"config","boubouleMenu"),{
+                            ...(boubouleMenuSaved||{}),
+                            classiques:classiques.map(n=>({name:n}))
+                          });
+                          // Save speciaux
+                          setBoubouleSpeciaux(speciaux);
+                          await setDoc(doc(db,"config","boubouleSpeciaux"),{list:speciaux});
+                          setBoubouleAI({loading:false,extracted:null,preview:false});
+                          setMenuToast("✓ Parfums mis à jour !");
+                          setTimeout(()=>setMenuToast(""),3000);
+                        }} style={{flex:1,background:"#c97a8f",color:"#fff",border:"none",borderRadius:10,
+                          padding:"10px",fontSize:13,fontWeight:600,cursor:"pointer"}}>
+                          ✓ Confirmer et sauvegarder
+                        </button>
+                        <button onClick={()=>setBoubouleAI({loading:false,extracted:null,preview:false})}
+                          style={{background:"transparent",border:`1px solid ${T.border}`,color:T.textSub,
+                            borderRadius:10,padding:"10px 16px",fontSize:13,cursor:"pointer"}}>
+                          Annuler
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Les classiques */}
                   <MenuSection key="classiques" section={{
