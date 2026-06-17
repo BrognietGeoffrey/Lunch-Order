@@ -1816,14 +1816,13 @@ export default function App() {
                               });
                               const mediaType = file.type || "image/jpeg";
 
-                              // Call via Vercel serverless (CORS fix)
                               const response = await fetch("/api/analyze-image",{
                                 method:"POST",
                                 headers:{"Content-Type":"application/json"},
                                 body: JSON.stringify({ imageBase64: base64, mediaType })
                               });
                               const parsed = await response.json();
-                              if(parsed.error) throw new Error(parsed.error);
+                              if(parsed.error) throw new Error(parsed.error + (parsed.detail?" — "+parsed.detail:""));
                               setBoubouleAI({loading:false, extracted:parsed, preview:true});
                             } catch(err) {
                               console.error(err);
