@@ -1807,14 +1807,25 @@ export default function App() {
                             if(!file) return;
                             setBoubouleAI({loading:true, extracted:null, preview:false});
                             try {
-                              // Convert to base64
+                              // Compress image to max 1MB before sending
                               const base64 = await new Promise((res,rej)=>{
-                                const r = new FileReader();
-                                r.onload=()=>res(r.result.split(",")[1]);
-                                r.onerror=()=>rej(new Error("Read failed"));
-                                r.readAsDataURL(file);
+                                const img = new Image();
+                                img.onload = () => {
+                                  const canvas = document.createElement("canvas");
+                                  const maxW = 1200;
+                                  const scale = Math.min(1, maxW / img.width);
+                                  canvas.width = img.width * scale;
+                                  canvas.height = img.height * scale;
+                                  canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+                                  res(canvas.toDataURL("image/jpeg", 0.7).split(",")[1]);
+                                };
+                                img.onerror = rej;
+                                const reader = new FileReader();
+                                reader.onload = e => { img.src = e.target.result; };
+                                reader.onerror = rej;
+                                reader.readAsDataURL(file);
                               });
-                              const mediaType = file.type || "image/jpeg";
+                              const mediaType = "image/jpeg";
 
                               const response = await fetch("/api/analyze-image",{
                                 method:"POST",
