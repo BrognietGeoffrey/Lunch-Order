@@ -1816,30 +1816,14 @@ export default function App() {
                               });
                               const mediaType = file.type || "image/jpeg";
 
-                              // Call Claude Vision
-                              const response = await fetch("https://api.anthropic.com/v1/messages",{
+                              // Call via Vercel serverless (CORS fix)
+                              const response = await fetch("/api/analyze-image",{
                                 method:"POST",
                                 headers:{"Content-Type":"application/json"},
-                                body: JSON.stringify({
-                                  model:"claude-sonnet-4-6",
-                                  max_tokens:1000,
-                                  messages:[{
-                                    role:"user",
-                                    content:[
-                                      {type:"image",source:{type:"base64",media_type:mediaType,data:base64}},
-                                      {type:"text",text:`Cette image montre les parfums de glace disponibles chez Bou·Boul·e.
-Extrais UNIQUEMENT les noms des parfums en deux catégories : "classiques" et "speciaux".
-Réponds UNIQUEMENT en JSON valide, sans markdown, sans explication :
-{"classiques":["nom1","nom2"],"speciaux":["nom3","nom4"]}
-Si un parfum a 🌿 ou "sorbet végane", garde l'emoji 🌿 dans le nom.`}
-                                    ]
-                                  }]
-                                })
+                                body: JSON.stringify({ imageBase64: base64, mediaType })
                               });
-                              const data = await response.json();
-                              const text = data.content?.map(c=>c.text||"").join("").trim();
-                              const clean = text.replace(/```json|```/g,"").trim();
-                              const parsed = JSON.parse(clean);
+                              const parsed = await response.json();
+                              if(parsed.error) throw new Error(parsed.error);
                               setBoubouleAI({loading:false, extracted:parsed, preview:true});
                             } catch(err) {
                               console.error(err);
