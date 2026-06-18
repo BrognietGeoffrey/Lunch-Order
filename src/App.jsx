@@ -192,7 +192,7 @@ function Pill({ label, active, accent, onClick, disabled }) {
     <button onClick={onClick} disabled={disabled}
       style={{ background:active?accent+"18":"transparent",
         border:`1px solid ${active?accent:"#e0d8cc"}`,
-        borderRadius:20, padding:"4px 12px", fontSize:12, fontWeight:active?600:400,
+        borderRadius:20, padding:"3px 10px", fontSize:11, fontWeight:active?600:400,
         color:active?accent:"#8a7560", cursor:disabled?"not-allowed":"pointer",
         transition:"all 0.15s", whiteSpace:"nowrap", opacity:disabled?0.35:1 }}>
       {label}
@@ -1072,23 +1072,24 @@ export default function App() {
                           borderRadius:14,overflow:"hidden",boxShadow:T.shadow}}>
 
                         {/* Row */}
-                        <div style={{padding:"12px 16px",display:"flex",alignItems:"center",gap:12,
+                        <div style={{padding:isMobile?"7px 10px":"12px 16px",display:"flex",alignItems:"center",gap:isMobile?6:12,
                           background:isMe?T.accentLight:"transparent",
                           borderBottom:order.choice?`1px solid ${T.borderLight}`:"none"}}>
-                          <span style={{fontSize:11,fontWeight:600,color:T.textFaint,minWidth:18,textAlign:"right"}}>{idx+1}</span>
-                          <Avatar name={name} size={36}/>
+                          <span style={{fontSize:10,fontWeight:600,color:T.textFaint,minWidth:14,textAlign:"right"}}>{idx+1}</span>
+                          <Avatar name={name} size={isMobile?26:36}/>
                           <div style={{flex:1,minWidth:0}}>
-                            <div style={{display:"flex",alignItems:"center",gap:6}}>
-                              <span style={{fontSize:14,fontWeight:isMe?700:500,color:isMe?T.accent:T.text}}>{name}</span>
-                              {isMe && <span style={{fontSize:9,background:T.bgTag,color:T.textFaint,padding:"1px 6px",borderRadius:10}}>toi</span>}
+                            <div style={{display:"flex",alignItems:"center",gap:4}}>
+                              <span style={{fontSize:isMobile?12:14,fontWeight:isMe?700:500,color:isMe?T.accent:T.text}}>{name}</span>
+                              {isMe && <span style={{fontSize:8,background:T.bgTag,color:T.textFaint,padding:"1px 4px",borderRadius:10}}>toi</span>}
                             </div>
                             {chosen && <div style={{marginTop:2}}><OrderPills order={order} extras={extras} crudites={crudites}/></div>}
                           </div>
                           {canEdit && (
-                            <div style={{display:"flex",gap:5,flexShrink:0}}>
+                            <div style={{display:"flex",gap:3,flexShrink:0}}>
                               {LUNCH_OPTIONS.map(opt=>(
                                 <button key={opt.id} onClick={()=>toggleChoice(name,opt.id)}
-                                  style={{padding:"5px 10px",borderRadius:20,fontSize:11,fontWeight:500,
+                                  style={{padding:isMobile?"4px 5px":"5px 10px",borderRadius:20,
+                                    fontSize:isMobile?15:11,fontWeight:500,lineHeight:1,
                                     border:`1px solid ${order.choice===opt.id?opt.accent:T.border}`,
                                     background:order.choice===opt.id?opt.bg:T.bgInput,
                                     color:order.choice===opt.id?opt.accent:T.textSub,
@@ -1099,18 +1100,18 @@ export default function App() {
                             </div>
                           )}
                           {!canEdit && chosen && (
-                            <span style={{fontSize:12,background:chosen.bg,color:chosen.accent,
-                              padding:"3px 10px",borderRadius:20,fontWeight:500}}>{chosen.emoji} {chosen.label}</span>
+                            <span style={{fontSize:isMobile?13:12,background:chosen.bg,color:chosen.accent,
+                              padding:"2px 8px",borderRadius:20,fontWeight:500,flexShrink:0}}>{chosen.emoji}</span>
                           )}
                           {user==="Admin" && (
-                            <button style={{background:"none",border:"none",color:T.textFaint,fontSize:14,cursor:"pointer",padding:4,flexShrink:0}}
+                            <button style={{background:"none",border:"none",color:T.textFaint,fontSize:12,cursor:"pointer",padding:2,flexShrink:0}}
                               onClick={()=>removeMember(name)}>✕</button>
                           )}
                         </div>
 
                         {/* Expanded */}
                         {order.choice && (
-                          <div style={{padding:"16px 16px 16px 70px"}}>
+                          <div style={{padding:isMobile?"10px 12px":"16px 16px 16px 70px"}}>
                             <DetailCell name={name} order={order} canEdit={canEdit}
                               mealExtras={extrasForMeal(order.choice)} {...detailCellProps}/>
                           </div>
