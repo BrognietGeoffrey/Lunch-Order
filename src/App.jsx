@@ -41,53 +41,53 @@ const LUNCH_OPTIONS = [
 // ── Themes ────────────────────────────────────────────────────────────────────
 const LIGHT = {
   isDark: false,
-  sidebar:      "#c4a882",
-  sidebarBg:    "#d4b896",
-  sidebarText:  "rgba(255,252,245,0.7)",
+  sidebar:      "#3d3226",
+  sidebarBg:    "#4a3d2e",
+  sidebarText:  "rgba(255,255,255,0.65)",
   sidebarActive:"#ffffff",
-  sidebarHover: "rgba(255,252,245,0.15)",
-  sidebarBorder:"rgba(255,252,245,0.12)",
-  bg:          "#f5f0e8",
+  sidebarHover: "rgba(255,255,255,0.10)",
+  sidebarBorder:"rgba(255,255,255,0.10)",
+  bg:          "#f4f1ea",
   bgCard:      "#ffffff",
-  bgHover:     "#faf7f2",
-  bgInput:     "#faf7f2",
-  bgTag:       "#f0ebe0",
-  border:      "#e8e0d0",
-  borderLight: "#f0ebe0",
-  text:        "#2c1f0e",
-  textSub:     "#8a7560",
-  textFaint:   "#bba88a",
-  accent:      "#9b6a3a",
-  accentLight: "#f5e8d5",
-  green:       "#5a8f7b",
-  red:         "#c0553a",
-  shadow:      "0 2px 16px rgba(44,31,14,0.08)",
-  shadowHover: "0 4px 24px rgba(44,31,14,0.12)",
+  bgHover:     "#f6f3ed",
+  bgInput:     "#f6f3ed",
+  bgTag:       "#ece6d9",
+  border:      "#e2dac8",
+  borderLight: "#ece6d9",
+  text:        "#211a10",
+  textSub:     "#6e6253",
+  textFaint:   "#a89b85",
+  accent:      "#b5651d",
+  accentLight: "#fbeadb",
+  green:       "#3f7d5c",
+  red:         "#c43d3d",
+  shadow:      "0 2px 16px rgba(33,26,16,0.07)",
+  shadowHover: "0 6px 28px rgba(33,26,16,0.14)",
 };
 const DARK = {
   isDark: true,
-  sidebar:      "#2a1f14",
-  sidebarBg:    "#1e1610",
-  sidebarText:  "rgba(245,239,230,0.5)",
-  sidebarActive:"#f5efe6",
-  sidebarHover: "rgba(245,239,230,0.06)",
-  sidebarBorder:"rgba(245,239,230,0.08)",
-  bg:          "#0f0c08",
-  bgCard:      "#1c1610",
-  bgHover:     "#231c14",
-  bgInput:     "#231c14",
-  bgTag:       "#2a2018",
-  border:      "#3a2e20",
-  borderLight: "#2a2018",
-  text:        "#f5efe6",
-  textSub:     "#8a7560",
-  textFaint:   "#5a4a35",
-  accent:      "#c8922a",
-  accentLight: "#2a2010",
-  green:       "#5a8f7b",
-  red:         "#c0553a",
-  shadow:      "0 2px 16px rgba(0,0,0,0.3)",
-  shadowHover: "0 4px 24px rgba(0,0,0,0.4)",
+  sidebar:      "#1b1610",
+  sidebarBg:    "#15110c",
+  sidebarText:  "rgba(245,239,230,0.55)",
+  sidebarActive:"#ffffff",
+  sidebarHover: "rgba(255,255,255,0.07)",
+  sidebarBorder:"rgba(255,255,255,0.08)",
+  bg:          "#100d09",
+  bgCard:      "#1d1812",
+  bgHover:     "#251e16",
+  bgInput:     "#251e16",
+  bgTag:       "#2b2318",
+  border:      "#3c3022",
+  borderLight: "#2b2318",
+  text:        "#f7f1e6",
+  textSub:     "#a8987e",
+  textFaint:   "#6b5c46",
+  accent:      "#e0913a",
+  accentLight: "#2e2415",
+  green:       "#4f9d77",
+  red:         "#e0625a",
+  shadow:      "0 2px 16px rgba(0,0,0,0.35)",
+  shadowHover: "0 6px 28px rgba(0,0,0,0.5)",
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1340,11 +1340,12 @@ export default function App() {
               height: isMobile ? "calc(100vh - 180px)" : "calc(100vh - 120px)"}}>
               <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:22,color:T.text,marginBottom:16}}>💬 Chat</h1>
 
-              <div style={{flex:1,background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:14,
-                boxShadow:T.shadow,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+              <div style={{flex:1,background:T.bgCard,border:`1.5px solid ${T.border}`,borderRadius:14,
+                boxShadow:T.shadowHover,display:"flex",flexDirection:"column",overflow:"hidden"}}>
 
                 {/* Messages */}
-                <div style={{flex:1,overflowY:"auto",padding:"16px 20px",display:"flex",flexDirection:"column",gap:10}}>
+                <div style={{flex:1,overflowY:"auto",padding:"16px 20px",display:"flex",flexDirection:"column",gap:10,
+                  background:T.isDark?T.bg:"#faf5ec"}}>
                   {chatMessages.length===0 && (
                     <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",
                       justifyContent:"center",color:T.textFaint,gap:8}}>
@@ -1359,24 +1360,29 @@ export default function App() {
                         flexDirection:isMe?"row-reverse":"row",alignSelf:isMe?"flex-end":"flex-start",maxWidth:"75%"}}>
                         <Avatar name={msg.author} size={28}/>
                         <div>
-                          {!isMe && <p style={{fontSize:11,color:T.textFaint,marginBottom:2,marginLeft:10}}>{msg.author}</p>}
-                          <div style={{background:isMe?T.accent:T.bgTag,
+                          {!isMe && <p style={{fontSize:11,fontWeight:600,color:T.textSub,marginBottom:3,marginLeft:10}}>{msg.author}</p>}
+                          <div style={{background:isMe?T.sidebar:(T.isDark?T.bgInput:"#ffffff"),
                             color:isMe?"#fff":T.text,
+                            border:isMe?"none":`1px solid ${T.border}`,
                             borderRadius:isMe?"14px 14px 4px 14px":"14px 14px 14px 4px",
-                            padding:"8px 14px",fontSize:13,lineHeight:1.4,wordBreak:"break-word",
+                            padding:"9px 14px",fontSize:13.5,lineHeight:1.45,wordBreak:"break-word",
+                            boxShadow:isMe?"0 1px 4px rgba(44,31,14,0.15)":"0 1px 3px rgba(44,31,14,0.06)",
                             position:"relative"}}>
                             {msg.text}
                           </div>
                           <div style={{display:"flex",gap:6,alignItems:"center",
                             justifyContent:isMe?"flex-end":"flex-start",marginTop:2,marginLeft:isMe?0:10,marginRight:isMe?10:0}}>
                             {msg.timestamp?.seconds && (
-                              <span style={{fontSize:10,color:T.textFaint}}>
+                              <span style={{fontSize:10,color:T.textSub}}>
                                 {new Date(msg.timestamp.seconds*1000).toLocaleTimeString("fr-BE",{hour:"2-digit",minute:"2-digit"})}
                               </span>
                             )}
                             {(isMe || user==="Admin") && (
                               <button onClick={()=>deleteChatMessage(msg.id)}
-                                style={{background:"none",border:"none",color:T.textFaint,fontSize:10,cursor:"pointer",padding:0}}>
+                                style={{background:"none",border:"none",color:T.textSub,fontSize:10,
+                                  cursor:"pointer",padding:0,textDecoration:"underline",opacity:0.6}}
+                                onMouseEnter={e=>e.currentTarget.style.opacity="1"}
+                                onMouseLeave={e=>e.currentTarget.style.opacity="0.6"}>
                                 supprimer
                               </button>
                             )}
@@ -1390,9 +1396,9 @@ export default function App() {
 
                 {/* Input */}
                 <div style={{borderTop:`1px solid ${T.border}`,padding:"12px 16px",display:"flex",gap:8,
-                  background:T.bgHover}}>
+                  background:T.bgCard}}>
                   <input
-                    style={{...inp,flex:1}}
+                    style={{...inp,flex:1,background:T.isDark?T.bgInput:"#ffffff",border:`1.5px solid ${T.border}`}}
                     value={chatInput}
                     onChange={e=>setChatInput(e.target.value)}
                     onKeyDown={e=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); sendChatMessage(); } }}
