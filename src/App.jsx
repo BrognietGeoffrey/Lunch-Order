@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection } from "firebase/firestore";
+import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection, addDoc, query, orderBy, limit, serverTimestamp } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBuZ98mNM-FRYpIkWzb6HiZYgX7ynlMXMU",
@@ -706,6 +706,9 @@ export default function App() {
   const [boubouleMenuSaved, setBoubouleMenuSaved] = useState(null);
   const [isDark, setIsDark]   = useState(()=>localStorage.getItem("lunch_theme")==="dark");
   const [isMobile, setIsMobile] = useState(()=>window.innerWidth<768);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput]       = useState("");
+  const chatEndRef = useRef(null);
   const detailTimers = useRef({});
   const T = isDark ? DARK : LIGHT;
 
@@ -731,7 +734,11 @@ export default function App() {
     const u10=onSnapshot(doc(db,"config","snackMenu"), s=>{if(s.exists()&&s.data().sections)setSnackMenu(s.data().sections);});
     const u11=onSnapshot(doc(db,"config","libanaisMenu"), s=>{if(s.exists()&&s.data().sections)setLibanaisMenu(s.data().sections);});
     const u12=onSnapshot(doc(db,"config","boubouleMenu"), s=>{if(s.exists())setBoubouleMenuSaved(s.data());});
-    return ()=>{u1();u2();u3();u4();u4b();u5();u6();u7();u8();u9();u10();u11();u12();};
+    const chatQuery=query(collection(db,"chat"), orderBy("timestamp","asc"), limit(200));
+    const u13=onSnapshot(chatQuery, s=>{
+      const msgs=[]; s.forEach(x=>msgs.push({id:x.id,...x.data()})); setChatMessages(msgs);
+    });
+    return ()=>{u1();u2();u3();u4();u4b();u5();u6();u7();u8();u9();u10();u11();u12();u13();};
   },[]);
 
   useEffect(()=>{
@@ -743,6 +750,10 @@ export default function App() {
       setDoc(doc(db,"orders",user),{...orderData});
     }
   },[user,favorites]);
+
+  useEffect(()=>{
+    chatEndRef.current?.scrollIntoView({behavior:"smooth"});
+  },[chatMessages, tab]);
 
   if(!user) return <LoginScreen onLogin={setUser} T={T} isDark={isDark} toggleTheme={toggleTheme} members={members}/>;
 
@@ -832,6 +843,20 @@ export default function App() {
   };
   const deleteHistory=async id=>{if(!window.confirm("Supprimer ?"))return;await deleteDoc(doc(db,"history",id));};
 
+  const sendChatMessage = async () => {
+    const text = chatInput.trim();
+    if(!text) return;
+    setChatInput("");
+    await addDoc(collection(db,"chat"), {
+      author: user,
+      text,
+      timestamp: serverTimestamp(),
+    });
+  };
+  const deleteChatMessage = async (id) => {
+    await deleteDoc(doc(db,"chat",id));
+  };
+
   const totalOrdered=names.filter(n=>orders[n]?.choice).length;
   const notOrdered=names.filter(n=>!orders[n]?.choice);
   const counts=LUNCH_OPTIONS.reduce((a,o)=>{a[o.id]=names.filter(n=>orders[n]?.choice===o.id).length;return a;},{});
@@ -860,6 +885,7 @@ export default function App() {
   const navItems = [
     { id:"order",    icon:"📋", label:"Commander" },
     { id:"summary",  icon:"📊", label:"Résumé" },
+    { id:"chat",     icon:"💬", label:"Chat" },
     { id:"favorites",icon:"⭐", label:"Favoris" },
     { id:"history",  icon:"📅", label:"Historique" },
     { id:"menu",     icon:"🍽️", label:"Menu" },
@@ -1305,6 +1331,80 @@ export default function App() {
                   ⭐ Favori sauvegardé !
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ════ CHAT TAB ════ */}
+          {tab==="chat" && (
+            <div style={{animation:"slideIn 0.25s ease",display:"flex",flexDirection:"column",
+              height: isMobile ? "calc(100vh - 180px)" : "calc(100vh - 120px)"}}>
+              <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:22,color:T.text,marginBottom:16}}>💬 Chat</h1>
+
+              <div style={{flex:1,background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:14,
+                boxShadow:T.shadow,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+
+                {/* Messages */}
+                <div style={{flex:1,overflowY:"auto",padding:"16px 20px",display:"flex",flexDirection:"column",gap:10}}>
+                  {chatMessages.length===0 && (
+                    <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",
+                      justifyContent:"center",color:T.textFaint,gap:8}}>
+                      <span style={{fontSize:32}}>💬</span>
+                      <p style={{fontSize:13}}>Aucun message pour l'instant. Dis bonjour !</p>
+                    </div>
+                  )}
+                  {chatMessages.map(msg=>{
+                    const isMe = msg.author===user;
+                    return (
+                      <div key={msg.id} style={{display:"flex",gap:8,alignItems:"flex-end",
+                        flexDirection:isMe?"row-reverse":"row",alignSelf:isMe?"flex-end":"flex-start",maxWidth:"75%"}}>
+                        <Avatar name={msg.author} size={28}/>
+                        <div>
+                          {!isMe && <p style={{fontSize:11,color:T.textFaint,marginBottom:2,marginLeft:10}}>{msg.author}</p>}
+                          <div style={{background:isMe?T.accent:T.bgTag,
+                            color:isMe?"#fff":T.text,
+                            borderRadius:isMe?"14px 14px 4px 14px":"14px 14px 14px 4px",
+                            padding:"8px 14px",fontSize:13,lineHeight:1.4,wordBreak:"break-word",
+                            position:"relative"}}>
+                            {msg.text}
+                          </div>
+                          <div style={{display:"flex",gap:6,alignItems:"center",
+                            justifyContent:isMe?"flex-end":"flex-start",marginTop:2,marginLeft:isMe?0:10,marginRight:isMe?10:0}}>
+                            {msg.timestamp?.seconds && (
+                              <span style={{fontSize:10,color:T.textFaint}}>
+                                {new Date(msg.timestamp.seconds*1000).toLocaleTimeString("fr-BE",{hour:"2-digit",minute:"2-digit"})}
+                              </span>
+                            )}
+                            {(isMe || user==="Admin") && (
+                              <button onClick={()=>deleteChatMessage(msg.id)}
+                                style={{background:"none",border:"none",color:T.textFaint,fontSize:10,cursor:"pointer",padding:0}}>
+                                supprimer
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div ref={chatEndRef}/>
+                </div>
+
+                {/* Input */}
+                <div style={{borderTop:`1px solid ${T.border}`,padding:"12px 16px",display:"flex",gap:8,
+                  background:T.bgHover}}>
+                  <input
+                    style={{...inp,flex:1}}
+                    value={chatInput}
+                    onChange={e=>setChatInput(e.target.value)}
+                    onKeyDown={e=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); sendChatMessage(); } }}
+                    placeholder="Écris un message…"
+                  />
+                  <button onClick={sendChatMessage}
+                    style={{...addBtn,opacity:chatInput.trim()?1:0.5}}
+                    disabled={!chatInput.trim()}>
+                    Envoyer →
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
