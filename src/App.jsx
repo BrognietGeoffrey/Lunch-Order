@@ -784,14 +784,30 @@ export default function App() {
   const toggleMulti=async(name,field,value)=>{
     const cur=orders[name]||{};if(!cur.choice)return;
     const list=cur[field]||[];
-    const updated=list.includes(value)?list.filter(x=>x!==value):[...list,value];
-    // auto-set cruditesTout if all crudites are selected
+    let updated;
     let extra = {};
+
     if(field==="crudites") {
-      const allSelected = crudites.every(c=>updated.includes(c));
-      const noneSelected = updated.length===0;
-      extra = { cruditesTout: allSelected && !noneSelected };
+      const isNone = value.toLowerCase().includes("aucune");
+      if(isNone) {
+        // "Aucune crudités" selected → deselect everything else, toggle aucune
+        updated = list.includes(value) ? [] : [value];
+        extra = { cruditesTout: false };
+      } else {
+        // normal crudite → remove "aucune" if present, toggle this one
+        const withoutNone = list.filter(x=>!x.toLowerCase().includes("aucune"));
+        updated = withoutNone.includes(value)
+          ? withoutNone.filter(x=>x!==value)
+          : [...withoutNone, value];
+        // auto-set cruditesTout if all real crudites selected
+        const realCrudites = crudites.filter(c=>!c.toLowerCase().includes("aucune"));
+        const allSelected = realCrudites.length>0 && realCrudites.every(c=>updated.includes(c));
+        extra = { cruditesTout: allSelected };
+      }
+    } else {
+      updated = list.includes(value)?list.filter(x=>x!==value):[...list,value];
     }
+
     const newOrder={...cur,[field]:updated,...extra};
     setOrders(prev=>({...prev,[name]:newOrder}));
     await setDoc(doc(db,"orders",name),newOrder);
@@ -799,7 +815,8 @@ export default function App() {
   const toggleCruditesTout=async(name)=>{
     const cur=orders[name]||{};if(!cur.choice)return;
     const wasTout=cur.cruditesTout||false;
-    const updated={...cur,cruditesTout:!wasTout,crudites:!wasTout?[...crudites]:[]};
+    const realCrudites = crudites.filter(c=>!c.toLowerCase().includes("aucune"));
+    const updated={...cur,cruditesTout:!wasTout,crudites:!wasTout?[...realCrudites]:[]};
     setOrders(prev=>({...prev,[name]:updated}));
     await setDoc(doc(db,"orders",name),updated);
   };
