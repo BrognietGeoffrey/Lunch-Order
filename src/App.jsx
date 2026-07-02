@@ -101,11 +101,16 @@ function avatarColor(name) {
 
 function formatCrudites(o, allCrudites) {
   if (!o.crudites?.length) return null;
+  const isNoneSelected = o.crudites.every(c=>c.toLowerCase().includes("aucune"));
+  if (isNoneSelected) return "Aucune crudité";
   if (o.cruditesTout) {
-    const excl = allCrudites.filter(c => !o.crudites.includes(c));
+    const realCrudites = allCrudites.filter(c=>!c.toLowerCase().includes("aucune"));
+    const selected = o.crudites.filter(c=>!c.toLowerCase().includes("aucune"));
+    const excl = realCrudites.filter(c=>!selected.includes(c));
     return excl.length > 0 ? "Tout sauf: "+excl.join(", ") : "Toutes crudités";
   }
-  return "Crudités: "+o.crudites.join(", ");
+  const selected = o.crudites.filter(c=>!c.toLowerCase().includes("aucune"));
+  return selected.length ? "Crudités: "+selected.join(", ") : null;
 }
 
 function formatOrderFull(o, extras=[], allCrudites=[]) {
