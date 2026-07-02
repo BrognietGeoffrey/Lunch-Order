@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection, addDoc, query, orderBy, limit, serverTimestamp } from "firebase/firestore";
+import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBuZ98mNM-FRYpIkWzb6HiZYgX7ynlMXMU",
@@ -41,53 +41,53 @@ const LUNCH_OPTIONS = [
 // ── Themes ────────────────────────────────────────────────────────────────────
 const LIGHT = {
   isDark: false,
-  sidebar:      "#8a7058",
-  sidebarBg:    "#9c826a",
-  sidebarText:  "rgba(255,255,255,0.75)",
+  sidebar:      "#c4a882",
+  sidebarBg:    "#d4b896",
+  sidebarText:  "rgba(255,252,245,0.7)",
   sidebarActive:"#ffffff",
-  sidebarHover: "rgba(255,255,255,0.12)",
-  sidebarBorder:"rgba(255,255,255,0.12)",
-  bg:          "#faf8f4",
+  sidebarHover: "rgba(255,252,245,0.15)",
+  sidebarBorder:"rgba(255,252,245,0.12)",
+  bg:          "#f5f0e8",
   bgCard:      "#ffffff",
-  bgHover:     "#f6f3ee",
-  bgInput:     "#f6f3ee",
-  bgTag:       "#f0ece3",
-  border:      "#e4ddd0",
-  borderLight: "#ece7dc",
-  text:        "#2b261f",
-  textSub:     "#6b6155",
-  textFaint:   "#9d9486",
-  accent:      "#b5651d",
-  accentLight: "#fbeadb",
-  green:       "#3f7d5c",
-  red:         "#c43d3d",
-  shadow:      "0 2px 12px rgba(43,38,31,0.06)",
-  shadowHover: "0 6px 22px rgba(43,38,31,0.10)",
+  bgHover:     "#faf7f2",
+  bgInput:     "#faf7f2",
+  bgTag:       "#f0ebe0",
+  border:      "#e8e0d0",
+  borderLight: "#f0ebe0",
+  text:        "#2c1f0e",
+  textSub:     "#8a7560",
+  textFaint:   "#bba88a",
+  accent:      "#9b6a3a",
+  accentLight: "#f5e8d5",
+  green:       "#5a8f7b",
+  red:         "#c0553a",
+  shadow:      "0 2px 16px rgba(44,31,14,0.08)",
+  shadowHover: "0 4px 24px rgba(44,31,14,0.12)",
 };
 const DARK = {
   isDark: true,
-  sidebar:      "#2c2418",
-  sidebarBg:    "#241d13",
-  sidebarText:  "rgba(245,239,230,0.6)",
-  sidebarActive:"#ffffff",
-  sidebarHover: "rgba(255,255,255,0.08)",
-  sidebarBorder:"rgba(255,255,255,0.08)",
-  bg:          "#171310",
-  bgCard:      "#221c15",
-  bgHover:     "#2a2318",
-  bgInput:     "#2a2318",
-  bgTag:       "#312919",
-  border:      "#433723",
-  borderLight: "#312919",
-  text:        "#f3ece0",
-  textSub:     "#b3a48c",
-  textFaint:   "#766852",
-  accent:      "#e0913a",
-  accentLight: "#332815",
-  green:       "#4f9d77",
-  red:         "#e0625a",
+  sidebar:      "#2a1f14",
+  sidebarBg:    "#1e1610",
+  sidebarText:  "rgba(245,239,230,0.5)",
+  sidebarActive:"#f5efe6",
+  sidebarHover: "rgba(245,239,230,0.06)",
+  sidebarBorder:"rgba(245,239,230,0.08)",
+  bg:          "#0f0c08",
+  bgCard:      "#1c1610",
+  bgHover:     "#231c14",
+  bgInput:     "#231c14",
+  bgTag:       "#2a2018",
+  border:      "#3a2e20",
+  borderLight: "#2a2018",
+  text:        "#f5efe6",
+  textSub:     "#8a7560",
+  textFaint:   "#5a4a35",
+  accent:      "#c8922a",
+  accentLight: "#2a2010",
+  green:       "#5a8f7b",
+  red:         "#c0553a",
   shadow:      "0 2px 16px rgba(0,0,0,0.3)",
-  shadowHover: "0 6px 24px rgba(0,0,0,0.45)",
+  shadowHover: "0 4px 24px rgba(0,0,0,0.4)",
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -706,13 +706,6 @@ export default function App() {
   const [boubouleMenuSaved, setBoubouleMenuSaved] = useState(null);
   const [isDark, setIsDark]   = useState(()=>localStorage.getItem("lunch_theme")==="dark");
   const [isMobile, setIsMobile] = useState(()=>window.innerWidth<768);
-  const [chatMessages, setChatMessages] = useState([]);
-  const [chatInput, setChatInput]       = useState("");
-  const chatEndRef = useRef(null);
-  const [activity, setActivity]         = useState([]);
-  const [lastReadChat, setLastReadChat]         = useState(0);
-  const [lastReadActivity, setLastReadActivity] = useState(0);
-  const [showNotifPanel, setShowNotifPanel]     = useState(false);
   const detailTimers = useRef({});
   const T = isDark ? DARK : LIGHT;
 
@@ -738,15 +731,7 @@ export default function App() {
     const u10=onSnapshot(doc(db,"config","snackMenu"), s=>{if(s.exists()&&s.data().sections)setSnackMenu(s.data().sections);});
     const u11=onSnapshot(doc(db,"config","libanaisMenu"), s=>{if(s.exists()&&s.data().sections)setLibanaisMenu(s.data().sections);});
     const u12=onSnapshot(doc(db,"config","boubouleMenu"), s=>{if(s.exists())setBoubouleMenuSaved(s.data());});
-    const chatQuery=query(collection(db,"chat"), orderBy("timestamp","asc"), limit(200));
-    const u13=onSnapshot(chatQuery, s=>{
-      const msgs=[]; s.forEach(x=>msgs.push({id:x.id,...x.data()})); setChatMessages(msgs);
-    });
-    const activityQuery=query(collection(db,"activity"), orderBy("timestamp","desc"), limit(60));
-    const u14=onSnapshot(activityQuery, s=>{
-      const acts=[]; s.forEach(x=>acts.push({id:x.id,...x.data()})); setActivity(acts);
-    });
-    return ()=>{u1();u2();u3();u4();u4b();u5();u6();u7();u8();u9();u10();u11();u12();u13();u14();};
+    return ()=>{u1();u2();u3();u4();u4b();u5();u6();u7();u8();u9();u10();u11();u12();};
   },[]);
 
   useEffect(()=>{
@@ -758,23 +743,6 @@ export default function App() {
       setDoc(doc(db,"orders",user),{...orderData});
     }
   },[user,favorites]);
-
-  useEffect(()=>{
-    chatEndRef.current?.scrollIntoView({behavior:"smooth"});
-  },[chatMessages, tab]);
-
-  useEffect(()=>{
-    if(!user)return;
-    setLastReadChat(Number(localStorage.getItem("lunch_lastReadChat_"+user))||0);
-    setLastReadActivity(Number(localStorage.getItem("lunch_lastReadActivity_"+user))||Date.now());
-  },[user]);
-
-  useEffect(()=>{
-    if(!user||tab!=="chat")return;
-    const now=Date.now();
-    setLastReadChat(now);
-    localStorage.setItem("lunch_lastReadChat_"+user, String(now));
-  },[tab,user,chatMessages]);
 
   if(!user) return <LoginScreen onLogin={setUser} T={T} isDark={isDark} toggleTheme={toggleTheme} members={members}/>;
 
@@ -797,20 +765,10 @@ export default function App() {
   const addExtraOption=async(extraId)=>{const val=(newExtraOption[extraId]||"").trim();if(!val)return;await pe(extras.map(e=>e.id===extraId?{...e,options:[...e.options,val]}:e));setNewExtraOption(p=>({...p,[extraId]:""}));};
   const removeExtraOption=async(extraId,opt)=>{await pe(extras.map(e=>e.id===extraId?{...e,options:e.options.filter(o=>o!==opt)}:e));};
 
-  const logActivity = async(text, type="info") => {
-    await addDoc(collection(db,"activity"), { author:user, text, type, timestamp: serverTimestamp() });
-  };
-
   const toggleChoice=async(name,choice)=>{
     const cur=orders[name]||{};
-    const opt=LUNCH_OPTIONS.find(o=>o.id===choice);
-    if(cur.choice===choice){
-      await deleteDoc(doc(db,"orders",name));
-      logActivity(`${name} a annulé sa commande ${opt?.emoji||""} ${opt?.label||""}`.trim(), "cancel");
-    } else {
-      await setDoc(doc(db,"orders",name),{choice,detail:"",sauces:[],crudites:[],cruditesTout:false,boules:"",boule1:"",boule2:"",snackType:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}});
-      logActivity(`${name} a commandé ${opt?.emoji||""} ${opt?.label||""}`.trim(), "order");
-    }
+    if(cur.choice===choice)await deleteDoc(doc(db,"orders",name));
+    else await setDoc(doc(db,"orders",name),{choice,detail:"",sauces:[],crudites:[],cruditesTout:false,boules:"",boule1:"",boule2:"",snackType:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}});
   };
   const handleDetail=(name,detail)=>{
     setOrders(prev=>({...prev,[name]:{...prev[name],detail}}));
@@ -827,7 +785,14 @@ export default function App() {
     const cur=orders[name]||{};if(!cur.choice)return;
     const list=cur[field]||[];
     const updated=list.includes(value)?list.filter(x=>x!==value):[...list,value];
-    const newOrder={...cur,[field]:updated};
+    // auto-set cruditesTout if all crudites are selected
+    let extra = {};
+    if(field==="crudites") {
+      const allSelected = crudites.every(c=>updated.includes(c));
+      const noneSelected = updated.length===0;
+      extra = { cruditesTout: allSelected && !noneSelected };
+    }
+    const newOrder={...cur,[field]:updated,...extra};
     setOrders(prev=>({...prev,[name]:newOrder}));
     await setDoc(doc(db,"orders",name),newOrder);
   };
@@ -852,7 +817,6 @@ export default function App() {
     const updated={...payments,[name]:!cur};
     setPayments(updated);
     await setDoc(doc(db,"payments","today"),updated);
-    logActivity(`${name} ${!cur?"a été marqué payé":"a été marqué non payé"} 💰`, "payment");
   };
   const saveFavorite=async name=>{
     const cur=orders[name];if(!cur?.choice)return;
@@ -875,33 +839,10 @@ export default function App() {
   };
   const deleteHistory=async id=>{if(!window.confirm("Supprimer ?"))return;await deleteDoc(doc(db,"history",id));};
 
-  const sendChatMessage = async () => {
-    const text = chatInput.trim();
-    if(!text) return;
-    setChatInput("");
-    await addDoc(collection(db,"chat"), {
-      author: user,
-      text,
-      timestamp: serverTimestamp(),
-    });
-  };
-  const deleteChatMessage = async (id) => {
-    await deleteDoc(doc(db,"chat",id));
-  };
-
   const totalOrdered=names.filter(n=>orders[n]?.choice).length;
   const notOrdered=names.filter(n=>!orders[n]?.choice);
   const counts=LUNCH_OPTIONS.reduce((a,o)=>{a[o.id]=names.filter(n=>orders[n]?.choice===o.id).length;return a;},{});
   const extrasForMeal=choice=>extras.filter(e=>e.appliesTo?.includes(choice));
-
-  const unreadChatCount = chatMessages.filter(m=>m.author!==user && ((m.timestamp?.seconds*1000)||0) > lastReadChat).length;
-  const unreadActivityCount = activity.filter(a=>a.author!==user && ((a.timestamp?.seconds*1000)||0) > lastReadActivity).length;
-
-  const markActivityRead = () => {
-    const now=Date.now();
-    setLastReadActivity(now);
-    localStorage.setItem("lunch_lastReadActivity_"+user, String(now));
-  };
 
   const detailCellProps={ sauces,crudites,boissons,extras,T,
     handleDetail,handleSubDetail,toggleMulti,toggleCruditesTout,toggleExtraOption,
@@ -926,7 +867,6 @@ export default function App() {
   const navItems = [
     { id:"order",    icon:"📋", label:"Commander" },
     { id:"summary",  icon:"📊", label:"Résumé" },
-    { id:"chat",     icon:"💬", label:"Chat", badge:unreadChatCount },
     { id:"favorites",icon:"⭐", label:"Favoris" },
     { id:"history",  icon:"📅", label:"Historique" },
     { id:"menu",     icon:"🍽️", label:"Menu" },
@@ -993,17 +933,7 @@ export default function App() {
                     onMouseEnter={e=>{ if(!isActive) e.currentTarget.style.color="rgba(255,252,245,0.9)"; }}
                     onMouseLeave={e=>{ if(!isActive) e.currentTarget.style.color="rgba(255,252,245,0.55)"; }}
                   >
-                    <span style={{fontSize:19,lineHeight:1,position:"relative"}}>
-                      {item.icon}
-                      {!!item.badge && (
-                        <span style={{position:"absolute",top:-6,right:-9,minWidth:15,height:15,
-                          background:T.red,color:"#fff",borderRadius:9,fontSize:9,fontWeight:700,
-                          display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px",
-                          fontFamily:"'DM Sans',sans-serif",lineHeight:1,border:`1.5px solid ${T.sidebar}`}}>
-                          {item.badge>9?"9+":item.badge}
-                        </span>
-                      )}
-                    </span>
+                    <span style={{fontSize:19,lineHeight:1}}>{item.icon}</span>
                     <span style={{fontSize:8,fontWeight:600,fontFamily:"'DM Sans',sans-serif",
                       letterSpacing:"0.04em",opacity:0.8}}>{item.label}</span>
                   </button>
@@ -1015,20 +945,6 @@ export default function App() {
           {/* User */}
           <div style={{padding:"12px 0 16px",display:"flex",flexDirection:"column",alignItems:"center",gap:8,
             borderTop:`1px solid rgba(255,252,245,0.12)`}}>
-            <button onClick={()=>{ setShowNotifPanel(v=>!v); if(!showNotifPanel) markActivityRead(); }}
-              style={{position:"relative",background:"rgba(255,255,255,0.12)",border:"none",borderRadius:8,
-                width:36,height:36,display:"flex",alignItems:"center",justifyContent:"center",
-                cursor:"pointer",fontSize:15}} title="Notifications">
-              🔔
-              {unreadActivityCount>0 && (
-                <span style={{position:"absolute",top:-4,right:-4,minWidth:16,height:16,
-                  background:T.red,color:"#fff",borderRadius:9,fontSize:9,fontWeight:700,
-                  display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px",
-                  border:`1.5px solid ${T.sidebar}`}}>
-                  {unreadActivityCount>9?"9+":unreadActivityCount}
-                </span>
-              )}
-            </button>
             <Avatar name={user} size={28}/>
             <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"center"}}>
               <button onClick={toggleTheme}
@@ -1060,19 +976,6 @@ export default function App() {
               <span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:15,color:T.text}}>Lunch Orders</span>
             </div>
             <div style={{display:"flex",gap:6}}>
-              <button onClick={()=>{ setShowNotifPanel(v=>!v); if(!showNotifPanel) markActivityRead(); }}
-                style={{position:"relative",background:T.bgTag,border:`1px solid ${T.border}`,
-                  borderRadius:8,padding:"5px 8px",fontSize:13,cursor:"pointer",color:T.text}}>
-                🔔
-                {unreadActivityCount>0 && (
-                  <span style={{position:"absolute",top:-4,right:-4,minWidth:15,height:15,
-                    background:T.red,color:"#fff",borderRadius:9,fontSize:9,fontWeight:700,
-                    display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px",
-                    border:`1.5px solid ${T.bgCard}`}}>
-                    {unreadActivityCount>9?"9+":unreadActivityCount}
-                  </span>
-                )}
-              </button>
               <button onClick={toggleTheme} style={{background:T.bgTag,border:`1px solid ${T.border}`,
                 borderRadius:8,padding:"5px 8px",fontSize:13,cursor:"pointer",color:T.text}}>
                 {isDark?"☀️":"🌙"}
@@ -1099,17 +1002,7 @@ export default function App() {
                   color:tab===item.id?T.accent:T.textFaint,
                   borderTop:tab===item.id?`2px solid ${T.accent}`:"2px solid transparent",
                   fontFamily:"'DM Sans',sans-serif",transition:"color 0.15s"}}>
-                <span style={{fontSize:20,position:"relative"}}>
-                  {item.icon}
-                  {!!item.badge && (
-                    <span style={{position:"absolute",top:-5,right:-9,minWidth:15,height:15,
-                      background:T.red,color:"#fff",borderRadius:9,fontSize:9,fontWeight:700,
-                      display:"flex",alignItems:"center",justifyContent:"center",padding:"0 3px",
-                      border:`1.5px solid ${T.bgCard}`}}>
-                      {item.badge>9?"9+":item.badge}
-                    </span>
-                  )}
-                </span>
+                <span style={{fontSize:20}}>{item.icon}</span>
                 <span style={{fontSize:9,fontWeight:tab===item.id?700:400,letterSpacing:"0.03em"}}>
                   {item.label}
                 </span>
@@ -1419,86 +1312,6 @@ export default function App() {
                   ⭐ Favori sauvegardé !
                 </div>
               )}
-            </div>
-          )}
-
-          {/* ════ CHAT TAB ════ */}
-          {tab==="chat" && (
-            <div style={{animation:"slideIn 0.25s ease",display:"flex",flexDirection:"column",
-              height: isMobile ? "calc(100vh - 180px)" : "calc(100vh - 120px)"}}>
-              <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:22,color:T.text,marginBottom:16}}>💬 Chat</h1>
-
-              <div style={{flex:1,background:T.bgCard,border:`1.5px solid ${T.border}`,borderRadius:14,
-                boxShadow:T.shadowHover,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-
-                {/* Messages */}
-                <div style={{flex:1,overflowY:"auto",padding:"16px 20px",display:"flex",flexDirection:"column",gap:10,
-                  background:T.isDark?T.bg:"#faf5ec"}}>
-                  {chatMessages.length===0 && (
-                    <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",
-                      justifyContent:"center",color:T.textFaint,gap:8}}>
-                      <span style={{fontSize:32}}>💬</span>
-                      <p style={{fontSize:13}}>Aucun message pour l'instant. Dis bonjour !</p>
-                    </div>
-                  )}
-                  {chatMessages.map(msg=>{
-                    const isMe = msg.author===user;
-                    return (
-                      <div key={msg.id} style={{display:"flex",gap:8,alignItems:"flex-end",
-                        flexDirection:isMe?"row-reverse":"row",alignSelf:isMe?"flex-end":"flex-start",maxWidth:"75%"}}>
-                        <Avatar name={msg.author} size={28}/>
-                        <div>
-                          {!isMe && <p style={{fontSize:11,fontWeight:600,color:T.textSub,marginBottom:3,marginLeft:10}}>{msg.author}</p>}
-                          <div style={{background:isMe?T.sidebar:(T.isDark?T.bgInput:"#ffffff"),
-                            color:isMe?"#fff":T.text,
-                            border:isMe?"none":`1px solid ${T.border}`,
-                            borderRadius:isMe?"14px 14px 4px 14px":"14px 14px 14px 4px",
-                            padding:"9px 14px",fontSize:13.5,lineHeight:1.45,wordBreak:"break-word",
-                            boxShadow:isMe?"0 1px 4px rgba(44,31,14,0.15)":"0 1px 3px rgba(44,31,14,0.06)",
-                            position:"relative"}}>
-                            {msg.text}
-                          </div>
-                          <div style={{display:"flex",gap:6,alignItems:"center",
-                            justifyContent:isMe?"flex-end":"flex-start",marginTop:2,marginLeft:isMe?0:10,marginRight:isMe?10:0}}>
-                            {msg.timestamp?.seconds && (
-                              <span style={{fontSize:10,color:T.textSub}}>
-                                {new Date(msg.timestamp.seconds*1000).toLocaleTimeString("fr-BE",{hour:"2-digit",minute:"2-digit"})}
-                              </span>
-                            )}
-                            {(isMe || user==="Admin") && (
-                              <button onClick={()=>deleteChatMessage(msg.id)}
-                                style={{background:"none",border:"none",color:T.textSub,fontSize:10,
-                                  cursor:"pointer",padding:0,textDecoration:"underline",opacity:0.6}}
-                                onMouseEnter={e=>e.currentTarget.style.opacity="1"}
-                                onMouseLeave={e=>e.currentTarget.style.opacity="0.6"}>
-                                supprimer
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <div ref={chatEndRef}/>
-                </div>
-
-                {/* Input */}
-                <div style={{borderTop:`1px solid ${T.border}`,padding:"12px 16px",display:"flex",gap:8,
-                  background:T.bgCard}}>
-                  <input
-                    style={{...inp,flex:1,background:T.isDark?T.bgInput:"#ffffff",border:`1.5px solid ${T.border}`}}
-                    value={chatInput}
-                    onChange={e=>setChatInput(e.target.value)}
-                    onKeyDown={e=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); sendChatMessage(); } }}
-                    placeholder="Écris un message…"
-                  />
-                  <button onClick={sendChatMessage}
-                    style={{...addBtn,opacity:chatInput.trim()?1:0.5}}
-                    disabled={!chatInput.trim()}>
-                    Envoyer →
-                  </button>
-                </div>
-              </div>
             </div>
           )}
 
@@ -2213,51 +2026,6 @@ export default function App() {
                   <button style={{background:"transparent",border:`1px solid ${T.border}`,color:T.textSub,
                     borderRadius:10,padding:"8px",fontSize:12,cursor:"pointer"}}
                     onClick={()=>setSauceModal(null)}>Annuler</button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── Notifications panel ── */}
-          {showNotifPanel && (
-            <div style={{position:"fixed",inset:0,zIndex:998}}
-              onClick={()=>setShowNotifPanel(false)}>
-              <div onClick={e=>e.stopPropagation()}
-                style={{position:"fixed",
-                  top:isMobile?60:16, right:isMobile?12:16,
-                  left:isMobile?12:"auto",
-                  width:isMobile?"auto":340, maxHeight:"70vh",
-                  background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:14,
-                  boxShadow:T.shadowHover, overflow:"hidden", display:"flex",flexDirection:"column"}}>
-                <div style={{padding:"12px 16px",borderBottom:`1px solid ${T.borderLight}`,
-                  display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                  <span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:14,color:T.text}}>🔔 Notifications</span>
-                  <button onClick={()=>setShowNotifPanel(false)}
-                    style={{background:"none",border:"none",color:T.textFaint,fontSize:14,cursor:"pointer"}}>✕</button>
-                </div>
-                <div style={{overflowY:"auto",flex:1}}>
-                  {activity.length===0 && (
-                    <div style={{padding:"32px 16px",textAlign:"center",color:T.textFaint,fontSize:12}}>
-                      Aucune activité pour l'instant.
-                    </div>
-                  )}
-                  {activity.map(a=>{
-                    const icon = a.type==="order"?"🛒":a.type==="cancel"?"✕":a.type==="payment"?"💰":"•";
-                    return (
-                      <div key={a.id} style={{display:"flex",gap:10,alignItems:"flex-start",
-                        padding:"10px 16px",borderBottom:`1px solid ${T.borderLight}`}}>
-                        <span style={{fontSize:13,marginTop:1}}>{icon}</span>
-                        <div style={{flex:1}}>
-                          <p style={{fontSize:12.5,color:T.text,lineHeight:1.4}}>{a.text}</p>
-                          {a.timestamp?.seconds && (
-                            <p style={{fontSize:10,color:T.textFaint,marginTop:2}}>
-                              {new Date(a.timestamp.seconds*1000).toLocaleTimeString("fr-BE",{hour:"2-digit",minute:"2-digit"})}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
                 </div>
               </div>
             </div>
