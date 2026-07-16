@@ -720,11 +720,26 @@ export default function App() {
 
   useEffect(()=>{
     const u1=onSnapshot(collection(db,"orders"),    s=>{const d={};s.forEach(x=>{d[x.id]=x.data();});setOrders(d);setStatus("live");}, ()=>setStatus("error"));
-    const u2=onSnapshot(doc(db,"config","members"), s=>{if(s.exists()&&s.data().list)setMembers(s.data().list);});
-    const u3=onSnapshot(doc(db,"config","sauces"),  s=>{if(s.exists()&&s.data().list)setSauces(s.data().list);});
-    const u4=onSnapshot(doc(db,"config","crudites"),s=>{if(s.exists()&&s.data().list)setCrudites(s.data().list);});
-    const u4b=onSnapshot(doc(db,"config","boissons"),s=>{if(s.exists()&&s.data().list)setBoissons(s.data().list);});
-    const u5=onSnapshot(doc(db,"config","extras"),  s=>{if(s.exists()&&s.data().list)setExtras(s.data().list);});
+    const u2=onSnapshot(doc(db,"config","members"), s=>{
+      if(s.exists()&&s.data().list) setMembers(s.data().list);
+      else setDoc(doc(db,"config","members"),{list:DEFAULT_MEMBERS});
+    });
+    const u3=onSnapshot(doc(db,"config","sauces"),  s=>{
+      if(s.exists()&&s.data().list) setSauces(s.data().list);
+      else setDoc(doc(db,"config","sauces"),{list:DEFAULT_SAUCES});
+    });
+    const u4=onSnapshot(doc(db,"config","crudites"),s=>{
+      if(s.exists()&&s.data().list) setCrudites(s.data().list);
+      else setDoc(doc(db,"config","crudites"),{list:DEFAULT_CRUDITES});
+    });
+    const u4b=onSnapshot(doc(db,"config","boissons"),s=>{
+      if(s.exists()&&s.data().list) setBoissons(s.data().list);
+      else setDoc(doc(db,"config","boissons"),{list:DEFAULT_BOISSONS});
+    });
+    const u5=onSnapshot(doc(db,"config","extras"),  s=>{
+      if(s.exists()&&s.data().list) setExtras(s.data().list);
+      else setDoc(doc(db,"config","extras"),{list:[]});
+    });
     const u6=onSnapshot(collection(db,"favorites"), s=>{
       const d={};
       s.forEach(x=>{ const data=x.data(); if(data.list)d[x.id]=data.list; else if(data.choice)d[x.id]=[{id:"fav_legacy",name:"Mon favori",...data}]; else d[x.id]=[]; });
