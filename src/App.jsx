@@ -233,6 +233,8 @@ function DetailCell({ name, order, canEdit, sauces, crudites, boissons, extras, 
 
   const opt = LUNCH_OPTIONS.find(o=>o.id===order.choice);
 
+  const [localBoisson, setLocalBoisson] = useState("");
+
   const BoissonSection = () => (
     <div>
       <p style={{fontSize:11,color:T.textFaint,marginBottom:5}}>🥤 Boisson</p>
@@ -245,12 +247,17 @@ function DetailCell({ name, order, canEdit, sauces, crudites, boissons, extras, 
       {canEdit && (
         <div style={{display:"flex",gap:5,marginTop:4}}>
           <input style={{flex:1,background:T.bgInput,border:`1px solid ${T.border}`,borderRadius:8,
-            color:T.text,padding:"4px 8px",fontSize:12}} value={newBoissonInput[name]||""}
-            onChange={e=>setNewBoissonInput(p=>({...p,[name]:e.target.value}))}
+            color:T.text,padding:"4px 8px",fontSize:12}}
+            value={localBoisson}
+            onChange={e=>setLocalBoisson(e.target.value)}
             placeholder="Autre boisson…"/>
-          {(newBoissonInput[name]||"").trim() && !boissons.includes((newBoissonInput[name]||"").trim()) && (
-            <button onClick={async()=>{ const v=(newBoissonInput[name]||"").trim(); await handleSubDetail(name,"boisson",v); await pb([...boissons,v]); setNewBoissonInput(p=>({...p,[name]:""}));}}
-              style={{background:T.accentLight,border:`1px solid ${T.border}`,borderRadius:8,
+          {localBoisson.trim() && !boissons.includes(localBoisson.trim()) && (
+            <button onClick={async()=>{
+              const v=localBoisson.trim();
+              await handleSubDetail(name,"boisson",v);
+              await pb([...boissons,v]);
+              setLocalBoisson("");
+            }} style={{background:T.accentLight,border:`1px solid ${T.border}`,borderRadius:8,
                 padding:"4px 10px",fontSize:11,color:T.accent,cursor:"pointer",whiteSpace:"nowrap"}}>+ Sauvegarder</button>
           )}
         </div>
