@@ -345,8 +345,6 @@ function DetailCell({ name, order, canEdit, sauces, crudites, boissons, extras, 
       </div>
     </div>
   );
-    </div>
-  );
 
   // Snack Merode
   return (
