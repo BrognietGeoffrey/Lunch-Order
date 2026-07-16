@@ -761,7 +761,7 @@ export default function App() {
 
   const addMember    =async()=>{const n=newMemberName.trim(),c=newMemberCode.trim();if(!n||!c||members.find(m=>m.username===n))return;await pm([...members,{username:n,code:c}]);setNewMemberName("");setNewMemberCode("");};
   const removeMember =async n=>{await pm(members.filter(m=>m.username!==n));await deleteDoc(doc(db,"orders",n));};
-  const saveEdit     =async()=>{if(!editingMember)return;await pm(members.map(m=>m.username===editingMember.username?editingMember:m));setEditingMember(null);};
+  const saveMemberEdit =async()=>{if(!editingMember)return;await pm(members.map(m=>m.username===editingMember.username?editingMember:m));setEditingMember(null);};
   const addSauce     =async()=>{const s=newSauce.trim();   if(s&&!sauces.includes(s))   {await ps([...sauces,s]);    setNewSauce("");}};
   const addCrudite   =async()=>{const c=newCrudite.trim(); if(c&&!crudites.includes(c)) {await pc([...crudites,c]);  setNewCrudite("");}};
   const addBoisson   =async()=>{const b=newBoisson.trim(); if(b&&!boissons.includes(b)) {await pb([...boissons,b]);  setNewBoisson("");}};
@@ -1575,10 +1575,14 @@ export default function App() {
               {/* ── Snack Merode ── */}
               {activeMenu==="snack" && (
                 <div>
-                  <div style={{marginBottom:16}}>
+                  <div style={{marginBottom:16,display:"flex",alignItems:"center",gap:16,flexWrap:"wrap"}}>
                     <a href="https://www.takeaway.com/be-fr/menu/snack-merode" target="_blank" rel="noopener noreferrer"
                       style={{fontSize:12,color:T.textSub,textDecoration:"none"}}>
                       📎 Takeaway.com ↗
+                    </a>
+                    <a href="tel:027355970"
+                      style={{fontSize:12,color:T.textSub,textDecoration:"none",display:"flex",alignItems:"center",gap:4}}>
+                      📞 02 735 59 70
                     </a>
                   </div>
                   {[
@@ -2096,7 +2100,7 @@ export default function App() {
                             <>
                               <input style={{...inp,flex:2,padding:"5px 10px",fontSize:13}} value={editingMember.username} onChange={e=>setEditingMember({...editingMember,username:e.target.value})}/>
                               <input style={{...inp,flex:1,padding:"5px 10px",fontSize:13}} value={editingMember.code} onChange={e=>setEditingMember({...editingMember,code:e.target.value})}/>
-                              <button style={{...addBtn,padding:"5px 12px",fontSize:12,background:T.green}} onClick={saveEdit}>✓</button>
+                              <button style={{...addBtn,padding:"5px 12px",fontSize:12,background:T.green}} onClick={saveMemberEdit}>✓</button>
                               <button className="btn-ghost" style={{background:"transparent",border:`1px solid ${T.border}`,color:T.textSub,borderRadius:7,padding:"5px 10px",fontSize:12,cursor:"pointer"}} onClick={()=>setEditingMember(null)}>✕</button>
                             </>
                           ) : (
