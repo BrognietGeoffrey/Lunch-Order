@@ -3,12 +3,12 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBuZ98mNM-FRYpIkWzb6HiZYgX7ynlMXMU",
-  authDomain: "lunch-order-af7e4.firebaseapp.com",
-  projectId: "lunch-order-af7e4",
-  storageBucket: "lunch-order-af7e4.firebasestorage.app",
-  messagingSenderId: "111273452874",
-  appId: "1:111273452874:web:f2d5c32f21419f8cc08db3",
+  apiKey: "AIzaSyDNXj4_HZEjhkP39t8CtPbVhIG5oLojW68",
+  authDomain: "lunch-order-64da9.firebaseapp.com",
+  projectId: "lunch-order-64da9",
+  storageBucket: "lunch-order-64da9.firebasestorage.app",
+  messagingSenderId: "319409938743",
+  appId: "1:319409938743:web:a5c31835e02ce679d9fab2"
 };
 const fbApp = initializeApp(firebaseConfig);
 const db = getFirestore(fbApp);
