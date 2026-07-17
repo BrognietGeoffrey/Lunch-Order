@@ -1213,16 +1213,16 @@ export default function App() {
                     }}
                     style={{
                       position:"relative", zIndex:2,
-                      width:74, height:62,
+                      width:82, height:62,
                       display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
                       gap:4, border:"none", cursor:"pointer",
                       background:"transparent",
-                      color: isActive ? "#fff" : "rgba(255,252,245,0.75)",
-                      transition:"color 0.2s, opacity 0.2s",
+                      color: isActive ? T.accent : "rgba(255,255,255,0.75)",
+                      transition:"color 0.2s",
                     }}
                     title={item.label}
-                    onMouseEnter={e=>{ if(!isActive) e.currentTarget.style.color="rgba(255,252,245,1)"; }}
-                    onMouseLeave={e=>{ if(!isActive) e.currentTarget.style.color="rgba(255,252,245,0.75)"; }}
+                    onMouseEnter={e=>{ if(!isActive) e.currentTarget.style.color="rgba(255,255,255,1)"; }}
+                    onMouseLeave={e=>{ if(!isActive) e.currentTarget.style.color="rgba(255,255,255,0.75)"; }}
                   >
                     <span style={{fontSize:20,lineHeight:1,position:"relative"}}>
                       {item.icon}
