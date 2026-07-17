@@ -1158,7 +1158,7 @@ export default function App() {
 
       {/* ── Sidebar ── */}
       {!isMobile && (
-        <aside style={{width:90,background:`linear-gradient(180deg, ${T.sidebarBg||T.sidebar} 0%, ${T.sidebar} 100%)`,
+        <aside style={{width:88,background:`linear-gradient(180deg, ${T.sidebarBg||T.sidebar} 0%, ${T.sidebar} 100%)`,
           display:"flex",flexDirection:"column",position:"sticky",top:0,height:"100vh",flexShrink:0,
           zIndex:10, overflow:"visible"}}>
 
@@ -1182,7 +1182,7 @@ export default function App() {
                   {/* Sliding tab — uses page bg color */}
                   {isActive && (
                     <div style={{
-                      position:"absolute", right:0, width:74, height:56,
+                      position:"absolute", right:0, width:82, height:62,
                       background:tabColor, borderRadius:"14px 0 0 14px", zIndex:1,
                     }}>
                       {/* top curved notch */}
@@ -1213,18 +1213,18 @@ export default function App() {
                     }}
                     style={{
                       position:"relative", zIndex:2,
-                      width:74, height:56,
+                      width:74, height:62,
                       display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-                      gap:3, border:"none", cursor:"pointer",
+                      gap:4, border:"none", cursor:"pointer",
                       background:"transparent",
-                      color: isActive ? T.accent : "rgba(255,252,245,0.55)",
+                      color: isActive ? "#fff" : "rgba(255,252,245,0.75)",
                       transition:"color 0.2s, opacity 0.2s",
                     }}
                     title={item.label}
-                    onMouseEnter={e=>{ if(!isActive) e.currentTarget.style.color="rgba(255,252,245,0.9)"; }}
-                    onMouseLeave={e=>{ if(!isActive) e.currentTarget.style.color="rgba(255,252,245,0.55)"; }}
+                    onMouseEnter={e=>{ if(!isActive) e.currentTarget.style.color="rgba(255,252,245,1)"; }}
+                    onMouseLeave={e=>{ if(!isActive) e.currentTarget.style.color="rgba(255,252,245,0.75)"; }}
                   >
-                    <span style={{fontSize:19,lineHeight:1,position:"relative"}}>
+                    <span style={{fontSize:20,lineHeight:1,position:"relative"}}>
                       {item.icon}
                       {item.id==="chat" && unreadChat>0 && (
                         <span style={{position:"absolute",top:-4,right:-6,background:"#c0553a",color:"#fff",
@@ -1241,8 +1241,8 @@ export default function App() {
                         </span>
                       )}
                     </span>
-                    <span style={{fontSize:8,fontWeight:600,fontFamily:"'DM Sans',sans-serif",
-                      letterSpacing:"0.04em",opacity:0.8}}>{item.label}</span>
+                    <span style={{fontSize:10,fontWeight:isActive?700:500,fontFamily:"'DM Sans',sans-serif",
+                      letterSpacing:"0.02em",textShadow:"0 1px 2px rgba(0,0,0,0.3)"}}>{item.label}</span>
                   </button>
                 </div>
               );
