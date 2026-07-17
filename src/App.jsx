@@ -891,6 +891,7 @@ export default function App() {
   const [newExtraLabel, setNewExtraLabel]     = useState("");
   const [newExtraApplies, setNewExtraApplies] = useState([]);
   const [openHistory, setOpenHistory]         = useState({});
+  const [viewMode, setViewMode]               = useState("accordion");
   const [activity, setActivity]               = useState([]);
   const [unreadActivity, setUnreadActivity]   = useState(0);
   const [lastSeenActivity, setLastSeenActivity] = useState(()=>parseInt(localStorage.getItem("lastSeenActivity")||"0"));
