@@ -54,9 +54,9 @@ const LIGHT = {
   bgTag:       "#f0ebe0",
   border:      "#e8e0d0",
   borderLight: "#f0ebe0",
-  text:        "#2c1f0e",
-  textSub:     "#5a3e28",
-  textFaint:   "#8a6040",
+  text:        "#1a0f05",
+  textSub:     "#3d2510",
+  textFaint:   "#6b4020",
   accent:      "#9b6a3a",
   accentLight: "#f5e8d5",
   green:       "#5a8f7b",
@@ -185,7 +185,7 @@ function Avatar({ name, size=36 }) {
 
 function Tag({ children, color, bg }) {
   return (
-    <span style={{ background:bg||"#f0ebe0", color:color||"#5a3e28",
+    <span style={{ background:bg||"#f0ebe0", color:color||"#3d2510",
       borderRadius:20, padding:"2px 10px", fontSize:11, fontWeight:500, whiteSpace:"nowrap" }}>
       {children}
     </span>
@@ -198,7 +198,7 @@ function Pill({ label, active, accent, onClick, disabled }) {
       style={{ background:active?accent+"18":"transparent",
         border:`1px solid ${active?accent:"#e0d8cc"}`,
         borderRadius:20, padding:"3px 10px", fontSize:11, fontWeight:active?600:400,
-        color:active?accent:"#5a3e28", cursor:disabled?"not-allowed":"pointer",
+        color:active?accent:"#3d2510", cursor:disabled?"not-allowed":"pointer",
         transition:"all 0.15s", whiteSpace:"nowrap", opacity:disabled?0.35:1 }}>
       {label}
     </button>
@@ -207,12 +207,12 @@ function Pill({ label, active, accent, onClick, disabled }) {
 
 function OrderPills({ order, extras=[], crudites=[] }) {
   const lines = formatOrderFull(order, extras, crudites);
-  if (!lines.length) return <span style={{fontSize:12,color:"#8a6040",fontStyle:"italic"}}>Aucun détail</span>;
+  if (!lines.length) return <span style={{fontSize:12,color:"#6b4020",fontStyle:"italic"}}>Aucun détail</span>;
   return (
     <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
       {lines.map((line,i)=>(
         <span key={i} style={{background:"#f5f0e8",border:"1px solid #e8e0d0",borderRadius:20,
-          padding:"2px 10px",fontSize:11,color:"#5a3e28",display:"inline-flex",alignItems:"center",
+          padding:"2px 10px",fontSize:11,color:"#3d2510",display:"inline-flex",alignItems:"center",
           gap:3,maxWidth:"100%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"normal",wordBreak:"break-word"}}>
           {line.emoji} {line.text}
         </span>
@@ -1520,12 +1520,16 @@ export default function App() {
                 {messages.map(msg=>{
                   const isMe = msg.author===user;
                   const time = new Date(msg.ts).toLocaleTimeString("fr-BE",{hour:"2-digit",minute:"2-digit"});
+                  const prof = profiles[msg.author]||{};
+                  const displayName = prof.alias||msg.author;
                   return (
                     <div key={msg.id} style={{display:"flex",flexDirection:"column",
                       alignItems:isMe?"flex-end":"flex-start",gap:3}}>
-                      {!isMe && <span style={{fontSize:11,color:T.textSub,paddingLeft:8}}>{msg.author}</span>}
+                      <span style={{fontSize:11,color:T.textSub,paddingLeft:isMe?0:8,paddingRight:isMe?8:0}}>
+                        {displayName} {isMe&&<span style={{opacity:0.6}}>(toi)</span>}
+                      </span>
                       <div style={{display:"flex",alignItems:"flex-end",gap:6,flexDirection:isMe?"row-reverse":"row"}}>
-                        {!isMe && <Avatar name={msg.author} size={28}/>}
+                        <Avatar name={msg.author} size={28} profile={prof}/>
                         <div style={{
                           background: isMe?T.sidebar:"#fff",
                           color: isMe?"#fff":T.text,
@@ -1654,14 +1658,35 @@ export default function App() {
                       </div>
                       {people.map((name,idx)=>{
                         const paid=payments[name]||false;
+                        const prof=profiles[name]||{};
+                        const [hoverAvatar, setHoverAvatar] = useState(false);
                         return (
                           <div key={name} className="row-hover"
                             style={{padding:"12px 20px",borderBottom:`1px solid ${T.borderLight}`,
                               opacity:paid?0.55:1,transition:"opacity 0.2s"}}>
                             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:6}}>
                               <span style={{fontSize:11,fontWeight:600,color:T.textFaint,minWidth:18,textAlign:"right"}}>{idx+1}.</span>
-                              <Avatar name={name} size={28}/>
-                              <span style={{fontSize:13,fontWeight:500,color:T.text,flex:1,textDecoration:paid?"line-through":"none"}}>{name}</span>
+                              {/* Avatar with hover tooltip */}
+                              <div style={{position:"relative"}}
+                                onMouseEnter={()=>setHoverAvatar(true)}
+                                onMouseLeave={()=>setHoverAvatar(false)}>
+                                <Avatar name={name} size={28} profile={prof}/>
+                                {hoverAvatar && (prof.alias||prof.bio||prof.mood) && (
+                                  <div style={{position:"absolute",bottom:"calc(100% + 6px)",left:"50%",
+                                    transform:"translateX(-50%)",
+                                    background:T.bgCard,border:`1px solid ${T.border}`,
+                                    borderRadius:10,padding:"8px 12px",zIndex:50,
+                                    boxShadow:T.shadow,whiteSpace:"nowrap",minWidth:140,
+                                    pointerEvents:"none"}}>
+                                    {prof.alias && <div style={{fontSize:13,fontWeight:700,color:T.text}}>{prof.alias}</div>}
+                                    {prof.mood && <div style={{fontSize:12,color:T.textSub,marginTop:2}}>{prof.mood}</div>}
+                                    {prof.bio && <div style={{fontSize:11,color:T.textFaint,marginTop:2,maxWidth:180,whiteSpace:"normal"}}>{prof.bio}</div>}
+                                  </div>
+                                )}
+                              </div>
+                              <span style={{fontSize:13,fontWeight:500,color:T.text,flex:1,textDecoration:paid?"line-through":"none"}}>
+                                {prof.alias||name}
+                              </span>
                               <button onClick={()=>togglePayment(name)}
                                 style={{background:paid?T.green+"18":"transparent",
                                   border:`1px solid ${paid?T.green:T.border}`,
