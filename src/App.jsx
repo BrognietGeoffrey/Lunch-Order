@@ -169,6 +169,7 @@ const CSS = (T) => `
   .nav-item.active { background: rgba(255,252,245,0.18) !important; color: #fff !important; }
   .row-hover:hover { background: ${T.bgHover} !important; }
   .btn-ghost:hover { background: ${T.bgTag} !important; }
+  .avatar-tooltip-wrap:hover .avatar-tooltip { display: block !important; }
 `;
 
 // ── Components ────────────────────────────────────────────────────────────────
@@ -1659,25 +1660,23 @@ export default function App() {
                       {people.map((name,idx)=>{
                         const paid=payments[name]||false;
                         const prof=profiles[name]||{};
-                        const [hoverAvatar, setHoverAvatar] = useState(false);
                         return (
                           <div key={name} className="row-hover"
                             style={{padding:"12px 20px",borderBottom:`1px solid ${T.borderLight}`,
                               opacity:paid?0.55:1,transition:"opacity 0.2s"}}>
                             <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:6}}>
                               <span style={{fontSize:11,fontWeight:600,color:T.textFaint,minWidth:18,textAlign:"right"}}>{idx+1}.</span>
-                              {/* Avatar with hover tooltip */}
-                              <div style={{position:"relative"}}
-                                onMouseEnter={()=>setHoverAvatar(true)}
-                                onMouseLeave={()=>setHoverAvatar(false)}>
+                              {/* Avatar with hover tooltip via CSS group */}
+                              <div style={{position:"relative"}} className="avatar-tooltip-wrap">
                                 <Avatar name={name} size={28} profile={prof}/>
-                                {hoverAvatar && (prof.alias||prof.bio||prof.mood) && (
-                                  <div style={{position:"absolute",bottom:"calc(100% + 6px)",left:"50%",
+                                {(prof.alias||prof.bio||prof.mood) && (
+                                  <div className="avatar-tooltip" style={{
+                                    position:"absolute",bottom:"calc(100% + 6px)",left:"50%",
                                     transform:"translateX(-50%)",
                                     background:T.bgCard,border:`1px solid ${T.border}`,
                                     borderRadius:10,padding:"8px 12px",zIndex:50,
-                                    boxShadow:T.shadow,whiteSpace:"nowrap",minWidth:140,
-                                    pointerEvents:"none"}}>
+                                    boxShadow:T.shadow,minWidth:140,
+                                    pointerEvents:"none",display:"none"}}>
                                     {prof.alias && <div style={{fontSize:13,fontWeight:700,color:T.text}}>{prof.alias}</div>}
                                     {prof.mood && <div style={{fontSize:12,color:T.textSub,marginTop:2}}>{prof.mood}</div>}
                                     {prof.bio && <div style={{fontSize:11,color:T.textFaint,marginTop:2,maxWidth:180,whiteSpace:"normal"}}>{prof.bio}</div>}
