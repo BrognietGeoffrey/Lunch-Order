@@ -33,36 +33,36 @@ const DEFAULT_EXTRAS   = [];
 const EXTRA_ACCENTS    = ["#9b7fa6","#c97a4a","#5a8f7b","#7a9ab5","#b5836a","#6b8f6b"];
 
 const LUNCH_OPTIONS = [
-  { id: "ice-cream",    label: "Ice Cream",    emoji:"🍦", accent: "#c97a8f", bg:"#fdf0f3" },
-  { id: "snack-merode", label: "Snack Merode", emoji:"🥪", accent: "#c97a4a", bg:"#fdf5f0" },
-  { id: "libanais",     label: "Libanais",     emoji:"🥙", accent: "#5a8f7b", bg:"#f0fdf8" },
+  { id: "ice-cream",    label: "Ice Cream",    emoji:"🍦", accent: "#e64980", bg:"#fff0f6" },
+  { id: "snack-merode", label: "Snack Merode", emoji:"🥪", accent: "#e8590c", bg:"#fff4e6" },
+  { id: "libanais",     label: "Libanais",     emoji:"🥙", accent: "#2f9e44", bg:"#ebfbee" },
 ];
 
 // ── Themes ────────────────────────────────────────────────────────────────────
 const LIGHT = {
   isDark: false,
-  sidebar:      "#c4a882",
-  sidebarBg:    "#d4b896",
-  sidebarText:  "rgba(255,252,245,0.7)",
+  sidebar:      "#1a1a2e",
+  sidebarBg:    "#16213e",
+  sidebarText:  "rgba(255,255,255,0.6)",
   sidebarActive:"#ffffff",
-  sidebarHover: "rgba(255,252,245,0.15)",
-  sidebarBorder:"rgba(255,252,245,0.12)",
-  bg:          "#f5f0e8",
+  sidebarHover: "rgba(255,255,255,0.1)",
+  sidebarBorder:"rgba(255,255,255,0.08)",
+  bg:          "#f0f2f5",
   bgCard:      "#ffffff",
-  bgHover:     "#faf7f2",
-  bgInput:     "#faf7f2",
-  bgTag:       "#f0ebe0",
-  border:      "#e8e0d0",
-  borderLight: "#f0ebe0",
-  text:        "#1a0f05",
-  textSub:     "#3d2510",
-  textFaint:   "#6b4020",
-  accent:      "#9b6a3a",
-  accentLight: "#f5e8d5",
-  green:       "#5a8f7b",
-  red:         "#c0553a",
-  shadow:      "0 2px 16px rgba(44,31,14,0.08)",
-  shadowHover: "0 4px 24px rgba(44,31,14,0.12)",
+  bgHover:     "#f5f7fa",
+  bgInput:     "#f5f7fa",
+  bgTag:       "#e8eaed",
+  border:      "#d0d3d8",
+  borderLight: "#e4e6ea",
+  text:        "#0a0a0a",
+  textSub:     "#3a3a3a",
+  textFaint:   "#6b6b6b",
+  accent:      "#3b5bdb",
+  accentLight: "#e8edff",
+  green:       "#2f9e44",
+  red:         "#c92a2a",
+  shadow:      "0 2px 12px rgba(0,0,0,0.08)",
+  shadowHover: "0 4px 20px rgba(0,0,0,0.12)",
 };
 const DARK = {
   isDark: true,
@@ -186,7 +186,7 @@ function Avatar({ name, size=36 }) {
 
 function Tag({ children, color, bg }) {
   return (
-    <span style={{ background:bg||"#f0ebe0", color:color||"#3d2510",
+    <span style={{ background:bg||"#f0ebe0", color:color||"#3a3a3a",
       borderRadius:20, padding:"2px 10px", fontSize:11, fontWeight:500, whiteSpace:"nowrap" }}>
       {children}
     </span>
@@ -199,7 +199,7 @@ function Pill({ label, active, accent, onClick, disabled }) {
       style={{ background:active?accent+"18":"transparent",
         border:`1px solid ${active?accent:"#e0d8cc"}`,
         borderRadius:20, padding:"3px 10px", fontSize:11, fontWeight:active?600:400,
-        color:active?accent:"#3d2510", cursor:disabled?"not-allowed":"pointer",
+        color:active?accent:"#3a3a3a", cursor:disabled?"not-allowed":"pointer",
         transition:"all 0.15s", whiteSpace:"nowrap", opacity:disabled?0.35:1 }}>
       {label}
     </button>
@@ -208,12 +208,12 @@ function Pill({ label, active, accent, onClick, disabled }) {
 
 function OrderPills({ order, extras=[], crudites=[] }) {
   const lines = formatOrderFull(order, extras, crudites);
-  if (!lines.length) return <span style={{fontSize:12,color:"#6b4020",fontStyle:"italic"}}>Aucun détail</span>;
+  if (!lines.length) return <span style={{fontSize:12,color:"#6b6b6b",fontStyle:"italic"}}>Aucun détail</span>;
   return (
     <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
       {lines.map((line,i)=>(
-        <span key={i} style={{background:"#f5f0e8",border:"1px solid #e8e0d0",borderRadius:20,
-          padding:"2px 10px",fontSize:11,color:"#3d2510",display:"inline-flex",alignItems:"center",
+        <span key={i} style={{background:"#f5f0e8",border:"1px solid #d0d3d8",borderRadius:20,
+          padding:"2px 10px",fontSize:11,color:"#3a3a3a",display:"inline-flex",alignItems:"center",
           gap:3,maxWidth:"100%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"normal",wordBreak:"break-word"}}>
           {line.emoji} {line.text}
         </span>
