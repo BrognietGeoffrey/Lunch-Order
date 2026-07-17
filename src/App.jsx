@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection } from "firebase/firestore";
+import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection, addDoc } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDNXj4_HZEjhkP39t8CtPbVhIG5oLojW68",
@@ -55,8 +55,8 @@ const LIGHT = {
   border:      "#e8e0d0",
   borderLight: "#f0ebe0",
   text:        "#2c1f0e",
-  textSub:     "#8a7560",
-  textFaint:   "#bba88a",
+  textSub:     "#5a3e28",
+  textFaint:   "#8a6040",
   accent:      "#9b6a3a",
   accentLight: "#f5e8d5",
   green:       "#5a8f7b",
@@ -185,7 +185,7 @@ function Avatar({ name, size=36 }) {
 
 function Tag({ children, color, bg }) {
   return (
-    <span style={{ background:bg||"#f0ebe0", color:color||"#8a7560",
+    <span style={{ background:bg||"#f0ebe0", color:color||"#5a3e28",
       borderRadius:20, padding:"2px 10px", fontSize:11, fontWeight:500, whiteSpace:"nowrap" }}>
       {children}
     </span>
@@ -198,7 +198,7 @@ function Pill({ label, active, accent, onClick, disabled }) {
       style={{ background:active?accent+"18":"transparent",
         border:`1px solid ${active?accent:"#e0d8cc"}`,
         borderRadius:20, padding:"3px 10px", fontSize:11, fontWeight:active?600:400,
-        color:active?accent:"#8a7560", cursor:disabled?"not-allowed":"pointer",
+        color:active?accent:"#5a3e28", cursor:disabled?"not-allowed":"pointer",
         transition:"all 0.15s", whiteSpace:"nowrap", opacity:disabled?0.35:1 }}>
       {label}
     </button>
@@ -207,12 +207,12 @@ function Pill({ label, active, accent, onClick, disabled }) {
 
 function OrderPills({ order, extras=[], crudites=[] }) {
   const lines = formatOrderFull(order, extras, crudites);
-  if (!lines.length) return <span style={{fontSize:12,color:"#bba88a",fontStyle:"italic"}}>Aucun détail</span>;
+  if (!lines.length) return <span style={{fontSize:12,color:"#8a6040",fontStyle:"italic"}}>Aucun détail</span>;
   return (
     <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
       {lines.map((line,i)=>(
         <span key={i} style={{background:"#f5f0e8",border:"1px solid #e8e0d0",borderRadius:20,
-          padding:"2px 10px",fontSize:11,color:"#8a7560",display:"inline-flex",alignItems:"center",
+          padding:"2px 10px",fontSize:11,color:"#5a3e28",display:"inline-flex",alignItems:"center",
           gap:3,maxWidth:"100%",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"normal",wordBreak:"break-word"}}>
           {line.emoji} {line.text}
         </span>
@@ -697,6 +697,172 @@ function MenuSection({section, T, isAdmin, onSave, onOrder}) {
   );
 }
 
+// ── Profile Tab ───────────────────────────────────────────────────────────────
+const EMOJIS_LIST = ["😊","😎","🤩","🥳","😋","🤔","😴","🤓","👻","🦊","🐱","🐸","🦄","🍕","🌮","🍜","☕","🎮","🎸","🌈","⚡","🔥","💎","🚀"];
+const COLORS_LIST = ["#c97a8f","#c97a4a","#5a8f7b","#7a9ab5","#9b7fa6","#c8922a","#5a7a9b","#8f5a7a","#4a8f6a","#9b6a4a"];
+
+function ProfileTab({ user, profiles, members, T, editingProfile, setEditingProfile, db, avatarColor, getInitials }) {
+  const myProfile = profiles[user] || {};
+  const [draft, setDraft] = useState({
+    alias: myProfile.alias||"",
+    bio: myProfile.bio||"",
+    emoji: myProfile.emoji||"",
+    color: myProfile.color||avatarColor(user),
+    favoriteOrder: myProfile.favoriteOrder||"",
+    funFact: myProfile.funFact||"",
+  });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(()=>{
+    const p=profiles[user]||{};
+    setDraft({
+      alias:p.alias||"", bio:p.bio||"", emoji:p.emoji||"",
+      color:p.color||avatarColor(user), favoriteOrder:p.favoriteOrder||"", funFact:p.funFact||"",
+    });
+  },[profiles[user]]);
+
+  const saveProfile = async() => {
+    setSaving(true);
+    await setDoc(doc(db,"profiles",user),{...myProfile,...draft,username:user});
+    setSaving(false);
+    setEditingProfile(false);
+  };
+
+  const displayColor = draft.color || avatarColor(user);
+
+  return (
+    <div style={{animation:"slideIn 0.25s ease",maxWidth:560,margin:"0 auto"}}>
+      <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:22,color:T.text,marginBottom:20}}>👤 Mon Profil</h1>
+
+      {/* Profile card */}
+      <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:16,
+        padding:"28px 24px",marginBottom:16,boxShadow:T.shadow,textAlign:"center"}}>
+        <div style={{width:80,height:80,borderRadius:"50%",background:displayColor+"22",
+          border:`3px solid ${displayColor}`,display:"flex",alignItems:"center",
+          justifyContent:"center",fontSize:myProfile.emoji?36:28,fontWeight:700,
+          color:displayColor,margin:"0 auto 12px"}}>
+          {myProfile.emoji||getInitials(user)}
+        </div>
+        <h2 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:20,color:T.text,marginBottom:2}}>
+          {myProfile.alias||user}
+        </h2>
+        {myProfile.alias && <p style={{fontSize:13,color:T.textSub,marginBottom:4}}>({user})</p>}
+        {myProfile.bio && <p style={{fontSize:13,color:T.textSub,marginBottom:8,fontStyle:"italic"}}>"{myProfile.bio}"</p>}
+        {myProfile.favoriteOrder && (
+          <div style={{background:T.bgTag,borderRadius:20,padding:"4px 14px",fontSize:12,color:T.textSub,display:"inline-block",marginBottom:4}}>
+            🍴 Commande fav : {myProfile.favoriteOrder}
+          </div>
+        )}
+        {myProfile.funFact && <p style={{fontSize:12,color:T.textFaint,marginTop:8}}>💡 {myProfile.funFact}</p>}
+        <button onClick={()=>setEditingProfile(!editingProfile)}
+          style={{marginTop:16,background:T.sidebar,color:"#fff",border:"none",
+            borderRadius:10,padding:"8px 20px",fontSize:13,fontWeight:600,cursor:"pointer"}}>
+          {editingProfile?"Annuler":"✏️ Modifier mon profil"}
+        </button>
+      </div>
+
+      {/* Edit form */}
+      {editingProfile && (
+        <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:16,padding:"24px",boxShadow:T.shadow,marginBottom:16}}>
+          <h3 style={{fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:16,color:T.text,marginBottom:16}}>Personnalise ton profil</h3>
+
+          {/* Emoji */}
+          <div style={{marginBottom:16}}>
+            <label style={{fontSize:11,fontWeight:600,color:T.textSub,display:"block",marginBottom:8,textTransform:"uppercase",letterSpacing:"0.05em"}}>Avatar emoji</label>
+            <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+              <button onClick={()=>setDraft(p=>({...p,emoji:""}))}
+                style={{width:36,height:36,borderRadius:10,border:`2px solid ${!draft.emoji?T.accent:T.border}`,
+                  background:!draft.emoji?T.accentLight:"transparent",fontSize:13,cursor:"pointer",color:T.text,fontWeight:700}}>Aa</button>
+              {EMOJIS_LIST.map(e=>(
+                <button key={e} onClick={()=>setDraft(p=>({...p,emoji:e}))}
+                  style={{width:36,height:36,borderRadius:10,border:`2px solid ${draft.emoji===e?T.accent:T.border}`,
+                    background:draft.emoji===e?T.accentLight:"transparent",fontSize:20,cursor:"pointer"}}>{e}</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Color */}
+          <div style={{marginBottom:16}}>
+            <label style={{fontSize:11,fontWeight:600,color:T.textSub,display:"block",marginBottom:8,textTransform:"uppercase",letterSpacing:"0.05em"}}>Couleur</label>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              {COLORS_LIST.map(c=>(
+                <button key={c} onClick={()=>setDraft(p=>({...p,color:c}))}
+                  style={{width:28,height:28,borderRadius:"50%",background:c,
+                    border:`3px solid ${draft.color===c?"#fff":"transparent"}`,
+                    outline:draft.color===c?`3px solid ${c}`:"none",cursor:"pointer"}}/>
+              ))}
+            </div>
+          </div>
+
+          {/* Preview */}
+          <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",
+            background:T.bgTag,borderRadius:12,marginBottom:16}}>
+            <div style={{width:40,height:40,borderRadius:"50%",background:draft.color+"22",
+              border:`2px solid ${draft.color}`,display:"flex",alignItems:"center",justifyContent:"center",
+              fontSize:draft.emoji?20:14,fontWeight:700,color:draft.color}}>
+              {draft.emoji||getInitials(user)}
+            </div>
+            <div>
+              <div style={{fontSize:14,fontWeight:600,color:T.text}}>{draft.alias||user}</div>
+              {draft.bio&&<div style={{fontSize:12,color:T.textSub,fontStyle:"italic"}}>"{draft.bio}"</div>}
+            </div>
+          </div>
+
+          {[
+            {key:"alias",         label:"Surnom / Alias",    placeholder:"ex: Geof, La Patronne…"},
+            {key:"bio",           label:"Bio",               placeholder:"ex: Toujours Durum falafel 🥙"},
+            {key:"favoriteOrder", label:"Commande favorite", placeholder:"ex: Bicky grande + Mayo"},
+            {key:"funFact",       label:"Fun fact",          placeholder:"ex: Je n'aime pas les cornichons 🥒"},
+          ].map(({key,label,placeholder})=>(
+            <div key={key} style={{marginBottom:12}}>
+              <label style={{fontSize:11,fontWeight:600,color:T.textSub,display:"block",marginBottom:5,textTransform:"uppercase",letterSpacing:"0.05em"}}>{label}</label>
+              <input style={{width:"100%",background:T.bgInput,border:`1px solid ${T.border}`,borderRadius:10,
+                color:T.text,padding:"9px 14px",fontSize:14,fontFamily:"'DM Sans',sans-serif"}}
+                value={draft[key]} onChange={e=>setDraft(p=>({...p,[key]:e.target.value}))}
+                placeholder={placeholder}/>
+            </div>
+          ))}
+
+          <button onClick={saveProfile} disabled={saving}
+            style={{width:"100%",background:T.sidebar,color:"#fff",border:"none",
+              borderRadius:10,padding:"11px",fontSize:14,fontWeight:600,cursor:"pointer",opacity:saving?0.7:1}}>
+            {saving?"Sauvegarde…":"✓ Sauvegarder"}
+          </button>
+        </div>
+      )}
+
+      {/* Team */}
+      <div>
+        <h3 style={{fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:15,color:T.text,marginBottom:12}}>👥 L'équipe</h3>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {[...members.map(m=>m.username),"Admin"].filter(n=>n!==user).map(name=>{
+            const p=profiles[name]||{};
+            const color=p.color||avatarColor(name);
+            return (
+              <div key={name} style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:12,
+                padding:"12px 16px",display:"flex",alignItems:"center",gap:12,boxShadow:T.shadow}}>
+                <div style={{width:40,height:40,borderRadius:"50%",background:color+"22",
+                  border:`2px solid ${color}`,display:"flex",alignItems:"center",justifyContent:"center",
+                  fontSize:p.emoji?20:14,fontWeight:700,color,flexShrink:0}}>
+                  {p.emoji||getInitials(name)}
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:14,fontWeight:600,color:T.text}}>
+                    {p.alias||name}
+                    {p.alias&&<span style={{fontSize:12,color:T.textSub,marginLeft:6}}>({name})</span>}
+                  </div>
+                  {p.bio&&<div style={{fontSize:12,color:T.textSub,fontStyle:"italic"}}>"{p.bio}"</div>}
+                  {p.funFact&&<div style={{fontSize:11,color:T.textFaint}}>💡 {p.funFact}</div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main App ──────────────────────────────────────────────────────────────────
 export default function App() {
   const [user, setUser]             = useState(null);
@@ -725,7 +891,15 @@ export default function App() {
   const [newExtraLabel, setNewExtraLabel]     = useState("");
   const [newExtraApplies, setNewExtraApplies] = useState([]);
   const [openHistory, setOpenHistory]         = useState({});
-  const [viewMode, setViewMode]               = useState("accordion");
+  const [activity, setActivity]               = useState([]);
+  const [unreadActivity, setUnreadActivity]   = useState(0);
+  const [lastSeenActivity, setLastSeenActivity] = useState(()=>parseInt(localStorage.getItem("lastSeenActivity")||"0"));
+  const [profiles, setProfiles]               = useState({});
+  const [editingProfile, setEditingProfile]   = useState(false);
+  const [messages, setMessages]     = useState([]);
+  const [chatInput, setChatInput]   = useState("");
+  const [unreadChat, setUnreadChat] = useState(0);
+  const [lastSeenChat, setLastSeenChat] = useState(()=>parseInt(localStorage.getItem("lastSeenChat")||"0"));
   const [activeMenu, setActiveMenu]           = useState("snack");
   const [boubouleSpeciaux, setBoubouleSpeciaux] = useState([
     "Bueno","Oréo","Menthe Choco","Mascarpone Fruits des Bois",
@@ -780,7 +954,29 @@ export default function App() {
     const u10=onSnapshot(doc(db,"config","snackMenu"), s=>{if(s.exists()&&s.data().sections)setSnackMenu(s.data().sections);});
     const u11=onSnapshot(doc(db,"config","libanaisMenu"), s=>{if(s.exists()&&s.data().sections)setLibanaisMenu(s.data().sections);});
     const u12=onSnapshot(doc(db,"config","boubouleMenu"), s=>{if(s.exists())setBoubouleMenuSaved(s.data());});
-    return ()=>{u1();u2();u3();u4();u4b();u5();u6();u7();u8();u9();u10();u11();u12();};
+    const u13=onSnapshot(collection(db,"chat"), snap=>{
+      const msgs=[];
+      snap.forEach(s=>msgs.push({id:s.id,...s.data()}));
+      msgs.sort((a,b)=>a.ts-b.ts);
+      setMessages(msgs);
+      // count unread
+      const lastSeen=parseInt(localStorage.getItem("lastSeenChat")||"0");
+      setUnreadChat(msgs.filter(m=>m.ts>lastSeen&&m.author!==user).length);
+    });
+    const u14=onSnapshot(collection(db,"activity"), snap=>{
+      const acts=[];
+      snap.forEach(s=>acts.push({id:s.id,...s.data()}));
+      acts.sort((a,b)=>b.ts-a.ts);
+      setActivity(acts.slice(0,50));
+      const lastSeen=parseInt(localStorage.getItem("lastSeenActivity")||"0");
+      setUnreadActivity(acts.filter(a=>a.ts>lastSeen&&a.author!==user).length);
+    });
+    const u15=onSnapshot(collection(db,"profiles"), snap=>{
+      const d={};
+      snap.forEach(s=>{d[s.id]=s.data();});
+      setProfiles(d);
+    });
+    return ()=>{u1();u2();u3();u4();u4b();u5();u6();u7();u8();u9();u10();u11();u12();u13();u14();u15();};
   },[]);
 
   useEffect(()=>{
@@ -814,10 +1010,20 @@ export default function App() {
   const addExtraOption=async(extraId)=>{const val=(newExtraOption[extraId]||"").trim();if(!val)return;await pe(extras.map(e=>e.id===extraId?{...e,options:[...e.options,val]}:e));setNewExtraOption(p=>({...p,[extraId]:""}));};
   const removeExtraOption=async(extraId,opt)=>{await pe(extras.map(e=>e.id===extraId?{...e,options:e.options.filter(o=>o!==opt)}:e));};
 
+  const logActivity = async(type, text) => {
+    await addDoc(collection(db,"activity"),{author:user,type,text,ts:Date.now()});
+  };
+
   const toggleChoice=async(name,choice)=>{
     const cur=orders[name]||{};
-    if(cur.choice===choice)await deleteDoc(doc(db,"orders",name));
-    else await setDoc(doc(db,"orders",name),{choice,detail:"",sauces:[],crudites:[],cruditesTout:false,boules:"",boule1:"",boule2:"",snackType:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}});
+    const opt=LUNCH_OPTIONS.find(o=>o.id===choice);
+    if(cur.choice===choice){
+      await deleteDoc(doc(db,"orders",name));
+      await logActivity("cancel",`${name} a annulé sa commande`);
+    } else {
+      await setDoc(doc(db,"orders",name),{choice,detail:"",sauces:[],crudites:[],cruditesTout:false,boules:"",boule1:"",boule2:"",snackType:"",frites:"",friteSup:"",sauceFrite:"",boisson:"",extras:{}});
+      await logActivity("order",`${name} a commandé ${opt?.emoji||""} ${opt?.label||choice}`);
+    }
   };
   const handleDetail=(name,detail)=>{
     setOrders(prev=>({...prev,[name]:{...prev[name],detail}}));
@@ -883,6 +1089,7 @@ export default function App() {
     const updated={...payments,[name]:!cur};
     setPayments(updated);
     await setDoc(doc(db,"payments","today"),updated);
+    if(!cur) await logActivity("pay",`${user} a marqué ${name} comme payé`);
   };
   const saveFavorite=async name=>{
     const cur=orders[name];if(!cur?.choice)return;
@@ -902,6 +1109,7 @@ export default function App() {
     if(Object.keys(snapshot).length>0)await setDoc(doc(db,"history",`${today}_${Date.now()}`),{date:today,orders:snapshot,payments});
     await Promise.all(members.map(m=>deleteDoc(doc(db,"orders",m.username))));
     await setDoc(doc(db,"payments","today"),{});
+    await logActivity("reset",`${user} a archivé et réinitialisé les commandes du jour`);
   };
   const deleteHistory=async id=>{if(!window.confirm("Supprimer ?"))return;await deleteDoc(doc(db,"history",id));};
 
@@ -933,9 +1141,12 @@ export default function App() {
   const navItems = [
     { id:"order",    icon:"📋", label:"Commander" },
     { id:"summary",  icon:"📊", label:"Résumé" },
+    { id:"chat",     icon:"💬", label:"Chat", badge: unreadChat },
+    { id:"notifs",   icon:"🔔", label:"Activité", badge: unreadActivity },
     { id:"favorites",icon:"⭐", label:"Favoris" },
     { id:"history",  icon:"📅", label:"Historique" },
     { id:"menu",     icon:"🍽️", label:"Menu" },
+    { id:"profile",  icon:"👤", label:"Profil" },
     { id:"settings", icon:"⚙️", label:"Config" },
   ];
 
@@ -985,7 +1196,19 @@ export default function App() {
                     </div>
                   )}
                   <button
-                    onClick={()=>setTab(item.id)}
+                    onClick={()=>{
+                      setTab(item.id);
+                      if(item.id==="chat"){
+                        const now=Date.now();
+                        localStorage.setItem("lastSeenChat",now.toString());
+                        setUnreadChat(0);
+                      }
+                      if(item.id==="notifs"){
+                        const now=Date.now();
+                        localStorage.setItem("lastSeenActivity",now.toString());
+                        setUnreadActivity(0);
+                      }
+                    }}
                     style={{
                       position:"relative", zIndex:2,
                       width:74, height:56,
@@ -999,7 +1222,23 @@ export default function App() {
                     onMouseEnter={e=>{ if(!isActive) e.currentTarget.style.color="rgba(255,252,245,0.9)"; }}
                     onMouseLeave={e=>{ if(!isActive) e.currentTarget.style.color="rgba(255,252,245,0.55)"; }}
                   >
-                    <span style={{fontSize:19,lineHeight:1}}>{item.icon}</span>
+                    <span style={{fontSize:19,lineHeight:1,position:"relative"}}>
+                      {item.icon}
+                      {item.id==="chat" && unreadChat>0 && (
+                        <span style={{position:"absolute",top:-4,right:-6,background:"#c0553a",color:"#fff",
+                          borderRadius:"50%",width:14,height:14,fontSize:9,fontWeight:700,
+                          display:"flex",alignItems:"center",justifyContent:"center"}}>
+                          {unreadChat>9?"9+":unreadChat}
+                        </span>
+                      )}
+                      {item.id==="notifs" && unreadActivity>0 && (
+                        <span style={{position:"absolute",top:-4,right:-6,background:"#c97a4a",color:"#fff",
+                          borderRadius:"50%",width:14,height:14,fontSize:9,fontWeight:700,
+                          display:"flex",alignItems:"center",justifyContent:"center"}}>
+                          {unreadActivity>9?"9+":unreadActivity}
+                        </span>
+                      )}
+                    </span>
                     <span style={{fontSize:8,fontWeight:600,fontFamily:"'DM Sans',sans-serif",
                       letterSpacing:"0.04em",opacity:0.8}}>{item.label}</span>
                   </button>
@@ -1061,14 +1300,26 @@ export default function App() {
             display:"flex",zIndex:100,
             paddingBottom:"env(safe-area-inset-bottom,8px)"}}>
             {navItems.map(item=>(
-              <button key={item.id} onClick={()=>setTab(item.id)}
+              <button key={item.id} onClick={()=>{
+                setTab(item.id);
+                if(item.id==="chat"){const now=Date.now();localStorage.setItem("lastSeenChat",now.toString());setLastSeenChat(now);setUnreadChat(0);}
+              }}
                 style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",
                   justifyContent:"center",gap:3,padding:"10px 0",
                   background:"none",border:"none",cursor:"pointer",
                   color:tab===item.id?T.accent:T.textFaint,
                   borderTop:tab===item.id?`2px solid ${T.accent}`:"2px solid transparent",
                   fontFamily:"'DM Sans',sans-serif",transition:"color 0.15s"}}>
-                <span style={{fontSize:20}}>{item.icon}</span>
+                <span style={{fontSize:20,position:"relative"}}>
+                  {item.icon}
+                  {item.id==="chat" && unreadChat>0 && (
+                    <span style={{position:"absolute",top:-4,right:-6,background:"#c0553a",color:"#fff",
+                      borderRadius:"50%",width:14,height:14,fontSize:9,fontWeight:700,
+                      display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      {unreadChat>9?"9+":unreadChat}
+                    </span>
+                  )}
+                </span>
                 <span style={{fontSize:9,fontWeight:tab===item.id?700:400,letterSpacing:"0.03em"}}>
                   {item.label}
                 </span>
@@ -1243,6 +1494,111 @@ export default function App() {
                             ))}
                           </div>
                         )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ════ CHAT TAB ════ */}
+          {tab==="chat" && (
+            <div style={{animation:"slideIn 0.25s ease",display:"flex",flexDirection:"column",height:"calc(100vh - 120px)"}}>
+              <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:22,color:T.text,marginBottom:16}}>💬 Chat</h1>
+
+              {/* Messages */}
+              <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:8,
+                padding:"4px 0",marginBottom:12}}>
+                {messages.length===0 && (
+                  <div style={{textAlign:"center",color:T.textFaint,padding:40,fontSize:14}}>
+                    Aucun message pour l'instant.<br/>
+                    <span style={{fontSize:12}}>Soyez le premier à écrire ! 👋</span>
+                  </div>
+                )}
+                {messages.map(msg=>{
+                  const isMe = msg.author===user;
+                  const time = new Date(msg.ts).toLocaleTimeString("fr-BE",{hour:"2-digit",minute:"2-digit"});
+                  return (
+                    <div key={msg.id} style={{display:"flex",flexDirection:"column",
+                      alignItems:isMe?"flex-end":"flex-start",gap:3}}>
+                      {!isMe && <span style={{fontSize:11,color:T.textSub,paddingLeft:8}}>{msg.author}</span>}
+                      <div style={{display:"flex",alignItems:"flex-end",gap:6,flexDirection:isMe?"row-reverse":"row"}}>
+                        {!isMe && <Avatar name={msg.author} size={28}/>}
+                        <div style={{
+                          background: isMe?T.sidebar:"#fff",
+                          color: isMe?"#fff":T.text,
+                          border: isMe?"none":`1px solid ${T.border}`,
+                          borderRadius: isMe?"16px 16px 4px 16px":"16px 16px 16px 4px",
+                          padding:"9px 14px", fontSize:13, maxWidth:"72%",
+                          boxShadow:T.shadow, lineHeight:1.5,
+                        }}>{msg.text}</div>
+                        <span style={{fontSize:10,color:T.textFaint,flexShrink:0}}>{time}</span>
+                      </div>
+                      {isMe && user==="Admin" && (
+                        <button onClick={async()=>{ await deleteDoc(doc(db,"chat",msg.id)); }}
+                          style={{background:"none",border:"none",color:T.textFaint,fontSize:10,cursor:"pointer",paddingRight:4}}>
+                          Supprimer
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Input */}
+              <div style={{display:"flex",gap:8,padding:"10px 0",borderTop:`1px solid ${T.border}`}}>
+                <input
+                  style={{flex:1,background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:24,
+                    color:T.text,padding:"10px 16px",fontSize:14,fontFamily:"'DM Sans',sans-serif"}}
+                  value={chatInput}
+                  onChange={e=>setChatInput(e.target.value)}
+                  onKeyDown={async e=>{
+                    if(e.key==="Enter"&&!e.shiftKey&&chatInput.trim()){
+                      await addDoc(collection(db,"chat"),{author:user,text:chatInput.trim(),ts:Date.now()});
+                      setChatInput("");
+                    }
+                  }}
+                  placeholder="Écris un message…"/>
+                <button
+                  style={{background:T.sidebar,color:"#fff",border:"none",borderRadius:"50%",
+                    width:42,height:42,fontSize:18,cursor:"pointer",flexShrink:0,
+                    display:"flex",alignItems:"center",justifyContent:"center"}}
+                  onClick={async()=>{
+                    if(!chatInput.trim())return;
+                    await addDoc(collection(db,"chat"),{author:user,text:chatInput.trim(),ts:Date.now()});
+                    setChatInput("");
+                  }}>➤</button>
+              </div>
+            </div>
+          )}
+
+          {/* ════ NOTIFICATIONS TAB ════ */}
+          {tab==="notifs" && (
+            <div style={{animation:"slideIn 0.25s ease"}}>
+              <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:22,color:T.text,marginBottom:20}}>🔔 Activité</h1>
+              {activity.length===0 ? (
+                <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:14,
+                  padding:"60px 24px",textAlign:"center",color:T.textFaint,boxShadow:T.shadow}}>
+                  <div style={{fontSize:32,marginBottom:10}}>🔔</div>
+                  <p>Aucune activité pour l'instant.</p>
+                </div>
+              ) : (
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {activity.map((act,i)=>{
+                    const isNew = act.ts > lastSeenActivity && act.author !== user;
+                    const time = new Date(act.ts).toLocaleString("fr-BE",{weekday:"short",hour:"2-digit",minute:"2-digit"});
+                    const emoji = act.type==="order"?"🛒":act.type==="cancel"?"❌":act.type==="pay"?"💰":act.type==="reset"?"🗑️":"📝";
+                    return (
+                      <div key={act.id||i} style={{background:isNew?T.accentLight:T.bgCard,
+                        border:`1px solid ${isNew?T.accent:T.border}`,borderRadius:12,
+                        padding:"10px 16px",display:"flex",alignItems:"center",gap:12,boxShadow:T.shadow}}>
+                        <span style={{fontSize:20,flexShrink:0}}>{emoji}</span>
+                        <div style={{flex:1}}>
+                          <span style={{fontSize:13,color:T.text}}>{act.text}</span>
+                        </div>
+                        <span style={{fontSize:11,color:T.textFaint,flexShrink:0}}>{time}</span>
+                        {isNew && <span style={{width:8,height:8,borderRadius:"50%",background:T.accent,flexShrink:0}}/>}
                       </div>
                     );
                   })}
@@ -2115,6 +2471,13 @@ export default function App() {
               </button>
             </div>
           )}
+          {/* ════ PROFILE TAB ════ */}
+          {tab==="profile" && (
+            <ProfileTab user={user} profiles={profiles} members={members} T={T}
+              editingProfile={editingProfile} setEditingProfile={setEditingProfile}
+              db={db} avatarColor={avatarColor} getInitials={getInitials}/>
+          )}
+
           {/* ════ CONFIG TAB ════ */}
           {tab==="settings" && (
             <div style={{animation:"slideIn 0.25s ease"}}>
