@@ -29,7 +29,7 @@ const DEFAULT_MEMBERS = [
   { username: "Sarah",        code: "210" },
 ];
 const DEFAULT_SAUCES   = ["Mayo","Ketchup","Andalouse","Samourai","Pickles","Cocktail"];
-const DEFAULT_CRUDITES = ["Tomate","Salade","Oignon","Cornichon","Poivron"];
+const DEFAULT_CRUDITES = ["Tomate","Salade","Oignon","Cornichon","Poivron", "Sans Crudites"];
 const DEFAULT_BOISSONS = ["Eau","Coca","Fanta","Ice Tea","Jus d'orange"];
 const DEFAULT_EXTRAS   = [];
 const EXTRA_ACCENTS    = ["#9b7fa6","#c97a4a","#5a8f7b","#7a9ab5","#b5836a","#6b8f6b"];
