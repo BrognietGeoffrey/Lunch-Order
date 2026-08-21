@@ -40,6 +40,131 @@ const DEFAULT_BOUBOULE_CLASSIQUES = [
 ];
 const EXTRA_ACCENTS    = ["#9b7fa6","#c97a4a","#5a8f7b","#7a9ab5","#b5836a","#6b8f6b"];
 
+const SNACK_MENU_SECTIONS = [
+                    { cat:"🥗 Assiettes", accent:"#5a8f7b", items:[
+                      {name:"Assiette mixte",              price:"20,00"},
+                      {name:"Assiette brochette de boeuf", price:"18,60"},
+                      {name:"Assiette brochette de poulet",price:"18,60"},
+                      {name:"Assiette pitta",              price:"18,60"},
+                      {name:"Assiette kefta",              price:"18,60"},
+                      {name:"Assiette falafel",            price:"16,00"},
+                      {name:"Assiette cuisse de poulet",   price:"17,00"},
+                      {name:"Assiette poulycroc",          price:"13,00"},
+                      {name:"Assiette fish",               price:"13,00"},
+                      {name:"Assiette chick fingers",      price:"13,00"},
+                      {name:"Assiette calamars",           price:"16,00"},
+                      {name:"Assiette fricadelle",         price:"13,00"},
+                      {name:"Assiette boulette",           price:"13,50"},
+                      {name:"Assiette hamburger",          price:"12,00"},
+                    ]},
+                    { cat:"🫕 Kapsalon", accent:"#9b7fa6", items:[
+                      {name:"Kapsalon pita",   price:"14,00"},
+                      {name:"Kapsalon poulet", price:"14,00"},
+                    ]},
+                    { cat:"🥖 Sandwichs", accent:"#c8922a", items:[
+                      {name:"Sandwich pitta",             price:"10,00"},
+                      {name:"Sandwich poulet",            price:"10,00"},
+                      {name:"Sandwich kefta",             price:"10,00"},
+                      {name:"Sandwich falafel (4 pièces)",price:"9,50"},
+                      {name:"Sandwich poulycroc",         price:"9,00"},
+                      {name:"Sandwich fish",              price:"9,00"},
+                      {name:"Sandwich fricadelle",        price:"9,00"},
+                      {name:"Sandwich mexicano",          price:"9,00"},
+                      {name:"Sandwich hamburger",         price:"9,00"},
+                    ]},
+                    { cat:"🥙 Dürüms", accent:"#c97a4a", items:[
+                      {name:"Durum pitta",              price:"10,00"},
+                      {name:"Durum poulet",             price:"10,00"},
+                      {name:"Durum kefta",              price:"10,00"},
+                      {name:"Durum falafel (4 pièces)", price:"9,50"},
+                      {name:"Durum poulycroc",          price:"9,00"},
+                      {name:"Durum fish",               price:"9,00"},
+                      {name:"Durum fricadelle",         price:"9,00"},
+                      {name:"Durum mexicano",           price:"9,00"},
+                    ]},
+                    { cat:"🍔 Burgers", accent:"#9b7fa6", items:[
+                      {name:"Burger hamburger",price:"5,50"},
+                      {name:"Burger fish",     price:"6,50"},
+                      {name:"Burger kefta",    price:"6,50"},
+                    ]},
+                    { cat:"🍗 Snacks", accent:"#c97a4a", items:[
+                      {name:"Poulet",            price:"6,00"},
+                      {name:"Boeuf",             price:"6,00"},
+                      {name:"Falafel (4 pièces)",price:"4,00"},
+                      {name:"Poulycroc",         price:"5,00"},
+                      {name:"Fish",              price:"5,00"},
+                      {name:"Fricadelle",        price:"4,00"},
+                      {name:"Boulette",          price:"4,50"},
+                      {name:"Mexicano",          price:"4,50"},
+                      {name:"Cuisse de poulet",  price:"5,50"},
+                      {name:"Chick fingers",     price:"4,50"},
+                    ]},
+                    { cat:"🍟 Frites", accent:"#c8922a", items:[
+                      {name:"Petite frite", price:"4,80"},
+                    ]},
+                    { cat:"🫙 Sauces", accent:"#9b7fa6", items:[
+                      {name:"Samurai",      price:"1,50"},{name:"Andalouse",    price:"1,50"},
+                      {name:"Mayonnaise",   price:"1,50"},{name:"Pili pili",    price:"1,50"},
+                      {name:"Tartare",      price:"1,50"},{name:"Ketchup",      price:"1,50"},
+                      {name:"Curry ketchup",price:"1,50"},{name:"Cocktail",     price:"1,50"},
+                      {name:"Américaine",   price:"1,50"},{name:"Brasil",       price:"1,50"},
+                      {name:"Sauce à l'ail",price:"1,50"},{name:"Sauce pita",   price:"1,50"},
+                    ]},
+                    { cat:"🥤 Boissons", accent:"#7a9ab5", items:[
+                      {name:"Coca-Cola 33cl",        price:"2,70"},
+                      {name:"Coca-Cola Zero 33cl",   price:"2,70"},
+                      {name:"Ayran 25cl",            price:"2,70"},
+                      {name:"Tropico Original 33cl", price:"2,70"},
+                      {name:"Fanta 33cl",            price:"2,70"},
+                      {name:"Ice Tea 33cl",          price:"2,70"},
+                      {name:"Oasis pomme poire 33cl",price:"2,70"},
+                      {name:"Eau plate 50cl",        price:"2,70"},
+                      {name:"Eau pétillante 50cl",   price:"2,70"},
+                    ]},
+                  ];
+const LIBANAIS_MENU_SECTIONS = [
+                    { cat:"🫑 Mezzes Froids", accent:"#5a8f7b", items:[
+                      {name:"Hoummous",              price:"9,90", desc:"Purée de pois chiches à l'huile de sésame et jus de citron"},
+                      {name:"Mjaddara",              price:"9,90", desc:"Lentilles au blé concassé, oignons et épices orientales"},
+                      {name:"Tabbouleh",             price:"9,90", desc:"Persil, blé concassé, tomates, menthe, oignons, huile d'olive"},
+                      {name:"Moutabal",              price:"9,90", desc:"Purée d'aubergines grillées, sésame, huile d'olive, citron"},
+                      {name:"Fattouch",              price:"9,90", desc:"Pains libanais grillés, légumes frais, citron, huile d'olive"},
+                      {name:"Warak Arich Bel Zeit",  price:"9,90", desc:"Feuilles de vignes farcies aux légumes et au riz"},
+                      {name:"Bourghoul Bel Banadoura",price:"9,90", desc:"Blé concassé, tomates, oignons et épices orientales"},
+                      {name:"Moussaka",              price:"9,90", desc:"Aubergines grillées, sauce tomate, oignons et pois chiches"},
+                    ]},
+                    { cat:"🔥 Mezzes Chauds", accent:"#c97a4a", items:[
+                      {name:"Kellage x4",         price:"10,40", desc:"Pitta farcis au fromage halloumi accompagnés de salade"},
+                      {name:"Falafel x4",         price:"10,50", desc:"Croquettes de pois chiches et fèves écrasées"},
+                      {name:"Hommos Bel Lahmé",   price:"12,50", desc:"Pois chiches, sésame, viande d'agneau, citron"},
+                      {name:"Arayess x4",         price:"12,90", desc:"Pitta farcis à la viande hachée et épices orientales"},
+                      {name:"Toshka x4",          price:"12,90", desc:"Pitta farcis à la viande hachée et fromage halloumi"},
+                      {name:"Ras Asfour",         price:"12,90", desc:"Morceaux de filet d'agneau poêlés et assaisonnés"},
+                    ]},
+                    { cat:"🍖 Grillades", accent:"#9b7fa6", items:[
+                      {name:"Assiette Mixte Machawi",         price:"19,50", desc:"1 kefta, 1 poulet, 1 agneau + frites et salade ⭐"},
+                      {name:"Assiette Lahmeh Machwiyeh x2",  price:"17,90", desc:"2 brochettes d'agneau marinées + frites et salade"},
+                      {name:"Assiette Chawarma",              price:"16,50", desc:"Bœuf mariné ou poulet grillé + frites et salade"},
+                      {name:"Assiette Kebab Halabi x3",       price:"18,50", desc:"3 brochettes viande hachée, persil, oignons"},
+                      {name:"Assiette Chich Taouk x2",        price:"17,50", desc:"2 brochettes poulet à la crème d'ail + frites"},
+                      {name:"Assiette Libanaise Végétarienne",price:"16,50", desc:"5 choix végétariens + salade"},
+                      {name:"Assiette Libanaise avec Viandes",price:"19,50", desc:"4 choix végétariens + 1 brochette au choix"},
+                      {name:"Assiette Halloumi",              price:"11,00", desc:"Halloumi accompagné de salade"},
+                      {name:"Assiette Pitta Arabi",           price:"16,90", desc:"Chawarma poulet grillé + frites et salade"},
+                      {name:"Assiette Brochette Individuelle",price:"7,50",  desc:"1 brochette poulet, kafta ou agneau"},
+                    ]},
+                    { cat:"🫓 Pittas Libanaises", accent:"#c8922a", items:[
+                      {name:"Pitta Chich Taouk",      price:"9,00", desc:"Poulet grillé mariné à la crème d'ail"},
+                      {name:"Pitta Kebab Halabi",     price:"9,00", desc:"Viande hachée au persil et oignons"},
+                      {name:"Pitta Chawarma",         price:"9,00", desc:"Bœuf mariné ou poulet grillé à la flamme"},
+                      {name:"Pitta Végétarien",       price:"9,00", desc:"Omelette de courgettes, hoummous, aubergines"},
+                      {name:"Pitta Lahmeh Mechwiyeh", price:"9,00", desc:"Brochette d'agneau mariné et grillé"},
+                    ]},
+                    { cat:"🍟 Frites", accent:"#c8922a", items:[
+                      {name:"Frites", price:"4,50"},
+                    ]},
+                  ];
+
 const LUNCH_OPTIONS = [
   { id: "ice-cream",    label: "Ice Cream",    emoji:"🍦", accent: "#e64980", bg:"#fff0f6" },
   { id: "snack-merode", label: "Snack Merode", emoji:"🥪", accent: "#e8590c", bg:"#fff4e6" },
@@ -885,6 +1010,221 @@ function ProfileTab({ user, profiles, members, T, editingProfile, setEditingProf
   );
 }
 
+// ── Récap: prix, agrégation, composant ─────────────────────────────────────────
+function parsePrice(p){
+  if(p==null) return null;
+  const n=parseFloat(String(p).replace(/[^0-9.,]/g,"").replace(",","."));
+  return isNaN(n)?null:n;
+}
+function normName(s){
+  return (s||"").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();
+}
+function fmtEuro(n){ return "€ "+Number(n||0).toFixed(2).replace(".",","); }
+
+function buildPriceIndex(snackMenu, libanaisMenu){
+  const idx={};
+  const add=(sections, saved)=>{
+    (sections||[]).forEach(sec=>{
+      const ov=(saved||[]).find(s=>s.cat===sec.cat);
+      const items=(ov&&ov.items)?ov.items:sec.items;
+      (items||[]).forEach(it=>{ const pr=parsePrice(it.price); if(pr!=null) idx[normName(it.name)]=pr; });
+    });
+  };
+  add(SNACK_MENU_SECTIONS, snackMenu);
+  add(LIBANAIS_MENU_SECTIONS, libanaisMenu);
+  return idx;
+}
+function mainCandidates(order){
+  const d=order.detail||"";
+  if(order.choice==="snack-merode"){
+    if(order.snackType==="Durum") return ["Durum "+d, d];
+    if(order.snackType==="Bicky")  return ["Sandwich "+d, "Burger "+d, d];
+    return [d];
+  }
+  if(order.choice==="libanais") return [d];
+  return [];
+}
+function lookup(idx, candidates){
+  for(const c of (candidates||[])){ const k=normName(c); if(k && idx[k]!=null) return {name:c, price:idx[k]}; }
+  return null;
+}
+function orderPricedLines(order, idx){
+  const lines=[];
+  if(!order || !order.choice) return {lines, total:0, hasUnpriced:false, empty:true};
+  if(order.choice==="ice-cream"){
+    const fl=[order.boule1,order.boule2].filter(Boolean).join(" + ");
+    lines.push({label:(order.boules||"Glace")+(fl?" · "+fl:""), price:null});
+    return {lines, total:0, hasUnpriced:true, empty:false};
+  }
+  const main=lookup(idx, mainCandidates(order));
+  const mainLabel=[order.snackType,order.detail].filter(Boolean).join(" ").trim()||order.detail||"Commande";
+  lines.push({label:mainLabel, price:main?main.price:null});
+  if(order.friteSup){
+    const fp = order.friteSup==="Petite" ? idx[normName("Petite frite")] : null;
+    lines.push({label:"Frite "+order.friteSup, price:(fp!=null?fp:null)});
+  }
+  if(order.boisson){
+    let bp=idx[normName(order.boisson)];
+    if(bp==null){ const key=Object.keys(idx).find(k=>k.startsWith(normName(order.boisson))); if(key) bp=idx[key]; }
+    lines.push({label:order.boisson, price:(bp!=null?bp:null)});
+  }
+  const total=lines.reduce((a,l)=>a+(l.price||0),0);
+  const hasUnpriced=lines.some(l=>l.price==null);
+  return {lines, total, hasUnpriced, empty:false};
+}
+const RESTO_META={
+  "snack-merode":{label:"Snack Merode", accent:"#c97a4a"},
+  "libanais":{label:"Libanais", accent:"#2f9e44"},
+  "ice-cream":{label:"Glace · Bou·Boul·e", accent:"#d4537e"},
+};
+function buildRestoRecap(names, orders, idx){
+  const groups={"snack-merode":{}, "libanais":{}, "ice-cream":{}};
+  (names||[]).forEach(n=>{
+    const o=orders[n]; if(!o||!o.choice) return;
+    let label, price;
+    if(o.choice==="ice-cream"){
+      const fl=[o.boule1,o.boule2].filter(Boolean).join(" + ");
+      label=(o.boules||"Glace")+(fl?" ("+fl+")":""); price=null;
+    } else {
+      const m=lookup(idx, mainCandidates(o));
+      label = m ? m.name : ([o.snackType,o.detail].filter(Boolean).join(" ").trim()||o.detail||"Commande");
+      price = m ? m.price : null;
+    }
+    const g=groups[o.choice];
+    if(!g[label]) g[label]={qty:0, price};
+    g[label].qty++;
+  });
+  const out=[];
+  ["snack-merode","libanais","ice-cream"].forEach(k=>{
+    const items=Object.entries(groups[k]).map(([label,v])=>({label, qty:v.qty, price:v.price}));
+    if(items.length) out.push({key:k, ...RESTO_META[k], items});
+  });
+  const total=out.reduce((a,g)=>a+g.items.reduce((b,it)=>b+((it.price||0)*it.qty),0),0);
+  const hasUnpriced=out.some(g=>g.items.some(it=>it.price==null));
+  return {groups:out, total, hasUnpriced};
+}
+function restoRecapText(recap){
+  let t="Commande midi";
+  recap.groups.forEach(g=>{
+    t+="\n\n"+g.label;
+    g.items.forEach(it=>{ t+="\n  "+it.qty+"\u00d7 "+it.label; });
+  });
+  t+="\n\nTotal estimé : "+fmtEuro(recap.total);
+  return t;
+}
+
+function RecapPanel({ user, names, orders, payments, togglePayment, snackMenu, libanaisMenu, T }){
+  const [slide, setSlide] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const idx = buildPriceIndex(snackMenu, libanaisMenu);
+  const perso = orderPricedLines(orders[user], idx);
+  const resto = buildRestoRecap(names, orders, idx);
+  const isPaid = payments[user]||false;
+
+  const copyList=async()=>{
+    const txt=restoRecapText(resto);
+    try{ await navigator.clipboard.writeText(txt); }
+    catch(e){
+      const ta=document.createElement("textarea"); ta.value=txt;
+      ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta); ta.select();
+      try{ document.execCommand("copy"); }catch(_){} document.body.removeChild(ta);
+    }
+    setCopied(true); setTimeout(()=>setCopied(false),2000);
+  };
+
+  const seg=(idxN,icon,label)=>(
+    <button onClick={()=>setSlide(idxN)}
+      style={{flex:1,border:"none",borderRadius:8,padding:"7px 0",fontSize:12.5,fontWeight:600,cursor:"pointer",
+        fontFamily:"'DM Sans',sans-serif",display:"flex",alignItems:"center",justifyContent:"center",gap:6,
+        background:slide===idxN?T.sidebar:"transparent", color:slide===idxN?"#fff":T.textSub}}>
+      <span>{icon}</span>{label}
+    </button>
+  );
+  const priceCell=(pr)=>(
+    <span style={{fontSize:12.5,color:pr!=null?T.text:T.textFaint}}>{pr!=null?fmtEuro(pr):"—"}</span>
+  );
+
+  return (
+    <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:14,padding:16,marginBottom:20,boxShadow:T.shadow}}>
+      <div style={{display:"flex",background:T.bgTag,borderRadius:10,padding:3,marginBottom:14}}>
+        {seg(0,"📞","Resto")}
+        {seg(1,"👤","Perso")}
+      </div>
+      <div style={{overflow:"hidden"}}>
+        <div style={{display:"flex",width:"200%",transition:"transform 0.3s cubic-bezier(0.4,0,0.2,1)",
+          transform:`translateX(-${slide*50}%)`}}>
+
+          {/* Resto */}
+          <div style={{width:"50%",paddingRight:6,boxSizing:"border-box"}}>
+            {resto.groups.length===0 ? (
+              <p style={{fontSize:13,color:T.textFaint,padding:"12px 0"}}>Aucune commande pour l'instant.</p>
+            ) : (
+              <>
+                {resto.groups.map(g=>(
+                  <div key={g.key} style={{marginBottom:12}}>
+                    <div style={{fontSize:10.5,fontWeight:700,color:g.accent,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>{g.label}</div>
+                    {g.items.map((it,i)=>(
+                      <div key={i} style={{display:"flex",alignItems:"baseline",gap:8,fontSize:13,color:T.textSub,lineHeight:1.9}}>
+                        <span style={{fontWeight:600,color:T.text,minWidth:22}}>{it.qty}×</span>
+                        <span style={{flex:1}}>{it.label}</span>
+                        {it.price!=null && <span style={{color:T.textFaint,fontSize:12}}>{fmtEuro(it.price*it.qty)}</span>}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",
+                  borderTop:`1px solid ${T.borderLight}`,paddingTop:10,marginBottom:6}}>
+                  <span style={{fontSize:12,color:T.textSub}}>Total resto{resto.hasUnpriced?" (estimé)":""}</span>
+                  <span style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:18,color:T.text}}>{fmtEuro(resto.total)}</span>
+                </div>
+                {resto.hasUnpriced && <p style={{fontSize:11,color:T.textFaint,marginBottom:10}}>Certains articles (glaces, options) n'ont pas de prix connu.</p>}
+                <button onClick={copyList}
+                  style={{width:"100%",background:copied?T.green:T.sidebar,color:"#fff",border:"none",borderRadius:11,
+                    padding:11,fontSize:13,fontWeight:600,cursor:"pointer",transition:"background 0.2s"}}>
+                  {copied?"✓ Copié !":"📋 Copier la liste"}
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* Perso */}
+          <div style={{width:"50%",paddingLeft:6,boxSizing:"border-box"}}>
+            {perso.empty ? (
+              <p style={{fontSize:13,color:T.textFaint,padding:"12px 0"}}>Tu n'as pas encore commandé.</p>
+            ) : (
+              <>
+                <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:12}}>
+                  <Avatar name={user} size={30}/>
+                  <span style={{fontSize:13.5,fontWeight:600,color:T.text}}>Ma commande</span>
+                </div>
+                {perso.lines.map((l,i)=>(
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",
+                    fontSize:13,color:T.textSub,lineHeight:2}}>
+                    <span style={{flex:1,paddingRight:8}}>{l.label}</span>
+                    {priceCell(l.price)}
+                  </div>
+                ))}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",
+                  borderTop:`1px solid ${T.borderLight}`,paddingTop:10,marginTop:6,marginBottom:12}}>
+                  <span style={{fontSize:12,color:T.textSub}}>Mon total{perso.hasUnpriced?" (estimé)":""}</span>
+                  <span style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:18,color:T.text}}>{fmtEuro(perso.total)}</span>
+                </div>
+                <button onClick={()=>togglePayment(user)}
+                  style={{width:"100%",background:isPaid?T.green+"18":"transparent",
+                    border:`1.5px solid ${isPaid?T.green:T.border}`,color:isPaid?T.green:T.textSub,
+                    borderRadius:11,padding:11,fontSize:13,fontWeight:600,cursor:"pointer"}}>
+                  {isPaid?"✓ Payé":"Marquer payé"}
+                </button>
+              </>
+            )}
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main App ──────────────────────────────────────────────────────────────────
 export default function App() {
   const [user, setUser]             = useState(null);
@@ -1699,6 +2039,9 @@ export default function App() {
                   onClick={resetAll}>🗑 Réinitialiser</button>
               </div>
 
+              <RecapPanel user={user} names={names} orders={orders} payments={payments}
+                togglePayment={togglePayment} snackMenu={snackMenu} libanaisMenu={libanaisMenu} T={T}/>
+
               {/* Counts */}
               <div style={{display:"flex",gap:isMobile?8:12,marginBottom:isMobile?16:24,flexWrap:"wrap"}}>
                 {LUNCH_OPTIONS.map(opt=>(
@@ -2083,88 +2426,7 @@ export default function App() {
                       📞 02 735 59 70
                     </a>
                   </div>
-                  {[
-                    { cat:"🥗 Assiettes", accent:"#5a8f7b", items:[
-                      {name:"Assiette mixte",              price:"20,00"},
-                      {name:"Assiette brochette de boeuf", price:"18,60"},
-                      {name:"Assiette brochette de poulet",price:"18,60"},
-                      {name:"Assiette pitta",              price:"18,60"},
-                      {name:"Assiette kefta",              price:"18,60"},
-                      {name:"Assiette falafel",            price:"16,00"},
-                      {name:"Assiette cuisse de poulet",   price:"17,00"},
-                      {name:"Assiette poulycroc",          price:"13,00"},
-                      {name:"Assiette fish",               price:"13,00"},
-                      {name:"Assiette chick fingers",      price:"13,00"},
-                      {name:"Assiette calamars",           price:"16,00"},
-                      {name:"Assiette fricadelle",         price:"13,00"},
-                      {name:"Assiette boulette",           price:"13,50"},
-                      {name:"Assiette hamburger",          price:"12,00"},
-                    ]},
-                    { cat:"🫕 Kapsalon", accent:"#9b7fa6", items:[
-                      {name:"Kapsalon pita",   price:"14,00"},
-                      {name:"Kapsalon poulet", price:"14,00"},
-                    ]},
-                    { cat:"🥖 Sandwichs", accent:"#c8922a", items:[
-                      {name:"Sandwich pitta",             price:"10,00"},
-                      {name:"Sandwich poulet",            price:"10,00"},
-                      {name:"Sandwich kefta",             price:"10,00"},
-                      {name:"Sandwich falafel (4 pièces)",price:"9,50"},
-                      {name:"Sandwich poulycroc",         price:"9,00"},
-                      {name:"Sandwich fish",              price:"9,00"},
-                      {name:"Sandwich fricadelle",        price:"9,00"},
-                      {name:"Sandwich mexicano",          price:"9,00"},
-                      {name:"Sandwich hamburger",         price:"9,00"},
-                    ]},
-                    { cat:"🥙 Dürüms", accent:"#c97a4a", items:[
-                      {name:"Durum pitta",              price:"10,00"},
-                      {name:"Durum poulet",             price:"10,00"},
-                      {name:"Durum kefta",              price:"10,00"},
-                      {name:"Durum falafel (4 pièces)", price:"9,50"},
-                      {name:"Durum poulycroc",          price:"9,00"},
-                      {name:"Durum fish",               price:"9,00"},
-                      {name:"Durum fricadelle",         price:"9,00"},
-                      {name:"Durum mexicano",           price:"9,00"},
-                    ]},
-                    { cat:"🍔 Burgers", accent:"#9b7fa6", items:[
-                      {name:"Burger hamburger",price:"5,50"},
-                      {name:"Burger fish",     price:"6,50"},
-                      {name:"Burger kefta",    price:"6,50"},
-                    ]},
-                    { cat:"🍗 Snacks", accent:"#c97a4a", items:[
-                      {name:"Poulet",            price:"6,00"},
-                      {name:"Boeuf",             price:"6,00"},
-                      {name:"Falafel (4 pièces)",price:"4,00"},
-                      {name:"Poulycroc",         price:"5,00"},
-                      {name:"Fish",              price:"5,00"},
-                      {name:"Fricadelle",        price:"4,00"},
-                      {name:"Boulette",          price:"4,50"},
-                      {name:"Mexicano",          price:"4,50"},
-                      {name:"Cuisse de poulet",  price:"5,50"},
-                      {name:"Chick fingers",     price:"4,50"},
-                    ]},
-                    { cat:"🍟 Frites", accent:"#c8922a", items:[
-                      {name:"Petite frite", price:"4,80"},
-                    ]},
-                    { cat:"🫙 Sauces", accent:"#9b7fa6", items:[
-                      {name:"Samurai",      price:"1,50"},{name:"Andalouse",    price:"1,50"},
-                      {name:"Mayonnaise",   price:"1,50"},{name:"Pili pili",    price:"1,50"},
-                      {name:"Tartare",      price:"1,50"},{name:"Ketchup",      price:"1,50"},
-                      {name:"Curry ketchup",price:"1,50"},{name:"Cocktail",     price:"1,50"},
-                      {name:"Américaine",   price:"1,50"},{name:"Brasil",       price:"1,50"},
-                      {name:"Sauce à l'ail",price:"1,50"},{name:"Sauce pita",   price:"1,50"},
-                    ]},
-                    { cat:"🥤 Boissons", accent:"#7a9ab5", items:[
-                      {name:"Coca-Cola 33cl",        price:"2,70"},
-                      {name:"Coca-Cola Zero 33cl",   price:"2,70"},
-                      {name:"Ayran 25cl",            price:"2,70"},
-                      {name:"Tropico Original 33cl", price:"2,70"},
-                      {name:"Fanta 33cl",            price:"2,70"},
-                      {name:"Ice Tea 33cl",          price:"2,70"},
-                      {name:"Oasis pomme poire 33cl",price:"2,70"},
-                      {name:"Eau plate 50cl",        price:"2,70"},
-                      {name:"Eau pétillante 50cl",   price:"2,70"},
-                    ]},
-                  ].map(section=>{
+                  {SNACK_MENU_SECTIONS.map(section=>{
                     const saved=snackMenu?.find(s=>s.cat===section.cat);
                     const merged=saved?{...section,items:saved.items}:section;
                     if(user==="Admin") return <MenuSection key={section.cat} section={merged} T={T} isAdmin={true}
@@ -2248,48 +2510,7 @@ export default function App() {
                       📎 Deliveroo ↗
                     </a>
                   </div>
-                  {[
-                    { cat:"🫑 Mezzes Froids", accent:"#5a8f7b", items:[
-                      {name:"Hoummous",              price:"9,90", desc:"Purée de pois chiches à l'huile de sésame et jus de citron"},
-                      {name:"Mjaddara",              price:"9,90", desc:"Lentilles au blé concassé, oignons et épices orientales"},
-                      {name:"Tabbouleh",             price:"9,90", desc:"Persil, blé concassé, tomates, menthe, oignons, huile d'olive"},
-                      {name:"Moutabal",              price:"9,90", desc:"Purée d'aubergines grillées, sésame, huile d'olive, citron"},
-                      {name:"Fattouch",              price:"9,90", desc:"Pains libanais grillés, légumes frais, citron, huile d'olive"},
-                      {name:"Warak Arich Bel Zeit",  price:"9,90", desc:"Feuilles de vignes farcies aux légumes et au riz"},
-                      {name:"Bourghoul Bel Banadoura",price:"9,90", desc:"Blé concassé, tomates, oignons et épices orientales"},
-                      {name:"Moussaka",              price:"9,90", desc:"Aubergines grillées, sauce tomate, oignons et pois chiches"},
-                    ]},
-                    { cat:"🔥 Mezzes Chauds", accent:"#c97a4a", items:[
-                      {name:"Kellage x4",         price:"10,40", desc:"Pitta farcis au fromage halloumi accompagnés de salade"},
-                      {name:"Falafel x4",         price:"10,50", desc:"Croquettes de pois chiches et fèves écrasées"},
-                      {name:"Hommos Bel Lahmé",   price:"12,50", desc:"Pois chiches, sésame, viande d'agneau, citron"},
-                      {name:"Arayess x4",         price:"12,90", desc:"Pitta farcis à la viande hachée et épices orientales"},
-                      {name:"Toshka x4",          price:"12,90", desc:"Pitta farcis à la viande hachée et fromage halloumi"},
-                      {name:"Ras Asfour",         price:"12,90", desc:"Morceaux de filet d'agneau poêlés et assaisonnés"},
-                    ]},
-                    { cat:"🍖 Grillades", accent:"#9b7fa6", items:[
-                      {name:"Assiette Mixte Machawi",         price:"19,50", desc:"1 kefta, 1 poulet, 1 agneau + frites et salade ⭐"},
-                      {name:"Assiette Lahmeh Machwiyeh x2",  price:"17,90", desc:"2 brochettes d'agneau marinées + frites et salade"},
-                      {name:"Assiette Chawarma",              price:"16,50", desc:"Bœuf mariné ou poulet grillé + frites et salade"},
-                      {name:"Assiette Kebab Halabi x3",       price:"18,50", desc:"3 brochettes viande hachée, persil, oignons"},
-                      {name:"Assiette Chich Taouk x2",        price:"17,50", desc:"2 brochettes poulet à la crème d'ail + frites"},
-                      {name:"Assiette Libanaise Végétarienne",price:"16,50", desc:"5 choix végétariens + salade"},
-                      {name:"Assiette Libanaise avec Viandes",price:"19,50", desc:"4 choix végétariens + 1 brochette au choix"},
-                      {name:"Assiette Halloumi",              price:"11,00", desc:"Halloumi accompagné de salade"},
-                      {name:"Assiette Pitta Arabi",           price:"16,90", desc:"Chawarma poulet grillé + frites et salade"},
-                      {name:"Assiette Brochette Individuelle",price:"7,50",  desc:"1 brochette poulet, kafta ou agneau"},
-                    ]},
-                    { cat:"🫓 Pittas Libanaises", accent:"#c8922a", items:[
-                      {name:"Pitta Chich Taouk",      price:"9,00", desc:"Poulet grillé mariné à la crème d'ail"},
-                      {name:"Pitta Kebab Halabi",     price:"9,00", desc:"Viande hachée au persil et oignons"},
-                      {name:"Pitta Chawarma",         price:"9,00", desc:"Bœuf mariné ou poulet grillé à la flamme"},
-                      {name:"Pitta Végétarien",       price:"9,00", desc:"Omelette de courgettes, hoummous, aubergines"},
-                      {name:"Pitta Lahmeh Mechwiyeh", price:"9,00", desc:"Brochette d'agneau mariné et grillé"},
-                    ]},
-                    { cat:"🍟 Frites", accent:"#c8922a", items:[
-                      {name:"Frites", price:"4,50"},
-                    ]},
-                  ].map(section=>{
+                  {LIBANAIS_MENU_SECTIONS.map(section=>{
                     const saved=libanaisMenu?.find(s=>s.cat===section.cat);
                     const merged=saved?{...section,items:saved.items}:section;
                     if(user==="Admin") return <MenuSection key={section.cat} section={merged} T={T} isAdmin={true}
