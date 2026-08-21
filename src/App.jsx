@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { initializeApp } from "firebase/app";
 import { getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection, addDoc } from "firebase/firestore";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDNXj4_HZEjhkP39t8CtPbVhIG5oLojW68",
@@ -12,6 +13,7 @@ const firebaseConfig = {
 };
 const fbApp = initializeApp(firebaseConfig);
 const db = getFirestore(fbApp);
+const auth = getAuth(fbApp);
 
 const ADMIN = { username: "Admin", code: "0000" };
 const DEFAULT_MEMBERS = [
@@ -173,13 +175,14 @@ const CSS = (T) => `
 `;
 
 // ── Components ────────────────────────────────────────────────────────────────
-function Avatar({ name, size=36 }) {
-  const color = avatarColor(name);
+function Avatar({ name, size=36, profile }) {
+  const color = profile?.color || avatarColor(name);
+  const emoji = profile?.emoji;
   return (
     <div style={{ width:size, height:size, borderRadius:"50%", background:color+"22",
       border:`2px solid ${color}44`, display:"flex", alignItems:"center", justifyContent:"center",
-      fontSize:size*0.35, fontWeight:700, color, flexShrink:0, letterSpacing:"-0.5px" }}>
-      {getInitials(name)}
+      fontSize:emoji?size*0.5:size*0.35, fontWeight:700, color, flexShrink:0, letterSpacing:"-0.5px" }}>
+      {emoji || getInitials(name)}
     </div>
   );
 }
@@ -229,12 +232,11 @@ function DetailCell({ name, order, canEdit, sauces, crudites, boissons, extras, 
 
   const sauceRef = useRef(null);
   const sauceFriteRef = useRef(null);
+  const [localBoisson, setLocalBoisson] = useState("");
 
   if (!order.choice) return <span style={{fontSize:12,color:T.textFaint}}>{canEdit?"Choisis un plat d'abord…":"🔒"}</span>;
 
   const opt = LUNCH_OPTIONS.find(o=>o.id===order.choice);
-
-  const [localBoisson, setLocalBoisson] = useState("");
 
   if (order.choice==="ice-cream") {
     // parse selected flavours
@@ -923,7 +925,18 @@ export default function App() {
 
   useEffect(()=>{ const h=()=>setIsMobile(window.innerWidth<768); window.addEventListener("resize",h); return ()=>window.removeEventListener("resize",h); },[]);
 
+  const [authReady, setAuthReady] = useState(false);
+
   useEffect(()=>{
+    const unsub = onAuthStateChanged(auth, u=>{
+      if(u) setAuthReady(true);
+      else signInAnonymously(auth).catch(e=>console.error("Auth anonyme échouée:", e));
+    });
+    return unsub;
+  },[]);
+
+  useEffect(()=>{
+    if(!authReady) return;
     const u1=onSnapshot(collection(db,"orders"),    s=>{const d={};s.forEach(x=>{d[x.id]=x.data();});setOrders(d);setStatus("live");}, ()=>setStatus("error"));
     const u2=onSnapshot(doc(db,"config","members"), s=>{
       if(s.exists()&&s.data().list) setMembers(s.data().list);
@@ -979,7 +992,7 @@ export default function App() {
       setProfiles(d);
     });
     return ()=>{u1();u2();u3();u4();u4b();u5();u6();u7();u8();u9();u10();u11();u12();u13();u14();u15();};
-  },[]);
+  },[authReady, user]);
 
   useEffect(()=>{
     if(!user||user==="Admin")return;
@@ -990,6 +1003,15 @@ export default function App() {
       setDoc(doc(db,"orders",user),{...orderData});
     }
   },[user,favorites]);
+
+  if(!authReady) return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.bg}}>
+      <div style={{textAlign:"center",color:T.textSub,fontFamily:"'DM Sans',sans-serif"}}>
+        <div style={{fontSize:34,marginBottom:12}}>🍽️</div>
+        <div style={{fontSize:14}}>Connexion sécurisée…</div>
+      </div>
+    </div>
+  );
 
   if(!user) return <LoginScreen onLogin={setUser} T={T} isDark={isDark} toggleTheme={toggleTheme} members={members}/>;
 
@@ -1402,7 +1424,7 @@ export default function App() {
                           background:isMe?T.accentLight:"transparent",
                           borderBottom:order.choice?`1px solid ${T.borderLight}`:"none"}}>
                           <span style={{fontSize:10,fontWeight:600,color:T.textFaint,minWidth:14,textAlign:"right"}}>{idx+1}</span>
-                          <Avatar name={name} size={isMobile?26:36}/>
+                          <Avatar name={name} size={isMobile?26:36} profile={profiles[name]}/>
                           <div style={{flex:1,minWidth:0}}>
                             <div style={{display:"flex",alignItems:"center",gap:4}}>
                               <span style={{fontSize:isMobile?12:14,fontWeight:isMe?700:500,color:isMe?T.accent:T.text}}>{name}</span>
