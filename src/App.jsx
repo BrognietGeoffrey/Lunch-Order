@@ -1021,6 +1021,8 @@ function normName(s){
 }
 function fmtEuro(n){ return "€ "+Number(n||0).toFixed(2).replace(".",","); }
 
+const ICE_CREAM_PRICES = { "1 boule": 3.30, "2 boules": 6.00 };
+
 function buildPriceIndex(snackMenu, libanaisMenu){
   const idx={};
   const add=(sections, saved)=>{
@@ -1053,8 +1055,9 @@ function orderPricedLines(order, idx){
   if(!order || !order.choice) return {lines, total:0, hasUnpriced:false, empty:true};
   if(order.choice==="ice-cream"){
     const fl=[order.boule1,order.boule2].filter(Boolean).join(" + ");
-    lines.push({label:(order.boules||"Glace")+(fl?" · "+fl:""), price:null});
-    return {lines, total:0, hasUnpriced:true, empty:false};
+    const pr=ICE_CREAM_PRICES[order.boules]!=null?ICE_CREAM_PRICES[order.boules]:null;
+    lines.push({label:(order.boules||"Glace")+(fl?" · "+fl:""), price:pr});
+    return {lines, total:(pr||0), hasUnpriced:(pr==null), empty:false};
   }
   const main=lookup(idx, mainCandidates(order));
   const mainLabel=[order.snackType,order.detail].filter(Boolean).join(" ").trim()||order.detail||"Commande";
@@ -1084,7 +1087,8 @@ function buildRestoRecap(names, orders, idx){
     let label, price;
     if(o.choice==="ice-cream"){
       const fl=[o.boule1,o.boule2].filter(Boolean).join(" + ");
-      label=(o.boules||"Glace")+(fl?" ("+fl+")":""); price=null;
+      label=(o.boules||"Glace")+(fl?" ("+fl+")":"");
+      price=ICE_CREAM_PRICES[o.boules]!=null?ICE_CREAM_PRICES[o.boules]:null;
     } else {
       const m=lookup(idx, mainCandidates(o));
       label = m ? m.name : ([o.snackType,o.detail].filter(Boolean).join(" ").trim()||o.detail||"Commande");
@@ -1113,8 +1117,8 @@ function restoRecapText(recap){
   return t;
 }
 
-function RecapPanel({ user, names, orders, payments, togglePayment, snackMenu, libanaisMenu, T }){
-  const [slide, setSlide] = useState(0);
+function RecapPanel({ user, names, orders, payments, togglePayment, snackMenu, libanaisMenu, T, defaultSlide=0 }){
+  const [slide, setSlide] = useState(defaultSlide);
   const [copied, setCopied] = useState(false);
   const idx = buildPriceIndex(snackMenu, libanaisMenu);
   const perso = orderPricedLines(orders[user], idx);
@@ -1765,6 +1769,9 @@ export default function App() {
                   </button>
                 )}
               </div>
+
+              <RecapPanel user={user} names={names} orders={orders} payments={payments}
+                togglePayment={togglePayment} snackMenu={snackMenu} libanaisMenu={libanaisMenu} T={T} defaultSlide={1}/>
 
               {/* Quick favorites */}
               {user!=="Admin" && (favorites[user]||[]).length>0 && (
