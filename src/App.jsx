@@ -29,9 +29,15 @@ const DEFAULT_MEMBERS = [
   { username: "Sarah",        code: "210" },
 ];
 const DEFAULT_SAUCES   = ["Mayo","Ketchup","Andalouse","Samourai","Pickles","Cocktail"];
-const DEFAULT_CRUDITES = ["Tomate","Salade","Oignon","Cornichon","Poivron", "Sans Crudites"];
+const DEFAULT_CRUDITES = ["Tomate","Salade","Oignon","Cornichon","Poivron"];
 const DEFAULT_BOISSONS = ["Eau","Coca","Fanta","Ice Tea","Jus d'orange"];
 const DEFAULT_EXTRAS   = [];
+const DEFAULT_BOUBOULE_CLASSIQUES = [
+  {name:"Vanille de Madagascar"},{name:"Kulfi"},{name:"Stracciatella"},
+  {name:"Cerise Amarena"},{name:"Caramel Beurre Salé"},{name:"Café"},
+  {name:"Spéculoos"},{name:"Sorbet Citron 🌿"},{name:"Noisette du Piémont"},
+  {name:"Sorbet Fruit de la Passion 🌿"},{name:"Pistache d'Iran"},{name:"Sorbet Chocolat 70% 🌿"},
+];
 const EXTRA_ACCENTS    = ["#9b7fa6","#c97a4a","#5a8f7b","#7a9ab5","#b5836a","#6b8f6b"];
 
 const LUNCH_OPTIONS = [
@@ -184,6 +190,19 @@ function Avatar({ name, size=36, profile }) {
       fontSize:emoji?size*0.5:size*0.35, fontWeight:700, color, flexShrink:0, letterSpacing:"-0.5px" }}>
       {emoji || getInitials(name)}
     </div>
+  );
+}
+
+function StatusDot({ status }) {
+  const map = {
+    live:       { c:"#2f9e44", t:"En direct" },
+    connecting: { c:"#c8922a", t:"Connexion…" },
+    error:      { c:"#c92a2a", t:"Hors ligne" },
+  };
+  const s = map[status] || map.connecting;
+  return (
+    <span title={s.t} style={{ width:8, height:8, borderRadius:"50%", background:s.c,
+      display:"inline-block", flexShrink:0, boxShadow:`0 0 0 3px ${s.c}22` }}/>
   );
 }
 
@@ -926,11 +945,15 @@ export default function App() {
   useEffect(()=>{ const h=()=>setIsMobile(window.innerWidth<768); window.addEventListener("resize",h); return ()=>window.removeEventListener("resize",h); },[]);
 
   const [authReady, setAuthReady] = useState(false);
+  const [authError, setAuthError] = useState(null);
 
   useEffect(()=>{
     const unsub = onAuthStateChanged(auth, u=>{
-      if(u) setAuthReady(true);
-      else signInAnonymously(auth).catch(e=>console.error("Auth anonyme échouée:", e));
+      if(u){ setAuthReady(true); setAuthError(null); }
+      else signInAnonymously(auth).catch(e=>{
+        console.error("Auth anonyme échouée:", e);
+        setAuthError(e.code || e.message || "erreur inconnue");
+      });
     });
     return unsub;
   },[]);
@@ -1005,10 +1028,28 @@ export default function App() {
   },[user,favorites]);
 
   if(!authReady) return (
-    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.bg}}>
-      <div style={{textAlign:"center",color:T.textSub,fontFamily:"'DM Sans',sans-serif"}}>
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.bg,padding:24}}>
+      <div style={{textAlign:"center",color:T.textSub,fontFamily:"'DM Sans',sans-serif",maxWidth:360}}>
         <div style={{fontSize:34,marginBottom:12}}>🍽️</div>
-        <div style={{fontSize:14}}>Connexion sécurisée…</div>
+        {authError ? (
+          <>
+            <div style={{fontSize:15,fontWeight:700,color:T.red,marginBottom:10}}>Connexion impossible</div>
+            <div style={{fontSize:13,marginBottom:6}}>Code d'erreur :</div>
+            <code style={{fontSize:13,color:T.text,background:T.bgTag,padding:"5px 10px",
+              borderRadius:6,display:"inline-block",marginBottom:18,wordBreak:"break-all"}}>{authError}</code>
+            <div>
+              <button onClick={()=>{
+                setAuthError(null);
+                signInAnonymously(auth).catch(e=>setAuthError(e.code || e.message || "erreur inconnue"));
+              }} style={{background:T.sidebar,color:"#fff",border:"none",borderRadius:10,
+                padding:"10px 22px",fontSize:14,fontWeight:600,cursor:"pointer"}}>
+                Réessayer
+              </button>
+            </div>
+          </>
+        ) : (
+          <div style={{fontSize:14}}>Connexion sécurisée…</div>
+        )}
       </div>
     </div>
   );
@@ -1146,12 +1187,7 @@ export default function App() {
     handleDetail,handleSubDetail,toggleMulti,toggleCruditesTout,toggleExtraOption,
     pb,ps,newBoissonInput,setNewBoissonInput,
     boubouleParfums: [
-      ...(boubouleMenuSaved?.classiques || [
-        {name:"Vanille de Madagascar"},{name:"Kulfi"},{name:"Stracciatella"},
-        {name:"Cerise Amarena"},{name:"Caramel Beurre Salé"},{name:"Café"},
-        {name:"Spéculoos"},{name:"Sorbet Citron 🌿"},{name:"Noisette du Piémont"},
-        {name:"Sorbet Fruit de la Passion 🌿"},{name:"Pistache d'Iran"},{name:"Sorbet Chocolat 70% 🌿"},
-      ]),
+      ...(boubouleMenuSaved?.classiques || DEFAULT_BOUBOULE_CLASSIQUES),
       ...(boubouleSpeciaux.map(n=>({name:n}))),
     ],
   };
@@ -1274,7 +1310,13 @@ export default function App() {
           {/* User */}
           <div style={{padding:"12px 0 16px",display:"flex",flexDirection:"column",alignItems:"center",gap:8,
             borderTop:`1px solid rgba(255,252,245,0.12)`}}>
-            <Avatar name={user} size={28}/>
+            <div style={{position:"relative"}}>
+              <Avatar name={user} size={28} profile={profiles[user]}/>
+              <span style={{position:"absolute",bottom:-1,right:-1,padding:2,borderRadius:"50%",background:T.sidebar,
+                display:"flex"}}>
+                <StatusDot status={status}/>
+              </span>
+            </div>
             <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"center"}}>
               <button onClick={toggleTheme}
                 style={{background:"rgba(255,252,245,0.12)",border:"none",borderRadius:7,
@@ -1303,6 +1345,7 @@ export default function App() {
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <span style={{fontSize:18}}>🍽️</span>
               <span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:15,color:T.text}}>Lunch Orders</span>
+              <StatusDot status={status}/>
             </div>
             <div style={{display:"flex",gap:6}}>
               <button onClick={toggleTheme} style={{background:T.bgTag,border:`1px solid ${T.border}`,
@@ -1327,6 +1370,7 @@ export default function App() {
               <button key={item.id} onClick={()=>{
                 setTab(item.id);
                 if(item.id==="chat"){const now=Date.now();localStorage.setItem("lastSeenChat",now.toString());setLastSeenChat(now);setUnreadChat(0);}
+                if(item.id==="notifs"){const now=Date.now();localStorage.setItem("lastSeenActivity",now.toString());setLastSeenActivity(now);setUnreadActivity(0);}
               }}
                 style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",
                   justifyContent:"center",gap:3,padding:"10px 0",
@@ -1341,6 +1385,13 @@ export default function App() {
                       borderRadius:"50%",width:14,height:14,fontSize:9,fontWeight:700,
                       display:"flex",alignItems:"center",justifyContent:"center"}}>
                       {unreadChat>9?"9+":unreadChat}
+                    </span>
+                  )}
+                  {item.id==="notifs" && unreadActivity>0 && (
+                    <span style={{position:"absolute",top:-4,right:-6,background:"#c97a4a",color:"#fff",
+                      borderRadius:"50%",width:14,height:14,fontSize:9,fontWeight:700,
+                      display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      {unreadActivity>9?"9+":unreadActivity}
                     </span>
                   )}
                 </span>
@@ -1491,7 +1542,7 @@ export default function App() {
                               <div key={name} style={{background:T.bgCard,border:`1px solid ${T.border}`,
                                 borderRadius:10,padding:"10px 12px",boxShadow:T.shadow}}>
                                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                                  <Avatar name={name} size={28}/>
+                                  <Avatar name={name} size={28} profile={profiles[name]}/>
                                   <span style={{fontSize:13,fontWeight:500,color:T.text}}>{name}</span>
                                   {payments[name] && <span style={{marginLeft:"auto",fontSize:10,color:T.green}}>✓</span>}
                                 </div>
@@ -1512,7 +1563,7 @@ export default function App() {
                             {unordered.map(name=>(
                               <div key={name} style={{display:"flex",alignItems:"center",gap:6,
                                 padding:"6px 0",borderBottom:`1px solid ${T.borderLight}`}}>
-                                <Avatar name={name} size={24}/>
+                                <Avatar name={name} size={24} profile={profiles[name]}/>
                                 <span style={{fontSize:12,color:T.textSub}}>{name}</span>
                               </div>
                             ))}
@@ -1841,7 +1892,7 @@ export default function App() {
                       return (
                         <div key={username} style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:14,padding:"16px 20px",boxShadow:T.shadow}}>
                           <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12}}>
-                            <Avatar name={username} size={28}/>
+                            <Avatar name={username} size={28} profile={profiles[username]}/>
                             <span style={{fontSize:14,fontWeight:600,color:T.text}}>{username}</span>
                             <Tag>{favList.length} favori{favList.length>1?"s":""}</Tag>
                           </div>
@@ -1942,7 +1993,7 @@ export default function App() {
                                     <div key={name} style={{display:"flex",gap:10,alignItems:"flex-start",
                                       padding:"8px 0",borderBottom:`1px solid ${T.borderLight}`}}>
                                       <span style={{fontSize:11,fontWeight:600,color:T.textFaint,minWidth:18,textAlign:"right",marginTop:2}}>{idx+1}.</span>
-                                      <Avatar name={name} size={24}/>
+                                      <Avatar name={name} size={24} profile={profiles[name]}/>
                                       <div style={{flex:1}}>
                                         <span style={{fontSize:13,fontWeight:500,color:T.text,textDecoration:paid?"line-through":"none"}}>{name}</span>
                                         <div style={{marginTop:4}}><OrderPills order={o} extras={extras} crudites={crudites}/></div>
@@ -2388,14 +2439,7 @@ export default function App() {
                   {/* Les classiques */}
                   <MenuSection key="classiques" section={{
                     cat:"🍨 Les classiques", accent:"#c97a8f",
-                    items: boubouleMenuSaved?.classiques || [
-                      {name:"Vanille de Madagascar"},{name:"Kulfi"},
-                      {name:"Stracciatella"},{name:"Cerise Amarena"},
-                      {name:"Caramel Beurre Salé"},{name:"Café"},
-                      {name:"Spéculoos"},{name:"Sorbet Citron 🌿"},
-                      {name:"Noisette du Piémont"},{name:"Sorbet Fruit de la Passion 🌿"},
-                      {name:"Pistache d'Iran"},{name:"Sorbet Chocolat 70% 🌿"},
-                    ]
+                    items: boubouleMenuSaved?.classiques || DEFAULT_BOUBOULE_CLASSIQUES
                   }} T={T} isAdmin={user==="Admin"}
                     onSave={async(cat,items)=>{
                       const cur=boubouleMenuSaved||{};
@@ -2559,7 +2603,7 @@ export default function App() {
                             </>
                           ) : (
                             <>
-                              <Avatar name={m.username} size={28}/>
+                              <Avatar name={m.username} size={28} profile={profiles[m.username]}/>
                               <span style={{flex:1,fontSize:13,fontWeight:500,color:T.text}}>{m.username}</span>
                               <Tag>{m.code}</Tag>
                               <button className="btn-ghost" style={{background:"transparent",border:`1px solid ${T.border}`,color:T.textSub,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer"}} onClick={()=>setEditingMember({...m})}>✏️</button>
