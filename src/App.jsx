@@ -372,7 +372,7 @@ function OrderPills({ order, extras=[], crudites=[] }) {
 // ── Detail cell ───────────────────────────────────────────────────────────────
 function DetailCell({ name, order, canEdit, sauces, crudites, boissons, extras, mealExtras,
   handleDetail, handleSubDetail, toggleMulti, toggleCruditesTout, toggleExtraOption,
-  pb, ps, newBoissonInput, setNewBoissonInput, T, boubouleParfums=[], snackMenu }) {
+  pb, ps, newBoissonInput, setNewBoissonInput, T, boubouleParfums=[], snackMenu, libanaisMenu }) {
 
   const sauceRef = useRef(null);
   const sauceFriteRef = useRef(null);
@@ -451,9 +451,35 @@ function DetailCell({ name, order, canEdit, sauces, crudites, boissons, extras, 
     <div style={{display:"flex",flexDirection:"column",gap:10}}>
       <div>
         <p style={{fontSize:11,color:T.textFaint,marginBottom:5}}>🥙 Commande</p>
-        <textarea style={{width:"100%",background:T.bgInput,border:`1px solid ${T.border}`,borderRadius:8,
-          color:T.text,padding:"6px 10px",fontSize:13,lineHeight:1.5,opacity:canEdit?1:0.4}}
-          rows={2} disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder="Précise ta commande…"/>
+        {(()=>{
+          const groups=libanaisVariants(libanaisMenu);
+          const allLabels=groups.flatMap(g=>g.items.map(i=>i.label));
+          const known=allLabels.includes(order.detail);
+          const isOther=!!order.detail && !known;
+          return (
+            <>
+              <select value={known?order.detail:(isOther?"__other__":"")} disabled={!canEdit}
+                onChange={e=>{ const v=e.target.value; handleDetail(name, v==="__other__"?"":v); }}
+                style={{width:"100%",background:T.bgInput,border:`1px solid ${T.border}`,borderRadius:8,
+                  color:T.text,padding:"7px 10px",fontSize:13,cursor:canEdit?"pointer":"default",opacity:canEdit?1:0.4}}>
+                <option value="">— Choisis ton plat —</option>
+                {groups.map(g=>(
+                  <optgroup key={g.cat} label={g.cat}>
+                    {g.items.map(it=>(
+                      <option key={it.label} value={it.label}>{it.label}{it.price!=null?"  ·  "+fmtEuro(it.price):""}</option>
+                    ))}
+                  </optgroup>
+                ))}
+                <option value="__other__">Autre…</option>
+              </select>
+              {isOther && (
+                <textarea style={{width:"100%",marginTop:5,background:T.bgInput,border:`1px solid ${T.border}`,borderRadius:8,
+                  color:T.text,padding:"6px 10px",fontSize:13,lineHeight:1.5,opacity:canEdit?1:0.4}}
+                  rows={2} disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)} placeholder="Précise ta commande…"/>
+              )}
+            </>
+          );
+        })()}
       </div>
       {mealExtras.map(ex=>(
         <div key={ex.id}>
@@ -1124,6 +1150,15 @@ function snackVariants(snackType, snackMenu){
   return [];
 }
 
+// Plats libanais groupés par catégorie (nom complet + prix)
+function libanaisVariants(libanaisMenu){
+  return (LIBANAIS_MENU_SECTIONS||[]).map(sec=>{
+    const ov=(libanaisMenu||[]).find(s=>s.cat===sec.cat);
+    const items=(ov&&ov.items)?ov.items:sec.items;
+    return {cat:sec.cat, items:items.map(it=>({label:it.name, price:parsePrice(it.price)}))};
+  });
+}
+
 function buildRestoRecap(names, orders, idx){
   const groups={"snack-merode":{}, "libanais":{}, "ice-cream":{}};
   (names||[]).forEach(n=>{
@@ -1604,7 +1639,7 @@ export default function App() {
   const counts=LUNCH_OPTIONS.reduce((a,o)=>{a[o.id]=names.filter(n=>orders[n]?.choice===o.id).length;return a;},{});
   const extrasForMeal=choice=>extras.filter(e=>e.appliesTo?.includes(choice));
 
-  const detailCellProps={ sauces,crudites,boissons,extras,T,snackMenu,
+  const detailCellProps={ sauces,crudites,boissons,extras,T,snackMenu,libanaisMenu,
     handleDetail,handleSubDetail,toggleMulti,toggleCruditesTout,toggleExtraOption,
     pb,ps,newBoissonInput,setNewBoissonInput,
     boubouleParfums: [
