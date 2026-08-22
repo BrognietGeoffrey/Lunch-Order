@@ -41,21 +41,22 @@ const DEFAULT_BOUBOULE_CLASSIQUES = [
 const EXTRA_ACCENTS    = ["#9b7fa6","#c97a4a","#5a8f7b","#7a9ab5","#b5836a","#6b8f6b"];
 
 const FOOD_QUOTES = [
-  {text:"Dis-moi ce que tu manges, je te dirai ce que tu es.", author:"Brillat-Savarin"},
-  {text:"La découverte d'un mets nouveau fait plus pour le bonheur du genre humain que la découverte d'une étoile.", author:"Brillat-Savarin"},
-  {text:"La vie est trop courte pour sauter le déjeuner."},
-  {text:"Il n'y a pas de mauvais jour qu'un bon durum ne puisse arranger."},
-  {text:"Le meilleur ingrédient d'un repas, c'est la compagnie."},
-  {text:"Manger ensemble, c'est déjà un peu être heureux."},
-  {text:"Une pause déj sans frites, c'est un lundi qui s'ignore."},
-  {text:"Choisis ton plat comme tu choisis tes amis : avec le cœur."},
-  {text:"Bien manger, c'est déjà réussir sa journée."},
-  {text:"Une glace ne résout pas tout, mais c'est un excellent début."},
-  {text:"Rien ne rassemble mieux qu'une bonne table."},
-  {text:"À midi, tout est permis."},
-  {text:"Le déjeuner est le plus beau chapitre de la journée."},
-  {text:"Le secret d'une équipe heureuse ? De bonnes pauses gourmandes."},
-  {text:"Ventre affamé finit toujours par passer commande."},
+  {text:"Vise la lune : même si tu la rates, tu retomberas dans les frites."},
+  {text:"Rome ne s'est pas faite en un jour. Ton assiette, si."},
+  {text:"Le succès se construit comme un bon durum : couche par couche."},
+  {text:"Tomber sept fois, se relever huit, et commander une glace pour fêter ça."},
+  {text:"N'attends pas l'inspiration : elle arrive souvent pendant la digestion."},
+  {text:"Sois la meilleure version de toi-même. Surtout à l'heure du déjeuner."},
+  {text:"Crois en tes rêves — et en ta capacité à finir cette assiette."},
+  {text:"Aujourd'hui est le premier jour du reste de ton menu."},
+  {text:"Les grands esprits se rencontrent. Souvent autour d'une frite."},
+  {text:"On ne choisit pas sa famille, mais on choisit sa sauce."},
+  {text:"Le seul véritable échec, c'est de sauter le déjeuner."},
+  {text:"Chaque jour est une nouvelle chance de mieux commander que la veille."},
+  {text:"La faim sans fin justifie la pause déj."},
+  {text:"Un estomac plein n'a jamais perdu une réunion."},
+  {text:"Ceux qui mangent ensemble avancent ensemble."},
+  {text:"Deviens qui tu es. De préférence après avoir mangé."},
 ];
 
 const SNACK_MENU_SECTIONS = [
@@ -1445,8 +1446,6 @@ export default function App() {
     if(!user) return;
     const q=FOOD_QUOTES[Math.floor(Math.random()*FOOD_QUOTES.length)];
     setWelcome(q);
-    const t=setTimeout(()=>setWelcome(null), 7000);
-    return ()=>clearTimeout(t);
   },[user]);
   const [authError, setAuthError] = useState(null);
 
@@ -1780,18 +1779,25 @@ export default function App() {
       <style>{CSS(T)}</style>
 
       {welcome && (
-        <div onClick={()=>setWelcome(null)}
-          style={{position:"fixed",top:isMobile?68:24,left:"50%",transform:"translateX(-50%)",zIndex:2000,
-            background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:16,padding:"16px 22px",
-            maxWidth:400,width:"calc(100% - 32px)",boxShadow:T.shadowHover||T.shadow,cursor:"pointer",
-            animation:"toastIn 0.4s ease"}}>
-          <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:6,fontFamily:"'Syne','DM Sans',sans-serif"}}>
-            Bonjour {user} 👋
+        <div style={{position:"fixed",inset:0,background:"rgba(20,15,10,0.55)",backdropFilter:"blur(6px)",
+          display:"flex",alignItems:"center",justifyContent:"center",zIndex:4000,padding:20}}>
+          <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:20,padding:"32px 28px",
+            maxWidth:420,width:"100%",boxShadow:"0 30px 90px rgba(20,15,10,0.35)",textAlign:"center",
+            animation:"fadeUp 0.4s ease"}}>
+            <div style={{fontSize:40,marginBottom:14}}>🍽️</div>
+            <div style={{fontFamily:"'Syne','DM Sans',sans-serif",fontWeight:800,fontSize:22,color:T.text,marginBottom:14}}>
+              Bonjour {user} 👋
+            </div>
+            <div style={{fontSize:15,color:T.textSub,fontStyle:"italic",lineHeight:1.6,marginBottom:welcome.author?6:24}}>
+              « {welcome.text} »
+            </div>
+            {welcome.author && <div style={{fontSize:12,color:T.textFaint,marginBottom:24}}>— {welcome.author}</div>}
+            <button onClick={()=>setWelcome(null)}
+              style={{width:"100%",background:T.sidebar,color:"#fff",border:"none",borderRadius:12,padding:"13px",
+                fontSize:15,fontWeight:600,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>
+              C'est parti 🍽️
+            </button>
           </div>
-          <div style={{fontSize:13.5,color:T.textSub,fontStyle:"italic",lineHeight:1.55}}>« {welcome.text} »</div>
-          {welcome.author && (
-            <div style={{fontSize:11.5,color:T.textFaint,marginTop:6,textAlign:"right"}}>— {welcome.author}</div>
-          )}
         </div>
       )}
 
