@@ -40,6 +40,24 @@ const DEFAULT_BOUBOULE_CLASSIQUES = [
 ];
 const EXTRA_ACCENTS    = ["#9b7fa6","#c97a4a","#5a8f7b","#7a9ab5","#b5836a","#6b8f6b"];
 
+const FOOD_QUOTES = [
+  {text:"Dis-moi ce que tu manges, je te dirai ce que tu es.", author:"Brillat-Savarin"},
+  {text:"La découverte d'un mets nouveau fait plus pour le bonheur du genre humain que la découverte d'une étoile.", author:"Brillat-Savarin"},
+  {text:"La vie est trop courte pour sauter le déjeuner."},
+  {text:"Il n'y a pas de mauvais jour qu'un bon durum ne puisse arranger."},
+  {text:"Le meilleur ingrédient d'un repas, c'est la compagnie."},
+  {text:"Manger ensemble, c'est déjà un peu être heureux."},
+  {text:"Une pause déj sans frites, c'est un lundi qui s'ignore."},
+  {text:"Choisis ton plat comme tu choisis tes amis : avec le cœur."},
+  {text:"Bien manger, c'est déjà réussir sa journée."},
+  {text:"Une glace ne résout pas tout, mais c'est un excellent début."},
+  {text:"Rien ne rassemble mieux qu'une bonne table."},
+  {text:"À midi, tout est permis."},
+  {text:"Le déjeuner est le plus beau chapitre de la journée."},
+  {text:"Le secret d'une équipe heureuse ? De bonnes pauses gourmandes."},
+  {text:"Ventre affamé finit toujours par passer commande."},
+];
+
 const SNACK_MENU_SECTIONS = [
                     { cat:"🥗 Assiettes", accent:"#5a8f7b", items:[
                       {name:"Assiette mixte",              price:"20,00"},
@@ -1401,6 +1419,15 @@ export default function App() {
   useEffect(()=>{ const h=()=>setIsMobile(window.innerWidth<768); window.addEventListener("resize",h); return ()=>window.removeEventListener("resize",h); },[]);
 
   const [authReady, setAuthReady] = useState(false);
+  const [welcome, setWelcome] = useState(null);
+
+  useEffect(()=>{
+    if(!user) return;
+    const q=FOOD_QUOTES[Math.floor(Math.random()*FOOD_QUOTES.length)];
+    setWelcome(q);
+    const t=setTimeout(()=>setWelcome(null), 7000);
+    return ()=>clearTimeout(t);
+  },[user]);
   const [authError, setAuthError] = useState(null);
 
   useEffect(()=>{
@@ -1715,6 +1742,22 @@ export default function App() {
   return (
     <div style={{minHeight:"100vh",display:"flex",background:T.bg}}>
       <style>{CSS(T)}</style>
+
+      {welcome && (
+        <div onClick={()=>setWelcome(null)}
+          style={{position:"fixed",top:isMobile?68:24,left:"50%",transform:"translateX(-50%)",zIndex:2000,
+            background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:16,padding:"16px 22px",
+            maxWidth:400,width:"calc(100% - 32px)",boxShadow:T.shadowHover||T.shadow,cursor:"pointer",
+            animation:"toastIn 0.4s ease"}}>
+          <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:6,fontFamily:"'Syne','DM Sans',sans-serif"}}>
+            Bonjour {user} 👋
+          </div>
+          <div style={{fontSize:13.5,color:T.textSub,fontStyle:"italic",lineHeight:1.55}}>« {welcome.text} »</div>
+          {welcome.author && (
+            <div style={{fontSize:11.5,color:T.textFaint,marginTop:6,textAlign:"right"}}>— {welcome.author}</div>
+          )}
+        </div>
+      )}
 
       {/* ── Sidebar ── */}
       {!isMobile && (
