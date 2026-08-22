@@ -321,6 +321,7 @@ const CSS = (T) => `
   .row-hover:hover { background: ${T.bgHover} !important; }
   .btn-ghost:hover { background: ${T.bgTag} !important; }
   .avatar-tooltip-wrap:hover .avatar-tooltip { display: block !important; }
+  .info-wrap:hover .info-pop { display: block !important; }
 `;
 
 // ── Components ────────────────────────────────────────────────────────────────
@@ -1214,7 +1215,7 @@ function restoRecapText(recap){
   return t;
 }
 
-function RecapPanel({ user, names, orders, payments, togglePayment, snackMenu, libanaisMenu, T, defaultSlide=0, isMobile, only }){
+function RecapPanel({ user, names, orders, payments, togglePayment, snackMenu, libanaisMenu, T, defaultSlide=0, isMobile, only, onSuggest }){
   const [slide, setSlide] = useState(defaultSlide);
   const [copied, setCopied] = useState(false);
   const idx = buildPriceIndex(snackMenu, libanaisMenu);
@@ -1237,6 +1238,21 @@ function RecapPanel({ user, names, orders, payments, togglePayment, snackMenu, l
     <span style={{fontSize:12.5,color:pr!=null?T.text:T.textFaint}}>{pr!=null?fmtEuro(pr):"—"}</span>
   );
 
+  const infoHint=(
+    <span className="info-wrap" style={{position:"relative",display:"inline-flex",marginLeft:6,verticalAlign:"middle"}}>
+      <span onClick={()=>onSuggest&&onSuggest()}
+        style={{cursor:"pointer",width:15,height:15,borderRadius:"50%",border:`1px solid ${T.textFaint}`,
+          color:T.textFaint,fontSize:10,fontWeight:700,fontStyle:"italic",display:"inline-flex",
+          alignItems:"center",justifyContent:"center",lineHeight:1}}>i</span>
+      <span className="info-pop" style={{display:"none",position:"absolute",bottom:"calc(100% + 8px)",left:"50%",
+        transform:"translateX(-50%)",width:220,background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:10,
+        padding:"10px 12px",zIndex:60,boxShadow:T.shadowHover||T.shadow,fontSize:11.5,color:T.textSub,
+        lineHeight:1.5,fontWeight:400,fontStyle:"normal",textAlign:"left",pointerEvents:"none"}}>
+        Total estimé : les prix viennent des plateformes Take Away, souvent plus chers qu'au comptoir. Clique pour donner les vrais prix.
+      </span>
+    </span>
+  );
+
   const RestoView = (
     resto.groups.length===0 ? (
       <p style={{fontSize:13,color:T.textFaint,padding:"12px 0"}}>Aucune commande pour l'instant.</p>
@@ -1256,7 +1272,7 @@ function RecapPanel({ user, names, orders, payments, togglePayment, snackMenu, l
         ))}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",
           borderTop:`1px solid ${T.borderLight}`,paddingTop:10,marginBottom:6}}>
-          <span style={{fontSize:12,color:T.textSub}}>Total resto{resto.hasUnpriced?" (estimé)":""}</span>
+          <span style={{fontSize:12,color:T.textSub}}>Total resto{resto.hasUnpriced?" (estimé)":""}{infoHint}</span>
           <span style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:18,color:T.text}}>{fmtEuro(resto.total)}</span>
         </div>
         {resto.hasUnpriced && <p style={{fontSize:11,color:T.textFaint,marginBottom:10}}>Certains articles (options) n'ont pas de prix connu.</p>}
@@ -1287,7 +1303,7 @@ function RecapPanel({ user, names, orders, payments, togglePayment, snackMenu, l
         ))}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",
           borderTop:`1px solid ${T.borderLight}`,paddingTop:10,marginTop:6,marginBottom:12}}>
-          <span style={{fontSize:12,color:T.textSub}}>Mon total{perso.hasUnpriced?" (estimé)":""}</span>
+          <span style={{fontSize:12,color:T.textSub}}>Mon total{perso.hasUnpriced?" (estimé)":""}{infoHint}</span>
           <span style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:18,color:T.text}}>{fmtEuro(perso.total)}</span>
         </div>
         <button onClick={()=>togglePayment(user)}
@@ -1420,6 +1436,10 @@ export default function App() {
 
   const [authReady, setAuthReady] = useState(false);
   const [welcome, setWelcome] = useState(null);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackInput, setFeedbackInput] = useState("");
+  const [feedbackSent, setFeedbackSent] = useState(false);
+  const [feedback, setFeedback] = useState([]);
 
   useEffect(()=>{
     if(!user) return;
@@ -1497,7 +1517,13 @@ export default function App() {
       snap.forEach(s=>{d[s.id]=s.data();});
       setProfiles(d);
     });
-    return ()=>{u1();u2();u3();u4();u4b();u5();u6();u7();u8();u9();u10();u11();u12();u13();u14();u15();};
+    const u16=onSnapshot(collection(db,"feedback"), snap=>{
+      const arr=[];
+      snap.forEach(s=>arr.push({id:s.id,...s.data()}));
+      arr.sort((a,b)=>b.ts-a.ts);
+      setFeedback(arr);
+    });
+    return ()=>{u1();u2();u3();u4();u4b();u5();u6();u7();u8();u9();u10();u11();u12();u13();u14();u15();u16();};
   },[authReady, user]);
 
   useEffect(()=>{
@@ -1561,6 +1587,16 @@ export default function App() {
   const logActivity = async(type, text) => {
     await addDoc(collection(db,"activity"),{author:user,type,text,ts:Date.now()});
   };
+
+  const submitFeedback = async() => {
+    const txt=feedbackInput.trim();
+    if(!txt) return;
+    await addDoc(collection(db,"feedback"),{author:user,text:txt,ts:Date.now()});
+    setFeedbackInput("");
+    setFeedbackSent(true);
+    setTimeout(()=>{ setFeedbackSent(false); setShowFeedback(false); }, 1600);
+  };
+  const deleteFeedback = async(id) => { await deleteDoc(doc(db,"feedback",id)); };
 
   const toggleChoice=async(name,choice)=>{
     const cur=orders[name]||{};
@@ -1759,6 +1795,40 @@ export default function App() {
         </div>
       )}
 
+      {showFeedback && (
+        <div style={{position:"fixed",inset:0,background:"rgba(20,15,10,0.4)",backdropFilter:"blur(4px)",
+          display:"flex",alignItems:"center",justifyContent:"center",zIndex:3000,padding:16}}
+          onClick={e=>e.target===e.currentTarget&&setShowFeedback(false)}>
+          <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:16,padding:24,
+            width:420,maxWidth:"100%",boxShadow:"0 24px 80px rgba(44,31,14,0.2)"}}>
+            <h3 style={{fontFamily:"'Syne','DM Sans',sans-serif",fontWeight:700,fontSize:17,color:T.text,marginBottom:6}}>💡 Proposer un prix / une amélioration</h3>
+            <p style={{fontSize:13,color:T.textSub,lineHeight:1.5,marginBottom:14}}>
+              Les totaux sont estimés à partir des prix Take Away, souvent plus chers qu'au comptoir.
+              Indique ici les vrais prix ou toute autre amélioration — l'admin les verra tous.
+            </p>
+            {feedbackSent ? (
+              <div style={{background:T.green+"18",border:`1px solid ${T.green}44`,color:T.green,
+                borderRadius:10,padding:"14px",textAlign:"center",fontSize:14,fontWeight:600}}>✓ Merci, c'est envoyé !</div>
+            ) : (
+              <>
+                <textarea autoFocus value={feedbackInput} onChange={e=>setFeedbackInput(e.target.value)}
+                  rows={4} placeholder="ex : Bicky pitta 8,50 € au comptoir · ajouter la sauce X · …"
+                  style={{width:"100%",background:T.bgInput,border:`1px solid ${T.border}`,borderRadius:10,
+                    color:T.text,padding:"10px 12px",fontSize:13.5,lineHeight:1.5,fontFamily:"'DM Sans',sans-serif",marginBottom:14}}/>
+                <div style={{display:"flex",gap:8}}>
+                  <button onClick={submitFeedback} disabled={!feedbackInput.trim()}
+                    style={{flex:1,background:T.sidebar,color:"#fff",border:"none",borderRadius:10,padding:"11px",
+                      fontSize:14,fontWeight:600,cursor:"pointer",opacity:feedbackInput.trim()?1:0.5}}>Envoyer</button>
+                  <button onClick={()=>setShowFeedback(false)}
+                    style={{background:"transparent",border:`1px solid ${T.border}`,color:T.textSub,borderRadius:10,
+                      padding:"11px 16px",fontSize:13,cursor:"pointer"}}>Annuler</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── Sidebar ── */}
       {!isMobile && (
         <aside style={{width:88,background:`linear-gradient(180deg, ${T.sidebarBg||T.sidebar} 0%, ${T.sidebar} 100%)`,
@@ -1948,7 +2018,7 @@ export default function App() {
 
               {isMobile && (
                 <RecapPanel user={user} names={names} orders={orders} payments={payments}
-                  togglePayment={togglePayment} snackMenu={snackMenu} libanaisMenu={libanaisMenu} T={T} only="perso" isMobile={isMobile}/>
+                  togglePayment={togglePayment} snackMenu={snackMenu} libanaisMenu={libanaisMenu} T={T} only="perso" isMobile={isMobile} onSuggest={()=>setShowFeedback(true)}/>
               )}
 
               {/* Quick favorites */}
@@ -2104,7 +2174,7 @@ export default function App() {
               {!isMobile && (
                 <div style={{width:360,flexShrink:0,position:"sticky",top:28}}>
                   <RecapPanel user={user} names={names} orders={orders} payments={payments}
-                    togglePayment={togglePayment} snackMenu={snackMenu} libanaisMenu={libanaisMenu} T={T} only="perso" isMobile={isMobile}/>
+                    togglePayment={togglePayment} snackMenu={snackMenu} libanaisMenu={libanaisMenu} T={T} only="perso" isMobile={isMobile} onSuggest={()=>setShowFeedback(true)}/>
                 </div>
               )}
               </div>
@@ -2236,7 +2306,7 @@ export default function App() {
               </div>
 
               <RecapPanel user={user} names={names} orders={orders} payments={payments}
-                togglePayment={togglePayment} snackMenu={snackMenu} libanaisMenu={libanaisMenu} T={T} isMobile={isMobile}/>
+                togglePayment={togglePayment} snackMenu={snackMenu} libanaisMenu={libanaisMenu} T={T} isMobile={isMobile} onSuggest={()=>setShowFeedback(true)}/>
 
               {/* Counts */}
               <div style={{display:"flex",gap:isMobile?8:12,marginBottom:isMobile?16:24,flexWrap:"wrap"}}>
@@ -2998,6 +3068,33 @@ export default function App() {
                 </div>
               ) : (
                 <div style={{display:"flex",flexDirection:"column",gap:28}}>
+
+                  {/* Améliorations & prix signalés */}
+                  <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:14,padding:"20px 24px",boxShadow:T.shadow}}>
+                    <h2 style={{fontSize:15,fontWeight:600,color:T.text,marginBottom:4}}>💡 Améliorations & prix signalés</h2>
+                    <p style={{fontSize:12,color:T.textFaint,marginBottom:14}}>Retours envoyés par l'équipe via le ⓘ des totaux.</p>
+                    {feedback.length===0 ? (
+                      <p style={{fontSize:13,color:T.textFaint}}>Aucun retour pour l'instant.</p>
+                    ) : (
+                      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                        {feedback.map(f=>(
+                          <div key={f.id} style={{display:"flex",gap:10,alignItems:"flex-start",
+                            padding:"10px 12px",background:T.bgHover,borderRadius:10,border:`1px solid ${T.borderLight}`}}>
+                            <Avatar name={f.author} size={28} profile={profiles[f.author]}/>
+                            <div style={{flex:1,minWidth:0}}>
+                              <div style={{display:"flex",alignItems:"baseline",gap:8,marginBottom:2}}>
+                                <span style={{fontSize:13,fontWeight:600,color:T.text}}>{f.author}</span>
+                                <span style={{fontSize:11,color:T.textFaint}}>{new Date(f.ts).toLocaleDateString("fr-BE",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</span>
+                              </div>
+                              <div style={{fontSize:13,color:T.textSub,lineHeight:1.5,whiteSpace:"pre-wrap",wordBreak:"break-word"}}>{f.text}</div>
+                            </div>
+                            <button onClick={()=>deleteFeedback(f.id)}
+                              style={{background:"none",border:"none",color:T.textFaint,cursor:"pointer",fontSize:14,padding:2,flexShrink:0}}>🗑</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   {/* Membres */}
                   <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:14,padding:"20px 24px",boxShadow:T.shadow}}>
