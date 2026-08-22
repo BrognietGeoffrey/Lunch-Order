@@ -1117,7 +1117,7 @@ function restoRecapText(recap){
   return t;
 }
 
-function RecapPanel({ user, names, orders, payments, togglePayment, snackMenu, libanaisMenu, T, defaultSlide=0, isMobile }){
+function RecapPanel({ user, names, orders, payments, togglePayment, snackMenu, libanaisMenu, T, defaultSlide=0, isMobile, only }){
   const [slide, setSlide] = useState(defaultSlide);
   const [copied, setCopied] = useState(false);
   const idx = buildPriceIndex(snackMenu, libanaisMenu);
@@ -1207,6 +1207,15 @@ function RecapPanel({ user, names, orders, payments, togglePayment, snackMenu, l
     <div style={{display:"flex",alignItems:"center",gap:7,fontFamily:"'Syne',sans-serif",fontWeight:700,
       fontSize:13.5,color:T.text,marginBottom:12}}><span>{icon}</span>{label}</div>
   );
+
+  if(only==="perso" || only==="resto"){
+    return (
+      <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:14,padding:16,marginBottom:20,boxShadow:T.shadow}}>
+        {only==="perso" ? colHeader("👤","Perso") : colHeader("📞","Resto")}
+        {only==="perso" ? PersoView : RestoView}
+      </div>
+    );
+  }
 
   if(!isMobile){
     return (
@@ -1790,7 +1799,7 @@ export default function App() {
         )}
 
         {/* Page content */}
-        <main style={{flex:1,padding:isMobile?"16px 12px 80px":"28px 32px",maxWidth:960,width:"100%",margin:"0 auto"}}>
+        <main style={{flex:1,padding:isMobile?"16px 12px 80px":"28px 32px",maxWidth:isMobile?960:"none",width:"100%",margin:"0 auto"}}>
 
           {/* ════ ORDER TAB ════ */}
           {tab==="order" && (
@@ -1812,8 +1821,13 @@ export default function App() {
                 )}
               </div>
 
-              <RecapPanel user={user} names={names} orders={orders} payments={payments}
-                togglePayment={togglePayment} snackMenu={snackMenu} libanaisMenu={libanaisMenu} T={T} defaultSlide={1} isMobile={isMobile}/>
+              <div style={{display:isMobile?"block":"flex",gap:20,alignItems:"flex-start"}}>
+              <div style={{flex:1,minWidth:0}}>
+
+              {isMobile && (
+                <RecapPanel user={user} names={names} orders={orders} payments={payments}
+                  togglePayment={togglePayment} snackMenu={snackMenu} libanaisMenu={libanaisMenu} T={T} only="perso" isMobile={isMobile}/>
+              )}
 
               {/* Quick favorites */}
               {user!=="Admin" && (favorites[user]||[]).length>0 && (
@@ -1963,6 +1977,15 @@ export default function App() {
                   })}
                 </div>
               )}
+              </div>
+
+              {!isMobile && (
+                <div style={{width:360,flexShrink:0,position:"sticky",top:28}}>
+                  <RecapPanel user={user} names={names} orders={orders} payments={payments}
+                    togglePayment={togglePayment} snackMenu={snackMenu} libanaisMenu={libanaisMenu} T={T} only="perso" isMobile={isMobile}/>
+                </div>
+              )}
+              </div>
             </div>
           )}
 
