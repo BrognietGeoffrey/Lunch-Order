@@ -1117,7 +1117,7 @@ function restoRecapText(recap){
   return t;
 }
 
-function RecapPanel({ user, names, orders, payments, togglePayment, snackMenu, libanaisMenu, T, defaultSlide=0 }){
+function RecapPanel({ user, names, orders, payments, togglePayment, snackMenu, libanaisMenu, T, defaultSlide=0, isMobile }){
   const [slide, setSlide] = useState(defaultSlide);
   const [copied, setCopied] = useState(false);
   const idx = buildPriceIndex(snackMenu, libanaisMenu);
@@ -1136,6 +1136,96 @@ function RecapPanel({ user, names, orders, payments, togglePayment, snackMenu, l
     setCopied(true); setTimeout(()=>setCopied(false),2000);
   };
 
+  const priceCell=(pr)=>(
+    <span style={{fontSize:12.5,color:pr!=null?T.text:T.textFaint}}>{pr!=null?fmtEuro(pr):"—"}</span>
+  );
+
+  const RestoView = (
+    resto.groups.length===0 ? (
+      <p style={{fontSize:13,color:T.textFaint,padding:"12px 0"}}>Aucune commande pour l'instant.</p>
+    ) : (
+      <>
+        {resto.groups.map(g=>(
+          <div key={g.key} style={{marginBottom:12}}>
+            <div style={{fontSize:10.5,fontWeight:700,color:g.accent,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>{g.label}</div>
+            {g.items.map((it,i)=>(
+              <div key={i} style={{display:"flex",alignItems:"baseline",gap:8,fontSize:13,color:T.textSub,lineHeight:1.9}}>
+                <span style={{fontWeight:600,color:T.text,minWidth:22}}>{it.qty}×</span>
+                <span style={{flex:1}}>{it.label}</span>
+                {it.price!=null && <span style={{color:T.textFaint,fontSize:12}}>{fmtEuro(it.price*it.qty)}</span>}
+              </div>
+            ))}
+          </div>
+        ))}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",
+          borderTop:`1px solid ${T.borderLight}`,paddingTop:10,marginBottom:6}}>
+          <span style={{fontSize:12,color:T.textSub}}>Total resto{resto.hasUnpriced?" (estimé)":""}</span>
+          <span style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:18,color:T.text}}>{fmtEuro(resto.total)}</span>
+        </div>
+        {resto.hasUnpriced && <p style={{fontSize:11,color:T.textFaint,marginBottom:10}}>Certains articles (options) n'ont pas de prix connu.</p>}
+        <button onClick={copyList}
+          style={{width:"100%",background:copied?T.green:T.sidebar,color:"#fff",border:"none",borderRadius:11,
+            padding:11,fontSize:13,fontWeight:600,cursor:"pointer",transition:"background 0.2s"}}>
+          {copied?"✓ Copié !":"📋 Copier la liste"}
+        </button>
+      </>
+    )
+  );
+
+  const PersoView = (
+    perso.empty ? (
+      <p style={{fontSize:13,color:T.textFaint,padding:"12px 0"}}>Tu n'as pas encore commandé.</p>
+    ) : (
+      <>
+        <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:12}}>
+          <Avatar name={user} size={30} profile={undefined}/>
+          <span style={{fontSize:13.5,fontWeight:600,color:T.text}}>Ma commande</span>
+        </div>
+        {perso.lines.map((l,i)=>(
+          <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",
+            fontSize:13,color:T.textSub,lineHeight:2}}>
+            <span style={{flex:1,paddingRight:8}}>{l.label}</span>
+            {priceCell(l.price)}
+          </div>
+        ))}
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",
+          borderTop:`1px solid ${T.borderLight}`,paddingTop:10,marginTop:6,marginBottom:12}}>
+          <span style={{fontSize:12,color:T.textSub}}>Mon total{perso.hasUnpriced?" (estimé)":""}</span>
+          <span style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:18,color:T.text}}>{fmtEuro(perso.total)}</span>
+        </div>
+        <button onClick={()=>togglePayment(user)}
+          style={{width:"100%",background:isPaid?T.green+"18":"transparent",
+            border:`1.5px solid ${isPaid?T.green:T.border}`,color:isPaid?T.green:T.textSub,
+            borderRadius:11,padding:11,fontSize:13,fontWeight:600,cursor:"pointer"}}>
+          {isPaid?"✓ Payé":"Marquer payé"}
+        </button>
+      </>
+    )
+  );
+
+  const colHeader=(icon,label)=>(
+    <div style={{display:"flex",alignItems:"center",gap:7,fontFamily:"'Syne',sans-serif",fontWeight:700,
+      fontSize:13.5,color:T.text,marginBottom:12}}><span>{icon}</span>{label}</div>
+  );
+
+  if(!isMobile){
+    return (
+      <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:14,padding:18,marginBottom:20,boxShadow:T.shadow}}>
+        <div style={{display:"flex",gap:20,alignItems:"stretch"}}>
+          <div style={{flex:1,minWidth:0}}>
+            {colHeader("📞","Resto")}
+            {RestoView}
+          </div>
+          <div style={{width:1,background:T.borderLight,flexShrink:0}}/>
+          <div style={{flex:1,minWidth:0}}>
+            {colHeader("👤","Perso")}
+            {PersoView}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const seg=(idxN,icon,label)=>(
     <button onClick={()=>setSlide(idxN)}
       style={{flex:1,border:"none",borderRadius:8,padding:"7px 0",fontSize:12.5,fontWeight:600,cursor:"pointer",
@@ -1143,9 +1233,6 @@ function RecapPanel({ user, names, orders, payments, togglePayment, snackMenu, l
         background:slide===idxN?T.sidebar:"transparent", color:slide===idxN?"#fff":T.textSub}}>
       <span>{icon}</span>{label}
     </button>
-  );
-  const priceCell=(pr)=>(
-    <span style={{fontSize:12.5,color:pr!=null?T.text:T.textFaint}}>{pr!=null?fmtEuro(pr):"—"}</span>
   );
 
   return (
@@ -1157,72 +1244,8 @@ function RecapPanel({ user, names, orders, payments, togglePayment, snackMenu, l
       <div style={{overflow:"hidden"}}>
         <div style={{display:"flex",width:"200%",transition:"transform 0.3s cubic-bezier(0.4,0,0.2,1)",
           transform:`translateX(-${slide*50}%)`}}>
-
-          {/* Resto */}
-          <div style={{width:"50%",paddingRight:6,boxSizing:"border-box"}}>
-            {resto.groups.length===0 ? (
-              <p style={{fontSize:13,color:T.textFaint,padding:"12px 0"}}>Aucune commande pour l'instant.</p>
-            ) : (
-              <>
-                {resto.groups.map(g=>(
-                  <div key={g.key} style={{marginBottom:12}}>
-                    <div style={{fontSize:10.5,fontWeight:700,color:g.accent,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>{g.label}</div>
-                    {g.items.map((it,i)=>(
-                      <div key={i} style={{display:"flex",alignItems:"baseline",gap:8,fontSize:13,color:T.textSub,lineHeight:1.9}}>
-                        <span style={{fontWeight:600,color:T.text,minWidth:22}}>{it.qty}×</span>
-                        <span style={{flex:1}}>{it.label}</span>
-                        {it.price!=null && <span style={{color:T.textFaint,fontSize:12}}>{fmtEuro(it.price*it.qty)}</span>}
-                      </div>
-                    ))}
-                  </div>
-                ))}
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",
-                  borderTop:`1px solid ${T.borderLight}`,paddingTop:10,marginBottom:6}}>
-                  <span style={{fontSize:12,color:T.textSub}}>Total resto{resto.hasUnpriced?" (estimé)":""}</span>
-                  <span style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:18,color:T.text}}>{fmtEuro(resto.total)}</span>
-                </div>
-                {resto.hasUnpriced && <p style={{fontSize:11,color:T.textFaint,marginBottom:10}}>Certains articles (glaces, options) n'ont pas de prix connu.</p>}
-                <button onClick={copyList}
-                  style={{width:"100%",background:copied?T.green:T.sidebar,color:"#fff",border:"none",borderRadius:11,
-                    padding:11,fontSize:13,fontWeight:600,cursor:"pointer",transition:"background 0.2s"}}>
-                  {copied?"✓ Copié !":"📋 Copier la liste"}
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* Perso */}
-          <div style={{width:"50%",paddingLeft:6,boxSizing:"border-box"}}>
-            {perso.empty ? (
-              <p style={{fontSize:13,color:T.textFaint,padding:"12px 0"}}>Tu n'as pas encore commandé.</p>
-            ) : (
-              <>
-                <div style={{display:"flex",alignItems:"center",gap:9,marginBottom:12}}>
-                  <Avatar name={user} size={30}/>
-                  <span style={{fontSize:13.5,fontWeight:600,color:T.text}}>Ma commande</span>
-                </div>
-                {perso.lines.map((l,i)=>(
-                  <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",
-                    fontSize:13,color:T.textSub,lineHeight:2}}>
-                    <span style={{flex:1,paddingRight:8}}>{l.label}</span>
-                    {priceCell(l.price)}
-                  </div>
-                ))}
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",
-                  borderTop:`1px solid ${T.borderLight}`,paddingTop:10,marginTop:6,marginBottom:12}}>
-                  <span style={{fontSize:12,color:T.textSub}}>Mon total{perso.hasUnpriced?" (estimé)":""}</span>
-                  <span style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:18,color:T.text}}>{fmtEuro(perso.total)}</span>
-                </div>
-                <button onClick={()=>togglePayment(user)}
-                  style={{width:"100%",background:isPaid?T.green+"18":"transparent",
-                    border:`1.5px solid ${isPaid?T.green:T.border}`,color:isPaid?T.green:T.textSub,
-                    borderRadius:11,padding:11,fontSize:13,fontWeight:600,cursor:"pointer"}}>
-                  {isPaid?"✓ Payé":"Marquer payé"}
-                </button>
-              </>
-            )}
-          </div>
-
+          <div style={{width:"50%",paddingRight:6,boxSizing:"border-box"}}>{RestoView}</div>
+          <div style={{width:"50%",paddingLeft:6,boxSizing:"border-box"}}>{PersoView}</div>
         </div>
       </div>
     </div>
@@ -1280,6 +1303,7 @@ export default function App() {
   const [libanaisMenu, setLibanaisMenu] = useState(null);
   const [boubouleMenuSaved, setBoubouleMenuSaved] = useState(null);
   const [isDark, setIsDark]   = useState(()=>localStorage.getItem("lunch_theme")==="dark");
+  const [navOpen, setNavOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(()=>window.innerWidth<768);
   const detailTimers = useRef({});
   const T = isDark ? DARK : LIGHT;
@@ -1542,17 +1566,63 @@ export default function App() {
     padding:"8px 18px", fontSize:13, fontWeight:600, cursor:"pointer", whiteSpace:"nowrap" };
 
   // Sidebar nav items
-  const navItems = [
-    { id:"order",    icon:"📋", label:"Commander" },
-    { id:"summary",  icon:"📊", label:"Résumé" },
-    { id:"chat",     icon:"💬", label:"Chat", badge: unreadChat },
-    { id:"notifs",   icon:"🔔", label:"Activité", badge: unreadActivity },
-    { id:"favorites",icon:"⭐", label:"Favoris" },
-    { id:"history",  icon:"📅", label:"Historique" },
-    { id:"menu",     icon:"🍽️", label:"Menu" },
-    { id:"profile",  icon:"👤", label:"Profil" },
-    { id:"settings", icon:"⚙️", label:"Config" },
-  ];
+  const NAV = {
+    order:    { icon:"📋", label:"Commander" },
+    summary:  { icon:"📊", label:"Résumé" },
+    menu:     { icon:"🍽️", label:"Menu" },
+    favorites:{ icon:"⭐", label:"Favoris" },
+    chat:     { icon:"💬", label:"Chat" },
+    notifs:   { icon:"🔔", label:"Activité" },
+    history:  { icon:"📅", label:"Historique" },
+    profile:  { icon:"👤", label:"Profil" },
+    settings: { icon:"⚙️", label:"Config" },
+  };
+  const navPrimary = ["order","summary","menu","favorites"];
+  const navSecondary = ["chat","notifs","history","profile", ...(user==="Admin"?["settings"]:[])];
+  const secBadge = unreadChat + unreadActivity;
+  const secActive = navSecondary.includes(tab);
+  const itemBadge = (id)=> id==="chat"?unreadChat : id==="notifs"?unreadActivity : 0;
+
+  const selectTab = (id)=>{
+    setTab(id);
+    if(id==="chat"){ const now=Date.now(); localStorage.setItem("lastSeenChat",now.toString()); setLastSeenChat(now); setUnreadChat(0); }
+    if(id==="notifs"){ const now=Date.now(); localStorage.setItem("lastSeenActivity",now.toString()); setLastSeenActivity(now); setUnreadActivity(0); }
+  };
+
+  const renderNavBtn = (id)=>{
+    const item = NAV[id];
+    const isActive = tab===id;
+    const tabColor = T.bg;
+    const badge = itemBadge(id);
+    return (
+      <div key={id} style={{width:"100%",position:"relative",display:"flex",alignItems:"center",justifyContent:"flex-end"}}>
+        {isActive && (
+          <div style={{position:"absolute",right:0,width:82,height:62,background:tabColor,borderRadius:"14px 0 0 14px",zIndex:1}}>
+            <div style={{position:"absolute",top:-18,right:0,width:18,height:18,background:"transparent",boxShadow:`9px 9px 0 9px ${tabColor}`,borderRadius:"0 0 14px 0"}}/>
+            <div style={{position:"absolute",bottom:-18,right:0,width:18,height:18,background:"transparent",boxShadow:`9px -9px 0 9px ${tabColor}`,borderRadius:"0 14px 0 0"}}/>
+          </div>
+        )}
+        <button onClick={()=>selectTab(id)}
+          style={{position:"relative",zIndex:2,width:82,height:62,display:"flex",flexDirection:"column",
+            alignItems:"center",justifyContent:"center",gap:4,border:"none",cursor:"pointer",background:"transparent",
+            color:isActive?T.accent:"rgba(255,255,255,0.75)",transition:"color 0.2s"}}
+          title={item.label}
+          onMouseEnter={e=>{ if(!isActive) e.currentTarget.style.color="rgba(255,255,255,1)"; }}
+          onMouseLeave={e=>{ if(!isActive) e.currentTarget.style.color="rgba(255,255,255,0.75)"; }}>
+          <span style={{fontSize:20,lineHeight:1,position:"relative"}}>
+            {item.icon}
+            {badge>0 && (
+              <span style={{position:"absolute",top:-4,right:-6,background:id==="chat"?"#c0553a":"#c97a4a",color:"#fff",
+                borderRadius:"50%",width:14,height:14,fontSize:9,fontWeight:700,
+                display:"flex",alignItems:"center",justifyContent:"center"}}>{badge>9?"9+":badge}</span>
+            )}
+          </span>
+          <span style={{fontSize:10,fontWeight:isActive?700:500,fontFamily:"'DM Sans',sans-serif",
+            letterSpacing:"0.02em",textShadow:"0 1px 2px rgba(0,0,0,0.3)"}}>{item.label}</span>
+        </button>
+      </div>
+    );
+  };
 
   return (
     <div style={{minHeight:"100vh",display:"flex",background:T.bg}}>
@@ -1576,79 +1646,25 @@ export default function App() {
 
           {/* Nav */}
           <nav style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",padding:"4px 0",gap:2}}>
-            {navItems.map(item=>{
-              const isActive = tab===item.id;
-              const tabColor = T.bg; // matches page background
-              return (
-                <div key={item.id} style={{width:"100%",position:"relative",display:"flex",alignItems:"center",justifyContent:"flex-end"}}>
-                  {/* Sliding tab — uses page bg color */}
-                  {isActive && (
-                    <div style={{
-                      position:"absolute", right:0, width:82, height:62,
-                      background:tabColor, borderRadius:"14px 0 0 14px", zIndex:1,
-                    }}>
-                      {/* top curved notch */}
-                      <div style={{position:"absolute",top:-18,right:0,width:18,height:18,
-                        background:"transparent",
-                        boxShadow:`9px 9px 0 9px ${tabColor}`,
-                        borderRadius:"0 0 14px 0"}}/>
-                      {/* bottom curved notch */}
-                      <div style={{position:"absolute",bottom:-18,right:0,width:18,height:18,
-                        background:"transparent",
-                        boxShadow:`9px -9px 0 9px ${tabColor}`,
-                        borderRadius:"0 14px 0 0"}}/>
-                    </div>
-                  )}
-                  <button
-                    onClick={()=>{
-                      setTab(item.id);
-                      if(item.id==="chat"){
-                        const now=Date.now();
-                        localStorage.setItem("lastSeenChat",now.toString());
-                        setUnreadChat(0);
-                      }
-                      if(item.id==="notifs"){
-                        const now=Date.now();
-                        localStorage.setItem("lastSeenActivity",now.toString());
-                        setUnreadActivity(0);
-                      }
-                    }}
-                    style={{
-                      position:"relative", zIndex:2,
-                      width:82, height:62,
-                      display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-                      gap:4, border:"none", cursor:"pointer",
-                      background:"transparent",
-                      color: isActive ? T.accent : "rgba(255,255,255,0.75)",
-                      transition:"color 0.2s",
-                    }}
-                    title={item.label}
-                    onMouseEnter={e=>{ if(!isActive) e.currentTarget.style.color="rgba(255,255,255,1)"; }}
-                    onMouseLeave={e=>{ if(!isActive) e.currentTarget.style.color="rgba(255,255,255,0.75)"; }}
-                  >
-                    <span style={{fontSize:20,lineHeight:1,position:"relative"}}>
-                      {item.icon}
-                      {item.id==="chat" && unreadChat>0 && (
-                        <span style={{position:"absolute",top:-4,right:-6,background:"#c0553a",color:"#fff",
-                          borderRadius:"50%",width:14,height:14,fontSize:9,fontWeight:700,
-                          display:"flex",alignItems:"center",justifyContent:"center"}}>
-                          {unreadChat>9?"9+":unreadChat}
-                        </span>
-                      )}
-                      {item.id==="notifs" && unreadActivity>0 && (
-                        <span style={{position:"absolute",top:-4,right:-6,background:"#c97a4a",color:"#fff",
-                          borderRadius:"50%",width:14,height:14,fontSize:9,fontWeight:700,
-                          display:"flex",alignItems:"center",justifyContent:"center"}}>
-                          {unreadActivity>9?"9+":unreadActivity}
-                        </span>
-                      )}
-                    </span>
-                    <span style={{fontSize:10,fontWeight:isActive?700:500,fontFamily:"'DM Sans',sans-serif",
-                      letterSpacing:"0.02em",textShadow:"0 1px 2px rgba(0,0,0,0.3)"}}>{item.label}</span>
-                  </button>
-                </div>
-              );
-            })}
+            {navPrimary.map(id=>renderNavBtn(id))}
+
+            <button onClick={()=>setNavOpen(o=>!o)} title={navOpen?"Réduire":"Plus"}
+              style={{width:82,height:54,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+                gap:4,border:"none",cursor:"pointer",background:"transparent",
+                color:(secActive&&!navOpen)?T.accent:"rgba(255,255,255,0.55)",transition:"color 0.2s"}}
+              onMouseEnter={e=>{ e.currentTarget.style.color="rgba(255,255,255,0.9)"; }}
+              onMouseLeave={e=>{ e.currentTarget.style.color=(secActive&&!navOpen)?T.accent:"rgba(255,255,255,0.55)"; }}>
+              <span style={{fontSize:20,lineHeight:1,position:"relative"}}>
+                {navOpen?"▾":"⋯"}
+                {!navOpen && secBadge>0 && (
+                  <span style={{position:"absolute",top:-4,right:-6,background:"#c0553a",color:"#fff",borderRadius:"50%",
+                    width:14,height:14,fontSize:9,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>{secBadge>9?"9+":secBadge}</span>
+                )}
+              </span>
+              <span style={{fontSize:10,fontWeight:500,fontFamily:"'DM Sans',sans-serif",letterSpacing:"0.02em",textShadow:"0 1px 2px rgba(0,0,0,0.3)"}}>{navOpen?"Réduire":"Plus"}</span>
+            </button>
+
+            {navOpen && navSecondary.map(id=>renderNavBtn(id))}
           </nav>
 
           {/* User */}
@@ -1706,45 +1722,71 @@ export default function App() {
 
         {/* Mobile bottom nav */}
         {isMobile && (
-          <nav style={{position:"fixed",bottom:0,left:0,right:0,
-            background:T.bgCard, borderTop:`1px solid ${T.border}`,
-            display:"flex",zIndex:100,
-            paddingBottom:"env(safe-area-inset-bottom,8px)"}}>
-            {navItems.map(item=>(
-              <button key={item.id} onClick={()=>{
-                setTab(item.id);
-                if(item.id==="chat"){const now=Date.now();localStorage.setItem("lastSeenChat",now.toString());setLastSeenChat(now);setUnreadChat(0);}
-                if(item.id==="notifs"){const now=Date.now();localStorage.setItem("lastSeenActivity",now.toString());setLastSeenActivity(now);setUnreadActivity(0);}
-              }}
-                style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",
-                  justifyContent:"center",gap:3,padding:"10px 0",
-                  background:"none",border:"none",cursor:"pointer",
-                  color:tab===item.id?T.accent:T.textFaint,
-                  borderTop:tab===item.id?`2px solid ${T.accent}`:"2px solid transparent",
+          <>
+            {navOpen && (
+              <div onClick={()=>setNavOpen(false)}
+                style={{position:"fixed",inset:0,zIndex:100,background:"rgba(0,0,0,0.25)"}}/>
+            )}
+            {navOpen && (
+              <div style={{position:"fixed",left:8,right:8,zIndex:101,
+                bottom:"calc(64px + env(safe-area-inset-bottom,8px))",
+                background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:14,boxShadow:T.shadowHover,
+                padding:6,display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:4}}>
+                {navSecondary.map(id=>{
+                  const item=NAV[id]; const badge=itemBadge(id); const isActive=tab===id;
+                  return (
+                    <button key={id} onClick={()=>{ selectTab(id); setNavOpen(false); }}
+                      style={{display:"flex",alignItems:"center",gap:9,padding:"11px 12px",borderRadius:10,border:"none",
+                        cursor:"pointer",background:isActive?T.accentLight:"transparent",
+                        color:isActive?T.accent:T.text,fontFamily:"'DM Sans',sans-serif"}}>
+                      <span style={{fontSize:19,position:"relative"}}>
+                        {item.icon}
+                        {badge>0 && (
+                          <span style={{position:"absolute",top:-4,right:-6,background:id==="chat"?"#c0553a":"#c97a4a",color:"#fff",
+                            borderRadius:"50%",width:14,height:14,fontSize:9,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>{badge>9?"9+":badge}</span>
+                        )}
+                      </span>
+                      <span style={{fontSize:13,fontWeight:isActive?700:500}}>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <nav style={{position:"fixed",bottom:0,left:0,right:0,
+              background:T.bgCard, borderTop:`1px solid ${T.border}`,
+              display:"flex",zIndex:100,
+              paddingBottom:"env(safe-area-inset-bottom,8px)"}}>
+              {navPrimary.map(id=>{
+                const item=NAV[id]; const isActive=tab===id;
+                return (
+                  <button key={id} onClick={()=>selectTab(id)}
+                    style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+                      gap:3,padding:"10px 0",background:"none",border:"none",cursor:"pointer",
+                      color:isActive?T.accent:T.textFaint,
+                      borderTop:isActive?`2px solid ${T.accent}`:"2px solid transparent",
+                      fontFamily:"'DM Sans',sans-serif",transition:"color 0.15s"}}>
+                    <span style={{fontSize:20}}>{item.icon}</span>
+                    <span style={{fontSize:9,fontWeight:isActive?700:400,letterSpacing:"0.03em"}}>{item.label}</span>
+                  </button>
+                );
+              })}
+              <button onClick={()=>setNavOpen(o=>!o)}
+                style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",
+                  gap:3,padding:"10px 0",background:"none",border:"none",cursor:"pointer",
+                  color:(secActive||navOpen)?T.accent:T.textFaint,
+                  borderTop:(secActive&&!navOpen)?`2px solid ${T.accent}`:"2px solid transparent",
                   fontFamily:"'DM Sans',sans-serif",transition:"color 0.15s"}}>
                 <span style={{fontSize:20,position:"relative"}}>
-                  {item.icon}
-                  {item.id==="chat" && unreadChat>0 && (
-                    <span style={{position:"absolute",top:-4,right:-6,background:"#c0553a",color:"#fff",
-                      borderRadius:"50%",width:14,height:14,fontSize:9,fontWeight:700,
-                      display:"flex",alignItems:"center",justifyContent:"center"}}>
-                      {unreadChat>9?"9+":unreadChat}
-                    </span>
-                  )}
-                  {item.id==="notifs" && unreadActivity>0 && (
-                    <span style={{position:"absolute",top:-4,right:-6,background:"#c97a4a",color:"#fff",
-                      borderRadius:"50%",width:14,height:14,fontSize:9,fontWeight:700,
-                      display:"flex",alignItems:"center",justifyContent:"center"}}>
-                      {unreadActivity>9?"9+":unreadActivity}
-                    </span>
+                  {navOpen?"▾":"⋯"}
+                  {!navOpen && secBadge>0 && (
+                    <span style={{position:"absolute",top:-4,right:-6,background:"#c0553a",color:"#fff",borderRadius:"50%",
+                      width:14,height:14,fontSize:9,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>{secBadge>9?"9+":secBadge}</span>
                   )}
                 </span>
-                <span style={{fontSize:9,fontWeight:tab===item.id?700:400,letterSpacing:"0.03em"}}>
-                  {item.label}
-                </span>
+                <span style={{fontSize:9,fontWeight:(secActive||navOpen)?700:400,letterSpacing:"0.03em"}}>Plus</span>
               </button>
-            ))}
-          </nav>
+            </nav>
+          </>
         )}
 
         {/* Page content */}
@@ -1771,7 +1813,7 @@ export default function App() {
               </div>
 
               <RecapPanel user={user} names={names} orders={orders} payments={payments}
-                togglePayment={togglePayment} snackMenu={snackMenu} libanaisMenu={libanaisMenu} T={T} defaultSlide={1}/>
+                togglePayment={togglePayment} snackMenu={snackMenu} libanaisMenu={libanaisMenu} T={T} defaultSlide={1} isMobile={isMobile}/>
 
               {/* Quick favorites */}
               {user!=="Admin" && (favorites[user]||[]).length>0 && (
@@ -2041,13 +2083,15 @@ export default function App() {
                   <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:22,color:T.text,marginBottom:2}}>Résumé</h1>
                   <p style={{fontSize:13,color:T.textSub}}>Commandes du jour</p>
                 </div>
-                <button style={{background:T.bgCard,border:`1px solid ${T.red}44`,color:T.red,
-                  borderRadius:8,padding:"7px 14px",fontSize:12,cursor:"pointer",boxShadow:T.shadow}}
-                  onClick={resetAll}>🗑 Réinitialiser</button>
+                {user==="Admin" && (
+                  <button style={{background:T.bgCard,border:`1px solid ${T.red}44`,color:T.red,
+                    borderRadius:8,padding:"7px 14px",fontSize:12,cursor:"pointer",boxShadow:T.shadow}}
+                    onClick={resetAll}>🗑 Réinitialiser</button>
+                )}
               </div>
 
               <RecapPanel user={user} names={names} orders={orders} payments={payments}
-                togglePayment={togglePayment} snackMenu={snackMenu} libanaisMenu={libanaisMenu} T={T}/>
+                togglePayment={togglePayment} snackMenu={snackMenu} libanaisMenu={libanaisMenu} T={T} isMobile={isMobile}/>
 
               {/* Counts */}
               <div style={{display:"flex",gap:isMobile?8:12,marginBottom:isMobile?16:24,flexWrap:"wrap"}}>
