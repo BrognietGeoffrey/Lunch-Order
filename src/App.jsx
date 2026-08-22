@@ -372,7 +372,7 @@ function OrderPills({ order, extras=[], crudites=[] }) {
 // ── Detail cell ───────────────────────────────────────────────────────────────
 function DetailCell({ name, order, canEdit, sauces, crudites, boissons, extras, mealExtras,
   handleDetail, handleSubDetail, toggleMulti, toggleCruditesTout, toggleExtraOption,
-  pb, ps, newBoissonInput, setNewBoissonInput, T, boubouleParfums=[] }) {
+  pb, ps, newBoissonInput, setNewBoissonInput, T, boubouleParfums=[], snackMenu }) {
 
   const sauceRef = useRef(null);
   const sauceFriteRef = useRef(null);
@@ -501,11 +501,32 @@ function DetailCell({ name, order, canEdit, sauces, crudites, boissons, extras, 
         <p style={{fontSize:11,color:T.textFaint,marginBottom:5}}>🥙 Sandwich</p>
         <div style={{display:"flex",gap:5,flexWrap:"wrap",alignItems:"center",marginBottom:6}}>
           {["Durum","Bicky"].map(o=><Pill key={o} label={o} active={order.snackType===o} accent={opt.accent} disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"snackType",order.snackType===o?"":o)}/>)}
-          <input style={{flex:1,minWidth:80,background:T.bgInput,border:`1px solid ${T.border}`,borderRadius:8,
-            color:T.text,padding:"4px 8px",fontSize:12,opacity:canEdit?1:0.4}}
-            disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)}
-            placeholder={order.snackType?"ex: falafel…":"Précise…"}/>
         </div>
+        {order.snackType && (()=>{
+          const variants=snackVariants(order.snackType, snackMenu);
+          const known=variants.some(v=>v.label===order.detail);
+          const isOther=!!order.detail && !known;
+          return (
+            <div style={{marginBottom:6}}>
+              <select value={known?order.detail:(isOther?"__other__":"")} disabled={!canEdit}
+                onChange={e=>{ const v=e.target.value; if(v==="__other__"){ handleDetail(name,""); } else { handleDetail(name,v); } }}
+                style={{width:"100%",background:T.bgInput,border:`1px solid ${T.border}`,borderRadius:8,
+                  color:T.text,padding:"7px 10px",fontSize:13,cursor:canEdit?"pointer":"default",opacity:canEdit?1:0.4}}>
+                <option value="">— Choisis ton {order.snackType} —</option>
+                {variants.map(v=>(
+                  <option key={v.label} value={v.label}>{v.label}{v.price!=null?"  ·  "+fmtEuro(v.price):""}</option>
+                ))}
+                <option value="__other__">Autre…</option>
+              </select>
+              {isOther && (
+                <input style={{width:"100%",marginTop:5,background:T.bgInput,border:`1px solid ${T.border}`,borderRadius:8,
+                  color:T.text,padding:"6px 10px",fontSize:12,opacity:canEdit?1:0.4}}
+                  disabled={!canEdit} value={order.detail||""} onChange={e=>handleDetail(name,e.target.value)}
+                  placeholder="Précise…"/>
+              )}
+            </div>
+          );
+        })()}
         <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:6}}>
           {["Frite dedans","Frite à part"].map(o=><Pill key={o} label={o} active={order.frites===o} accent="#c97a4a" disabled={!canEdit} onClick={()=>canEdit&&handleSubDetail(name,"frites",order.frites===o?"":o)}/>)}
         </div>
@@ -1080,6 +1101,29 @@ const RESTO_META={
   "libanais":{label:"Libanais", accent:"#2f9e44"},
   "ice-cream":{label:"Glace · Bou·Boul·e", accent:"#d4537e"},
 };
+
+// Variantes Durum / Bicky déduites du menu Snack Merode (nom court + prix)
+function snackVariants(snackType, snackMenu){
+  const sections = (SNACK_MENU_SECTIONS||[]).map(sec=>{
+    const ov=(snackMenu||[]).find(s=>s.cat===sec.cat);
+    return {cat:sec.cat, items:(ov&&ov.items)?ov.items:sec.items};
+  });
+  const pick=(catNeedle, stripRe)=>{
+    const sec=sections.find(s=>s.cat.includes(catNeedle));
+    if(!sec) return [];
+    return sec.items.map(it=>({
+      label: it.name.replace(stripRe,"").trim(),
+      price: parsePrice(it.price),
+    }));
+  };
+  if(snackType==="Durum") return pick("Dürüm", /^Durum\s*/i);
+  if(snackType==="Bicky"){
+    // Bicky = sandwichs + burgers
+    return [...pick("Sandwich", /^Sandwich\s*/i), ...pick("Burger", /^Burger\s*/i)];
+  }
+  return [];
+}
+
 function buildRestoRecap(names, orders, idx){
   const groups={"snack-merode":{}, "libanais":{}, "ice-cream":{}};
   (names||[]).forEach(n=>{
@@ -1560,7 +1604,7 @@ export default function App() {
   const counts=LUNCH_OPTIONS.reduce((a,o)=>{a[o.id]=names.filter(n=>orders[n]?.choice===o.id).length;return a;},{});
   const extrasForMeal=choice=>extras.filter(e=>e.appliesTo?.includes(choice));
 
-  const detailCellProps={ sauces,crudites,boissons,extras,T,
+  const detailCellProps={ sauces,crudites,boissons,extras,T,snackMenu,
     handleDetail,handleSubDetail,toggleMulti,toggleCruditesTout,toggleExtraOption,
     pb,ps,newBoissonInput,setNewBoissonInput,
     boubouleParfums: [
