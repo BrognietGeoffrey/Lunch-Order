@@ -307,7 +307,9 @@ function formatOrder(o, extras=[], allCrudites=[]) {
 const CSS = (T) => `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: ${T.bg}; font-family: 'DM Sans', sans-serif; color: ${T.text}; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { background: ${T.bg}; font-family: 'DM Sans', sans-serif; color: ${T.text}; overflow-x: hidden; }
+  img, svg, video, canvas { max-width: 100%; height: auto; }
   textarea { resize: vertical; font-family: inherit; }
   input:focus, textarea:focus, button:focus, select:focus { outline: none; }
   ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -1435,6 +1437,20 @@ export default function App() {
 
   useEffect(()=>{ const h=()=>setIsMobile(window.innerWidth<768); window.addEventListener("resize",h); return ()=>window.removeEventListener("resize",h); },[]);
 
+  useEffect(()=>{
+    let m=document.querySelector('meta[name="viewport"]');
+    if(!m){ m=document.createElement("meta"); m.name="viewport"; document.head.appendChild(m); }
+    const apply=()=>{
+      const small=window.innerWidth<768;
+      m.setAttribute("content", small
+        ? "width=device-width, initial-scale=0.8, maximum-scale=5, viewport-fit=cover"
+        : "width=device-width, initial-scale=1, viewport-fit=cover");
+    };
+    apply();
+    window.addEventListener("orientationchange",apply);
+    return ()=>window.removeEventListener("orientationchange",apply);
+  },[]);
+
   const [authReady, setAuthReady] = useState(false);
   const [welcome, setWelcome] = useState(null);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -1447,6 +1463,12 @@ export default function App() {
     const q=FOOD_QUOTES[Math.floor(Math.random()*FOOD_QUOTES.length)];
     setWelcome(q);
   },[user]);
+
+  useEffect(()=>{
+    let m=document.querySelector('meta[name="viewport"]');
+    if(!m){ m=document.createElement("meta"); m.setAttribute("name","viewport"); document.head.appendChild(m); }
+    m.setAttribute("content","width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no");
+  },[]);
   const [authError, setAuthError] = useState(null);
 
   useEffect(()=>{
