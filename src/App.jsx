@@ -57,6 +57,8 @@ const FOOD_QUOTES = [
   {text:"Un estomac plein n'a jamais perdu une réunion."},
   {text:"Ceux qui mangent ensemble avancent ensemble."},
   {text:"Deviens qui tu es. De préférence après avoir mangé."},
+  {text:"Frites à volonter, pourquoi pas Lego à volonter"},
+
 ];
 
 const SNACK_MENU_SECTIONS = [
@@ -251,6 +253,21 @@ function avatarColor(name) {
   return colors[Math.abs(h)];
 }
 
+// ── Suppléments : prix ────────────────────────────────────────────────────────
+// Chaque catégorie de suppléments peut avoir un objet `prices` : { "Nom option": 0.5, ... }
+function extraOptPrice(ex, opt) {
+  const p = ex?.prices?.[opt];
+  if (p==null || p==="" || isNaN(Number(p))) return null;
+  return Number(p);
+}
+function extraLabel(ex, opt) {
+  const p = extraOptPrice(ex, opt);
+  return p!=null ? `${opt} (+${fmtEuro(p)})` : opt;
+}
+function priceToInput(p) {
+  return p==null ? "" : Number(p).toFixed(2).replace(".",",");
+}
+
 function formatCrudites(o, allCrudites) {
   if (!o.crudites?.length) return null;
   const isNoneSelected = o.crudites.every(c=>c.toLowerCase().includes("aucune"));
@@ -272,7 +289,7 @@ function formatOrderFull(o, extras=[], allCrudites=[]) {
     const firstPart = [o.snackType, o.detail].filter(Boolean).join(" ");
     if (firstPart) lines.push({ emoji:"🥙", text: firstPart });
     extras.filter(ex=>ex.appliesTo?.includes("snack-merode")).forEach(ex=>{
-      (o.extras||{})[ex.id]?.forEach(opt=>lines.push({ emoji:"➕", text: opt }));
+      (o.extras||{})[ex.id]?.forEach(opt=>lines.push({ emoji:"➕", text: extraLabel(ex,opt) }));
     });
     if (o.frites)     lines.push({ emoji:"🍟", text: o.frites });
     if (o.friteSup)   lines.push({ emoji:"🍟", text: "Frite sup. "+o.friteSup });
@@ -287,12 +304,12 @@ function formatOrderFull(o, extras=[], allCrudites=[]) {
     else if (o.boule1) lines.push({ emoji:"✨", text: o.boule1 });
     else if (o.detail) lines.push({ emoji:"✨", text: o.detail });
     extras.filter(ex=>ex.appliesTo?.includes("ice-cream")).forEach(ex=>{
-      (o.extras||{})[ex.id]?.forEach(opt=>lines.push({ emoji:"➕", text: opt }));
+      (o.extras||{})[ex.id]?.forEach(opt=>lines.push({ emoji:"➕", text: extraLabel(ex,opt) }));
     });
   } else {
     if (o.detail)  lines.push({ emoji:"🥙", text: o.detail });
     extras.filter(ex=>ex.appliesTo?.includes("libanais")).forEach(ex=>{
-      (o.extras||{})[ex.id]?.forEach(opt=>lines.push({ emoji:"➕", text: opt }));
+      (o.extras||{})[ex.id]?.forEach(opt=>lines.push({ emoji:"➕", text: extraLabel(ex,opt) }));
     });
     if (o.boisson) lines.push({ emoji:"🥤", text: o.boisson });
   }
@@ -461,7 +478,7 @@ function DetailCell({ name, order, canEdit, sauces, crudites, boissons, extras, 
           <div key={ex.id}>
             <p style={{fontSize:11,color:T.textFaint,marginBottom:5}}>➕ {ex.label}</p>
             <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-              {ex.options.map(o=><Pill key={o} label={o} active={((order.extras||{})[ex.id]||[]).includes(o)} accent={ex.accent} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)}/>)}
+              {ex.options.map(o=><Pill key={o} label={extraLabel(ex,o)} active={((order.extras||{})[ex.id]||[]).includes(o)} accent={ex.accent} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)}/>)}
             </div>
           </div>
         ))}
@@ -507,7 +524,7 @@ function DetailCell({ name, order, canEdit, sauces, crudites, boissons, extras, 
         <div key={ex.id}>
           <p style={{fontSize:11,color:T.textFaint,marginBottom:5}}>➕ {ex.label}</p>
           <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-            {ex.options.map(o=><Pill key={o} label={o} active={((order.extras||{})[ex.id]||[]).includes(o)} accent={ex.accent} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)}/>)}
+            {ex.options.map(o=><Pill key={o} label={extraLabel(ex,o)} active={((order.extras||{})[ex.id]||[]).includes(o)} accent={ex.accent} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)}/>)}
           </div>
         </div>
       ))}
@@ -594,7 +611,7 @@ function DetailCell({ name, order, canEdit, sauces, crudites, boissons, extras, 
           <div key={ex.id} style={{marginTop:6}}>
             <p style={{fontSize:11,color:T.textFaint,marginBottom:4}}>➕ {ex.label}</p>
             <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-              {ex.options.map(o=><Pill key={o} label={o} active={((order.extras||{})[ex.id]||[]).includes(o)} accent={ex.accent} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)}/>)}
+              {ex.options.map(o=><Pill key={o} label={extraLabel(ex,o)} active={((order.extras||{})[ex.id]||[]).includes(o)} accent={ex.accent} disabled={!canEdit} onClick={()=>canEdit&&toggleExtraOption(name,ex.id,o)}/>)}
             </div>
           </div>
         ))}
@@ -1119,18 +1136,31 @@ function lookup(idx, candidates){
   for(const c of (candidates||[])){ const k=normName(c); if(k && idx[k]!=null) return {name:c, price:idx[k]}; }
   return null;
 }
-function orderPricedLines(order, idx){
+// Lignes de suppléments d'une commande (optional:true = sans prix → considéré gratuit, n'affecte pas "estimé")
+function extraPricedLines(order, extras){
+  const out=[];
+  (extras||[]).filter(ex=>ex.appliesTo?.includes(order.choice)).forEach(ex=>{
+    ((order.extras||{})[ex.id]||[]).forEach(opt=>{
+      out.push({label:"+ "+opt, price:extraOptPrice(ex,opt), optional:true, exLabel:ex.label, opt});
+    });
+  });
+  return out;
+}
+function orderPricedLines(order, idx, extras=[]){
   const lines=[];
   if(!order || !order.choice) return {lines, total:0, hasUnpriced:false, empty:true};
   if(order.choice==="ice-cream"){
     const fl=[order.boule1,order.boule2].filter(Boolean).join(" + ");
     const pr=ICE_CREAM_PRICES[order.boules]!=null?ICE_CREAM_PRICES[order.boules]:null;
     lines.push({label:(order.boules||"Glace")+(fl?" · "+fl:""), price:pr});
-    return {lines, total:(pr||0), hasUnpriced:(pr==null), empty:false};
+    lines.push(...extraPricedLines(order, extras));
+    const total=lines.reduce((a,l)=>a+(l.price||0),0);
+    return {lines, total, hasUnpriced:(pr==null), empty:false};
   }
   const main=lookup(idx, mainCandidates(order));
   const mainLabel=[order.snackType,order.detail].filter(Boolean).join(" ").trim()||order.detail||"Commande";
   lines.push({label:mainLabel, price:main?main.price:null});
+  lines.push(...extraPricedLines(order, extras));
   if(order.friteSup){
     const fp = order.friteSup==="Petite" ? idx[normName("Petite frite")] : null;
     lines.push({label:"Frite "+order.friteSup, price:(fp!=null?fp:null)});
@@ -1141,7 +1171,7 @@ function orderPricedLines(order, idx){
     lines.push({label:order.boisson, price:(bp!=null?bp:null)});
   }
   const total=lines.reduce((a,l)=>a+(l.price||0),0);
-  const hasUnpriced=lines.some(l=>l.price==null);
+  const hasUnpriced=lines.some(l=>l.price==null && !l.optional);
   return {lines, total, hasUnpriced, empty:false};
 }
 const RESTO_META={
@@ -1181,7 +1211,7 @@ function libanaisVariants(libanaisMenu){
   });
 }
 
-function buildRestoRecap(names, orders, idx){
+function buildRestoRecap(names, orders, idx, extras=[]){
   const groups={"snack-merode":{}, "libanais":{}, "ice-cream":{}};
   (names||[]).forEach(n=>{
     const o=orders[n]; if(!o||!o.choice) return;
@@ -1198,14 +1228,20 @@ function buildRestoRecap(names, orders, idx){
     const g=groups[o.choice];
     if(!g[label]) g[label]={qty:0, price};
     g[label].qty++;
+    // Suppléments
+    extraPricedLines(o, extras).forEach(l=>{
+      const exLabel="Suppl. "+l.opt;
+      if(!g[exLabel]) g[exLabel]={qty:0, price:l.price, optional:true};
+      g[exLabel].qty++;
+    });
   });
   const out=[];
   ["snack-merode","libanais","ice-cream"].forEach(k=>{
-    const items=Object.entries(groups[k]).map(([label,v])=>({label, qty:v.qty, price:v.price}));
+    const items=Object.entries(groups[k]).map(([label,v])=>({label, qty:v.qty, price:v.price, optional:!!v.optional}));
     if(items.length) out.push({key:k, ...RESTO_META[k], items});
   });
   const total=out.reduce((a,g)=>a+g.items.reduce((b,it)=>b+((it.price||0)*it.qty),0),0);
-  const hasUnpriced=out.some(g=>g.items.some(it=>it.price==null));
+  const hasUnpriced=out.some(g=>g.items.some(it=>it.price==null && !it.optional));
   return {groups:out, total, hasUnpriced};
 }
 function restoRecapText(recap){
@@ -1218,12 +1254,12 @@ function restoRecapText(recap){
   return t;
 }
 
-function RecapPanel({ user, names, orders, payments, togglePayment, snackMenu, libanaisMenu, T, defaultSlide=0, isMobile, only, onSuggest }){
+function RecapPanel({ user, names, orders, payments, togglePayment, snackMenu, libanaisMenu, extras=[], T, defaultSlide=0, isMobile, only, onSuggest }){
   const [slide, setSlide] = useState(defaultSlide);
   const [copied, setCopied] = useState(false);
   const idx = buildPriceIndex(snackMenu, libanaisMenu);
-  const perso = orderPricedLines(orders[user], idx);
-  const resto = buildRestoRecap(names, orders, idx);
+  const perso = orderPricedLines(orders[user], idx, extras);
+  const resto = buildRestoRecap(names, orders, idx, extras);
   const isPaid = payments[user]||false;
 
   const copyList=async()=>{
@@ -1237,8 +1273,8 @@ function RecapPanel({ user, names, orders, payments, togglePayment, snackMenu, l
     setCopied(true); setTimeout(()=>setCopied(false),2000);
   };
 
-  const priceCell=(pr)=>(
-    <span style={{fontSize:12.5,color:pr!=null?T.text:T.textFaint}}>{pr!=null?fmtEuro(pr):"—"}</span>
+  const priceCell=(pr, optional)=>(
+    <span style={{fontSize:12.5,color:pr!=null?T.text:T.textFaint}}>{pr!=null?fmtEuro(pr):(optional?"inclus":"—")}</span>
   );
 
   const infoHint=(
@@ -1265,7 +1301,7 @@ function RecapPanel({ user, names, orders, payments, togglePayment, snackMenu, l
           <div key={g.key} style={{marginBottom:12}}>
             <div style={{fontSize:10.5,fontWeight:700,color:g.accent,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>{g.label}</div>
             {g.items.map((it,i)=>(
-              <div key={i} style={{display:"flex",alignItems:"baseline",gap:8,fontSize:13,color:T.textSub,lineHeight:1.9}}>
+              <div key={i} style={{display:"flex",alignItems:"baseline",gap:8,fontSize:13,color:it.optional?T.textFaint:T.textSub,lineHeight:1.9}}>
                 <span style={{fontWeight:600,color:T.text,minWidth:22}}>{it.qty}×</span>
                 <span style={{flex:1}}>{it.label}</span>
                 {it.price!=null && <span style={{color:T.textFaint,fontSize:12}}>{fmtEuro(it.price*it.qty)}</span>}
@@ -1299,9 +1335,9 @@ function RecapPanel({ user, names, orders, payments, togglePayment, snackMenu, l
         </div>
         {perso.lines.map((l,i)=>(
           <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",
-            fontSize:13,color:T.textSub,lineHeight:2}}>
+            fontSize:13,color:l.optional?T.textFaint:T.textSub,lineHeight:2}}>
             <span style={{flex:1,paddingRight:8}}>{l.label}</span>
-            {priceCell(l.price)}
+            {priceCell(l.price, l.optional)}
           </div>
         ))}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",
@@ -1396,6 +1432,7 @@ export default function App() {
   const [showFavModal, setShowFavModal]       = useState(false);
   const [newBoissonInput, setNewBoissonInput] = useState({});
   const [newExtraOption, setNewExtraOption]   = useState({});
+  const [newExtraPrice, setNewExtraPrice]     = useState({});
   const [newMemberName, setNewMemberName]     = useState("");
   const [newMemberCode, setNewMemberCode]     = useState("");
   const [editingMember, setEditingMember]     = useState(null);
@@ -1600,10 +1637,36 @@ export default function App() {
   const addSauce     =async()=>{const s=newSauce.trim();   if(s&&!sauces.includes(s))   {await ps([...sauces,s]);    setNewSauce("");}};
   const addCrudite   =async()=>{const c=newCrudite.trim(); if(c&&!crudites.includes(c)) {await pc([...crudites,c]);  setNewCrudite("");}};
   const addBoisson   =async()=>{const b=newBoisson.trim(); if(b&&!boissons.includes(b)) {await pb([...boissons,b]);  setNewBoisson("");}};
-  const addExtraCategory=async()=>{const label=newExtraLabel.trim();if(!label||!newExtraApplies.length)return;const id="extra_"+Date.now();const accent=EXTRA_ACCENTS[extras.length%EXTRA_ACCENTS.length];await pe([...extras,{id,label,options:[],appliesTo:newExtraApplies,accent}]);setNewExtraLabel("");setNewExtraApplies([]);};
+  const addExtraCategory=async()=>{const label=newExtraLabel.trim();if(!label||!newExtraApplies.length)return;const id="extra_"+Date.now();const accent=EXTRA_ACCENTS[extras.length%EXTRA_ACCENTS.length];await pe([...extras,{id,label,options:[],prices:{},appliesTo:newExtraApplies,accent}]);setNewExtraLabel("");setNewExtraApplies([]);};
   const removeExtraCategory=async id=>{await pe(extras.filter(e=>e.id!==id));};
-  const addExtraOption=async(extraId)=>{const val=(newExtraOption[extraId]||"").trim();if(!val)return;await pe(extras.map(e=>e.id===extraId?{...e,options:[...e.options,val]}:e));setNewExtraOption(p=>({...p,[extraId]:""}));};
-  const removeExtraOption=async(extraId,opt)=>{await pe(extras.map(e=>e.id===extraId?{...e,options:e.options.filter(o=>o!==opt)}:e));};
+  const addExtraOption=async(extraId)=>{
+    const val=(newExtraOption[extraId]||"").trim();if(!val)return;
+    const pr=parsePrice(newExtraPrice[extraId]);
+    await pe(extras.map(e=>{
+      if(e.id!==extraId) return e;
+      const prices={...(e.prices||{})};
+      if(pr!=null) prices[val]=pr;
+      return {...e, options:e.options.includes(val)?e.options:[...e.options,val], prices};
+    }));
+    setNewExtraOption(p=>({...p,[extraId]:""}));
+    setNewExtraPrice(p=>({...p,[extraId]:""}));
+  };
+  const removeExtraOption=async(extraId,opt)=>{
+    await pe(extras.map(e=>{
+      if(e.id!==extraId) return e;
+      const prices={...(e.prices||{})}; delete prices[opt];
+      return {...e, options:e.options.filter(o=>o!==opt), prices};
+    }));
+  };
+  const setExtraOptionPrice=async(extraId,opt,raw)=>{
+    const pr=parsePrice(raw);
+    await pe(extras.map(e=>{
+      if(e.id!==extraId) return e;
+      const prices={...(e.prices||{})};
+      if(pr==null) delete prices[opt]; else prices[opt]=pr;
+      return {...e, prices};
+    }));
+  };
 
   const logActivity = async(type, text) => {
     await addDoc(collection(db,"activity"),{author:user,type,text,ts:Date.now()});
@@ -2046,7 +2109,7 @@ export default function App() {
 
               {isMobile && (
                 <RecapPanel user={user} names={names} orders={orders} payments={payments}
-                  togglePayment={togglePayment} snackMenu={snackMenu} libanaisMenu={libanaisMenu} T={T} only="perso" isMobile={isMobile} onSuggest={()=>setShowFeedback(true)}/>
+                  togglePayment={togglePayment} snackMenu={snackMenu} libanaisMenu={libanaisMenu} extras={extras} T={T} only="perso" isMobile={isMobile} onSuggest={()=>setShowFeedback(true)}/>
               )}
 
               {/* Quick favorites */}
@@ -2202,7 +2265,7 @@ export default function App() {
               {!isMobile && (
                 <div style={{width:360,flexShrink:0,position:"sticky",top:28}}>
                   <RecapPanel user={user} names={names} orders={orders} payments={payments}
-                    togglePayment={togglePayment} snackMenu={snackMenu} libanaisMenu={libanaisMenu} T={T} only="perso" isMobile={isMobile} onSuggest={()=>setShowFeedback(true)}/>
+                    togglePayment={togglePayment} snackMenu={snackMenu} libanaisMenu={libanaisMenu} extras={extras} T={T} only="perso" isMobile={isMobile} onSuggest={()=>setShowFeedback(true)}/>
                 </div>
               )}
               </div>
@@ -2334,7 +2397,7 @@ export default function App() {
               </div>
 
               <RecapPanel user={user} names={names} orders={orders} payments={payments}
-                togglePayment={togglePayment} snackMenu={snackMenu} libanaisMenu={libanaisMenu} T={T} isMobile={isMobile} onSuggest={()=>setShowFeedback(true)}/>
+                togglePayment={togglePayment} snackMenu={snackMenu} libanaisMenu={libanaisMenu} extras={extras} T={T} isMobile={isMobile} onSuggest={()=>setShowFeedback(true)}/>
 
               {/* Counts */}
               <div style={{display:"flex",gap:isMobile?8:12,marginBottom:isMobile?16:24,flexWrap:"wrap"}}>
@@ -3181,13 +3244,16 @@ export default function App() {
                     </div>
                   ))}
 
-                  {/* Extras */}
+                  {/* Extras / Suppléments */}
                   <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:14,padding:"20px 24px",boxShadow:T.shadow}}>
-                    <h2 style={{fontSize:15,fontWeight:600,color:T.text,marginBottom:14}}>➕ Catégories personnalisées</h2>
+                    <h2 style={{fontSize:15,fontWeight:600,color:T.text,marginBottom:4}}>➕ Suppléments & catégories personnalisées</h2>
+                    <p style={{fontSize:12,color:T.textFaint,marginBottom:14}}>
+                      Chaque option peut avoir un prix (optionnel). Il s'affiche sur les choix et s'ajoute aux totaux. Sans prix = inclus.
+                    </p>
                     <div style={{background:T.bgHover,borderRadius:10,padding:"14px",marginBottom:14,border:`1px solid ${T.borderLight}`}}>
-                      <input style={{...inp,marginBottom:10}} value={newExtraLabel} onChange={e=>setNewExtraLabel(e.target.value)} placeholder="Nom de la catégorie…"/>
+                      <input style={{...inp,marginBottom:10}} value={newExtraLabel} onChange={e=>setNewExtraLabel(e.target.value)} placeholder="Nom de la catégorie… (ex : Suppléments)"/>
                       <p style={{fontSize:11,color:T.textFaint,marginBottom:6}}>Applicable à :</p>
-                      <div style={{display:"flex",gap:6,marginBottom:10}}>
+                      <div style={{display:"flex",gap:6,marginBottom:10,flexWrap:"wrap"}}>
                         {LUNCH_OPTIONS.map(opt=>(
                           <Pill key={opt.id} label={opt.emoji+" "+opt.label} active={newExtraApplies.includes(opt.id)} accent={opt.accent}
                             onClick={()=>setNewExtraApplies(p=>p.includes(opt.id)?p.filter(x=>x!==opt.id):[...p,opt.id])}/>
@@ -3206,20 +3272,35 @@ export default function App() {
                             borderRadius:7,padding:"3px 8px",fontSize:11,cursor:"pointer"}}
                             onClick={()=>removeExtraCategory(ex.id)}>Supprimer</button>
                         </div>
-                        <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:8}}>
-                          {ex.options.map(o=>(
-                            <div key={o} style={{background:T.bgTag,border:`1px solid ${T.borderLight}`,borderRadius:20,
-                              padding:"3px 10px",display:"flex",alignItems:"center",gap:4}}>
-                              <span style={{fontSize:12,color:T.text}}>{o}</span>
-                              <button style={{background:"none",border:"none",color:T.red,cursor:"pointer",fontSize:11}} onClick={()=>removeExtraOption(ex.id,o)}>✕</button>
-                            </div>
-                          ))}
+                        <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>
+                          {ex.options.map(o=>{
+                            const current=priceToInput(extraOptPrice(ex,o));
+                            return (
+                              <div key={o} style={{background:T.bgTag,border:`1px solid ${T.borderLight}`,borderRadius:20,
+                                padding:"3px 6px 3px 10px",display:"flex",alignItems:"center",gap:5}}>
+                                <span style={{fontSize:12,color:T.text}}>{o}</span>
+                                <span style={{fontSize:11,color:T.textFaint,marginLeft:2}}>€</span>
+                                <input key={o+"_"+current} defaultValue={current} placeholder="0,00" inputMode="decimal"
+                                  title="Prix du supplément (laisser vide = inclus)"
+                                  onBlur={e=>{ if(e.target.value.trim()!==current) setExtraOptionPrice(ex.id,o,e.target.value); }}
+                                  onKeyDown={e=>{ if(e.key==="Enter") e.target.blur(); }}
+                                  style={{width:52,background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:12,
+                                    color:T.text,padding:"2px 6px",fontSize:11,textAlign:"right",fontFamily:"'DM Sans',sans-serif"}}/>
+                                <button style={{background:"none",border:"none",color:T.red,cursor:"pointer",fontSize:11}} onClick={()=>removeExtraOption(ex.id,o)}>✕</button>
+                              </div>
+                            );
+                          })}
                         </div>
-                        <div style={{display:"flex",gap:6}}>
-                          <input style={{...inp,flex:1,padding:"5px 10px",fontSize:12}} value={newExtraOption[ex.id]||""}
+                        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                          <input style={{...inp,flex:1,minWidth:140,padding:"5px 10px",fontSize:12}} value={newExtraOption[ex.id]||""}
                             onChange={e=>setNewExtraOption(p=>({...p,[ex.id]:e.target.value}))}
                             onKeyDown={e=>e.key==="Enter"&&addExtraOption(ex.id)}
-                            placeholder="Nouvelle option…"/>
+                            placeholder="Nouvelle option… (ex : Fromage)"/>
+                          <input style={{...inp,width:100,flex:"none",padding:"5px 10px",fontSize:12}} value={newExtraPrice[ex.id]||""}
+                            inputMode="decimal"
+                            onChange={e=>setNewExtraPrice(p=>({...p,[ex.id]:e.target.value}))}
+                            onKeyDown={e=>e.key==="Enter"&&addExtraOption(ex.id)}
+                            placeholder="Prix € (opt.)"/>
                           <button style={{...addBtn,padding:"5px 12px",fontSize:12}} onClick={()=>addExtraOption(ex.id)}>+ Ajouter</button>
                         </div>
                       </div>
@@ -3232,5 +3313,5 @@ export default function App() {
         </main>
       </div>
     </div>
-  );
+  ); 
 }
