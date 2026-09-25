@@ -1,0 +1,241 @@
+{
+  "config": {
+    "app": {
+      "title": "Lunch Orders",
+      "shortTitle": ["LUNCH", "ORD"],
+      "logoEmoji": "🍽️",
+      "subtitle": "Organise les commandes de l'équipe en quelques secondes.",
+      "loginHint": "Ton code = ton numéro de poste"
+    },
+    "members": {
+      "list": [
+        { "username": "Admin",        "code": "0000", "isAdmin": true },
+        { "username": "Boryana",      "code": "200" },
+        { "username": "Maïté",        "code": "201" },
+        { "username": "Audrey",       "code": "202" },
+        { "username": "Dorothée",     "code": "203" },
+        { "username": "Salle d'acte", "code": "204" },
+        { "username": "Catherine",    "code": "205" },
+        { "username": "Diana",        "code": "206" },
+        { "username": "Julie",        "code": "207" },
+        { "username": "Frédérique",   "code": "208" },
+        { "username": "Sarah",        "code": "210" }
+      ]
+    },
+    "sauces":   { "list": ["Mayo", "Ketchup", "Andalouse", "Samourai", "Pickles", "Cocktail"] },
+    "crudites": { "list": ["Tomate", "Salade", "Oignon", "Cornichon", "Poivron"] },
+    "boissons": { "list": ["Eau", "Coca", "Fanta", "Ice Tea", "Jus d'orange"] },
+    "extras":   { "list": [] },
+    "quotes": {
+      "list": [
+        { "text": "Vise la lune : même si tu la rates, tu retomberas dans les frites." },
+        { "text": "Rome ne s'est pas faite en un jour. Ton assiette, si." },
+        { "text": "Le succès se construit comme un bon durum : couche par couche." },
+        { "text": "Tomber sept fois, se relever huit, et commander une glace pour fêter ça." },
+        { "text": "N'attends pas l'inspiration : elle arrive souvent pendant la digestion." },
+        { "text": "Sois la meilleure version de toi-même. Surtout à l'heure du déjeuner." },
+        { "text": "Crois en tes rêves — et en ta capacité à finir cette assiette." },
+        { "text": "Aujourd'hui est le premier jour du reste de ton menu." },
+        { "text": "Les grands esprits se rencontrent. Souvent autour d'une frite." },
+        { "text": "On ne choisit pas sa famille, mais on choisit sa sauce." },
+        { "text": "Le seul véritable échec, c'est de sauter le déjeuner." },
+        { "text": "Chaque jour est une nouvelle chance de mieux commander que la veille." },
+        { "text": "La faim sans fin justifie la pause déj." },
+        { "text": "Un estomac plein n'a jamais perdu une réunion." },
+        { "text": "Ceux qui mangent ensemble avancent ensemble." },
+        { "text": "Deviens qui tu es. De préférence après avoir mangé." }
+      ]
+    },
+    "restaurants": {
+      "list": [
+        {
+          "id": "ice-cream",
+          "kind": "glace",
+          "label": "Ice Cream",
+          "menuLabel": "Bou·Boul·e",
+          "recapLabel": "Glace · Bou·Boul·e",
+          "emoji": "🍦",
+          "accent": "#e64980",
+          "bg": "#fff0f6",
+          "header": {
+            "title": "BOU·BOUL·E",
+            "subtitle": "Parfums de la semaine",
+            "gradient": "linear-gradient(135deg, #f5c6d0, #e8a0b0)"
+          },
+          "note": "🌿 = végane · Parfums mis à jour chaque semaine par l'Admin",
+          "links": [],
+          "scoopOptions": [
+            { "label": "1 boule",  "count": 1, "price": 3.3 },
+            { "label": "2 boules", "count": 2, "price": 6.0 }
+          ],
+          "sections": [
+            { "cat": "🍨 Les classiques", "accent": "#c97a8f", "aiKey": "classiques", "action": { "type": "scoop" }, "items": [
+              { "name": "Vanille de Madagascar" }, { "name": "Kulfi" }, { "name": "Stracciatella" },
+              { "name": "Cerise Amarena" }, { "name": "Caramel Beurre Salé" }, { "name": "Café" },
+              { "name": "Spéculoos" }, { "name": "Sorbet Citron 🌿" }, { "name": "Noisette du Piémont" },
+              { "name": "Sorbet Fruit de la Passion 🌿" }, { "name": "Pistache d'Iran" }, { "name": "Sorbet Chocolat 70% 🌿" }
+            ]},
+            { "cat": "✨ Les spéciaux", "accent": "#9b7fa6", "aiKey": "speciaux", "action": { "type": "scoop" }, "items": [
+              { "name": "Bueno" }, { "name": "Oréo" }, { "name": "Menthe Choco" }, { "name": "Mascarpone Fruits des Bois" },
+              { "name": "Sorbet Cassis 🌿" }, { "name": "Sorbet Kiwi Pomme Verte 🌿" }, { "name": "Vanille sans sucre" }
+            ]}
+          ]
+        },
+        {
+          "id": "snack-merode",
+          "kind": "snack",
+          "label": "Snack Merode",
+          "menuLabel": "Snack Merode",
+          "emoji": "🥪",
+          "accent": "#e8590c",
+          "bg": "#fff4e6",
+          "note": "Prix Takeaway · peuvent différer sur place",
+          "links": [
+            { "label": "📎 Takeaway.com ↗", "url": "https://www.takeaway.com/be-fr/menu/snack-merode" },
+            { "label": "📞 02 735 59 70",   "url": "tel:027355970" }
+          ],
+          "fritePlacement": ["Frite dedans", "Frite à part"],
+          "sections": [
+            { "cat": "🥗 Assiettes", "accent": "#5a8f7b", "action": { "type": "main" }, "items": [
+              { "name": "Assiette mixte", "price": "20,00" },
+              { "name": "Assiette brochette de boeuf", "price": "18,60" },
+              { "name": "Assiette brochette de poulet", "price": "18,60" },
+              { "name": "Assiette pitta", "price": "18,60" },
+              { "name": "Assiette kefta", "price": "18,60" },
+              { "name": "Assiette falafel", "price": "16,00" },
+              { "name": "Assiette cuisse de poulet", "price": "17,00" },
+              { "name": "Assiette poulycroc", "price": "13,00" },
+              { "name": "Assiette fish", "price": "13,00" },
+              { "name": "Assiette chick fingers", "price": "13,00" },
+              { "name": "Assiette calamars", "price": "16,00" },
+              { "name": "Assiette fricadelle", "price": "13,00" },
+              { "name": "Assiette boulette", "price": "13,50" },
+              { "name": "Assiette hamburger", "price": "12,00" }
+            ]},
+            { "cat": "🫕 Kapsalon", "accent": "#9b7fa6", "action": { "type": "main" }, "items": [
+              { "name": "Kapsalon pita", "price": "14,00" },
+              { "name": "Kapsalon poulet", "price": "14,00" }
+            ]},
+            { "cat": "🥖 Sandwichs", "accent": "#c8922a", "action": { "type": "main", "snackType": "Bicky", "prefix": "Sandwich" }, "items": [
+              { "name": "Sandwich pitta", "price": "10,00" },
+              { "name": "Sandwich poulet", "price": "10,00" },
+              { "name": "Sandwich kefta", "price": "10,00" },
+              { "name": "Sandwich falafel (4 pièces)", "price": "9,50" },
+              { "name": "Sandwich poulycroc", "price": "9,00" },
+              { "name": "Sandwich fish", "price": "9,00" },
+              { "name": "Sandwich fricadelle", "price": "9,00" },
+              { "name": "Sandwich mexicano", "price": "9,00" },
+              { "name": "Sandwich hamburger", "price": "9,00" }
+            ]},
+            { "cat": "🥙 Dürüms", "accent": "#c97a4a", "action": { "type": "main", "snackType": "Durum", "prefix": "Durum" }, "items": [
+              { "name": "Durum pitta", "price": "10,00" },
+              { "name": "Durum poulet", "price": "10,00" },
+              { "name": "Durum kefta", "price": "10,00" },
+              { "name": "Durum falafel (4 pièces)", "price": "9,50" },
+              { "name": "Durum poulycroc", "price": "9,00" },
+              { "name": "Durum fish", "price": "9,00" },
+              { "name": "Durum fricadelle", "price": "9,00" },
+              { "name": "Durum mexicano", "price": "9,00" }
+            ]},
+            { "cat": "🍔 Burgers", "accent": "#9b7fa6", "action": { "type": "main", "snackType": "Bicky", "prefix": "Burger" }, "items": [
+              { "name": "Burger hamburger", "price": "5,50" },
+              { "name": "Burger fish", "price": "6,50" },
+              { "name": "Burger kefta", "price": "6,50" }
+            ]},
+            { "cat": "🍗 Snacks", "accent": "#c97a4a", "action": { "type": "main" }, "items": [
+              { "name": "Poulet", "price": "6,00" },
+              { "name": "Boeuf", "price": "6,00" },
+              { "name": "Falafel (4 pièces)", "price": "4,00" },
+              { "name": "Poulycroc", "price": "5,00" },
+              { "name": "Fish", "price": "5,00" },
+              { "name": "Fricadelle", "price": "4,00" },
+              { "name": "Boulette", "price": "4,50" },
+              { "name": "Mexicano", "price": "4,50" },
+              { "name": "Cuisse de poulet", "price": "5,50" },
+              { "name": "Chick fingers", "price": "4,50" }
+            ]},
+            { "cat": "🍟 Frites", "accent": "#c8922a", "action": { "type": "frite" }, "items": [
+              { "name": "Petite", "price": "4,80" },
+              { "name": "Moyenne", "price": "" },
+              { "name": "Grande", "price": "" }
+            ]},
+            { "cat": "🫙 Sauces", "accent": "#9b7fa6", "action": { "type": "sauce" }, "items": [
+              { "name": "Samurai", "price": "1,50" }, { "name": "Andalouse", "price": "1,50" },
+              { "name": "Mayonnaise", "price": "1,50" }, { "name": "Pili pili", "price": "1,50" },
+              { "name": "Tartare", "price": "1,50" }, { "name": "Ketchup", "price": "1,50" },
+              { "name": "Curry ketchup", "price": "1,50" }, { "name": "Cocktail", "price": "1,50" },
+              { "name": "Américaine", "price": "1,50" }, { "name": "Brasil", "price": "1,50" },
+              { "name": "Sauce à l'ail", "price": "1,50" }, { "name": "Sauce pita", "price": "1,50" }
+            ]},
+            { "cat": "🥤 Boissons", "accent": "#7a9ab5", "action": { "type": "boisson" }, "items": [
+              { "name": "Coca-Cola 33cl", "price": "2,70" },
+              { "name": "Coca-Cola Zero 33cl", "price": "2,70" },
+              { "name": "Ayran 25cl", "price": "2,70" },
+              { "name": "Tropico Original 33cl", "price": "2,70" },
+              { "name": "Fanta 33cl", "price": "2,70" },
+              { "name": "Ice Tea 33cl", "price": "2,70" },
+              { "name": "Oasis pomme poire 33cl", "price": "2,70" },
+              { "name": "Eau plate 50cl", "price": "2,70" },
+              { "name": "Eau pétillante 50cl", "price": "2,70" }
+            ]}
+          ]
+        },
+        {
+          "id": "libanais",
+          "kind": "plat",
+          "label": "Libanais",
+          "menuLabel": "Snack Libanais",
+          "emoji": "🥙",
+          "accent": "#2f9e44",
+          "bg": "#ebfbee",
+          "note": "Prix Deliveroo · peuvent différer sur place · Minimum de commande : 5 €",
+          "links": [
+            { "label": "📎 Deliveroo ↗", "url": "https://deliveroo.be" }
+          ],
+          "sections": [
+            { "cat": "🫑 Mezzes Froids", "accent": "#5a8f7b", "action": { "type": "main" }, "items": [
+              { "name": "Hoummous", "price": "9,90", "desc": "Purée de pois chiches à l'huile de sésame et jus de citron" },
+              { "name": "Mjaddara", "price": "9,90", "desc": "Lentilles au blé concassé, oignons et épices orientales" },
+              { "name": "Tabbouleh", "price": "9,90", "desc": "Persil, blé concassé, tomates, menthe, oignons, huile d'olive" },
+              { "name": "Moutabal", "price": "9,90", "desc": "Purée d'aubergines grillées, sésame, huile d'olive, citron" },
+              { "name": "Fattouch", "price": "9,90", "desc": "Pains libanais grillés, légumes frais, citron, huile d'olive" },
+              { "name": "Warak Arich Bel Zeit", "price": "9,90", "desc": "Feuilles de vignes farcies aux légumes et au riz" },
+              { "name": "Bourghoul Bel Banadoura", "price": "9,90", "desc": "Blé concassé, tomates, oignons et épices orientales" },
+              { "name": "Moussaka", "price": "9,90", "desc": "Aubergines grillées, sauce tomate, oignons et pois chiches" }
+            ]},
+            { "cat": "🔥 Mezzes Chauds", "accent": "#c97a4a", "action": { "type": "main" }, "items": [
+              { "name": "Kellage x4", "price": "10,40", "desc": "Pitta farcis au fromage halloumi accompagnés de salade" },
+              { "name": "Falafel x4", "price": "10,50", "desc": "Croquettes de pois chiches et fèves écrasées" },
+              { "name": "Hommos Bel Lahmé", "price": "12,50", "desc": "Pois chiches, sésame, viande d'agneau, citron" },
+              { "name": "Arayess x4", "price": "12,90", "desc": "Pitta farcis à la viande hachée et épices orientales" },
+              { "name": "Toshka x4", "price": "12,90", "desc": "Pitta farcis à la viande hachée et fromage halloumi" },
+              { "name": "Ras Asfour", "price": "12,90", "desc": "Morceaux de filet d'agneau poêlés et assaisonnés" }
+            ]},
+            { "cat": "🍖 Grillades", "accent": "#9b7fa6", "action": { "type": "main" }, "items": [
+              { "name": "Assiette Mixte Machawi", "price": "19,50", "desc": "1 kefta, 1 poulet, 1 agneau + frites et salade ⭐" },
+              { "name": "Assiette Lahmeh Machwiyeh x2", "price": "17,90", "desc": "2 brochettes d'agneau marinées + frites et salade" },
+              { "name": "Assiette Chawarma", "price": "16,50", "desc": "Bœuf mariné ou poulet grillé + frites et salade" },
+              { "name": "Assiette Kebab Halabi x3", "price": "18,50", "desc": "3 brochettes viande hachée, persil, oignons" },
+              { "name": "Assiette Chich Taouk x2", "price": "17,50", "desc": "2 brochettes poulet à la crème d'ail + frites" },
+              { "name": "Assiette Libanaise Végétarienne", "price": "16,50", "desc": "5 choix végétariens + salade" },
+              { "name": "Assiette Libanaise avec Viandes", "price": "19,50", "desc": "4 choix végétariens + 1 brochette au choix" },
+              { "name": "Assiette Halloumi", "price": "11,00", "desc": "Halloumi accompagné de salade" },
+              { "name": "Assiette Pitta Arabi", "price": "16,90", "desc": "Chawarma poulet grillé + frites et salade" },
+              { "name": "Assiette Brochette Individuelle", "price": "7,50", "desc": "1 brochette poulet, kafta ou agneau" }
+            ]},
+            { "cat": "🫓 Pittas Libanaises", "accent": "#c8922a", "action": { "type": "main" }, "items": [
+              { "name": "Pitta Chich Taouk", "price": "9,00", "desc": "Poulet grillé mariné à la crème d'ail" },
+              { "name": "Pitta Kebab Halabi", "price": "9,00", "desc": "Viande hachée au persil et oignons" },
+              { "name": "Pitta Chawarma", "price": "9,00", "desc": "Bœuf mariné ou poulet grillé à la flamme" },
+              { "name": "Pitta Végétarien", "price": "9,00", "desc": "Omelette de courgettes, hoummous, aubergines" },
+              { "name": "Pitta Lahmeh Mechwiyeh", "price": "9,00", "desc": "Brochette d'agneau mariné et grillé" }
+            ]},
+            { "cat": "🍟 Frites", "accent": "#c8922a", "action": { "type": "none" }, "items": [
+              { "name": "Frites", "price": "4,50" }
+            ]}
+          ]
+        }
+      ]
+    }
+  }
+}
