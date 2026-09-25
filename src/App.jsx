@@ -298,7 +298,14 @@ const CSS = (T) => `
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html { -webkit-text-size-adjust: 100%; }
-  body { background: ${T.bg}; font-family: 'DM Sans', sans-serif; color: ${T.text}; overflow-x: hidden; }
+  body { background: ${T.bg}; font-family: 'DM Sans', sans-serif; color: ${T.text}; overflow-x: hidden;
+         display: block !important; place-items: initial !important; min-width: 0 !important; text-align: left; }
+  #root { max-width: none !important; width: 100% !important; margin: 0 !important; padding: 0 !important; text-align: left !important; }
+  .num { font-variant-numeric: tabular-nums; }
+  @media (max-width: 767px) {
+    input, select, textarea { font-size: 16px !important; }
+    button { -webkit-tap-highlight-color: transparent; }
+  }
   img, svg, video, canvas { max-width: 100%; height: auto; }
   textarea { resize: vertical; font-family: inherit; }
   button, input, select, textarea { font-family: inherit; }
@@ -669,7 +676,7 @@ function OrderForm({ T, name, order, r, ctx, sauces, crudites, boissons, lists, 
           ))}
           <div style={{display:"flex",justifyContent:"space-between",borderTop:`1px solid ${T.borderLight}`,marginTop:6,paddingTop:6}}>
             <span style={{fontSize:12.5,color:T.textSub}}>Total{priced.hasUnpriced?" (estimé)":""}</span>
-            <span style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:17,color:T.text}}>{fmtEuro(priced.total)}</span>
+            <span style={{fontWeight:700,fontSize:17,fontVariantNumeric:"tabular-nums",color:T.text}}>{fmtEuro(priced.total)}</span>
           </div>
         </div>
         {!complete && <p style={{fontSize:12.5,color:T.orange}}>⚠️ Il manque encore le choix principal : reviens à l'étape « {steps[0].title} ».</p>}
@@ -1105,7 +1112,7 @@ function RecapPanel({ user, names, orders, ctx, T, isMobile, only, onSuggest, pe
       ))}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",borderTop:`1px solid ${T.borderLight}`,paddingTop:10,marginBottom:10}}>
         <span style={{fontSize:12,color:T.textSub}}>Total estimé{infoHint}</span>
-        <span style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:18,color:T.text}}>{fmtEuro(resto.total)}</span>
+        <span style={{fontWeight:700,fontSize:18,fontVariantNumeric:"tabular-nums",color:T.text}}>{fmtEuro(resto.total)}</span>
       </div>
       <button onClick={copyList} style={{width:"100%",background:copied?T.green:T.sidebar,color:"#fff",border:"none",borderRadius:11,padding:11,fontSize:13,fontWeight:600,cursor:"pointer",transition:"background 0.2s"}}>
         {copied?"✓ Copié !":"📋 Copier la liste pour le resto"}
@@ -1125,7 +1132,7 @@ function RecapPanel({ user, names, orders, ctx, T, isMobile, only, onSuggest, pe
       ))}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",borderTop:`1px solid ${T.borderLight}`,paddingTop:10,marginTop:6}}>
         <span style={{fontSize:12,color:T.textSub}}>Mon total{perso.hasUnpriced?" (estimé)":""}{infoHint}</span>
-        <span style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:18,color:T.text}}>{fmtEuro(perso.total)}</span>
+        <span style={{fontWeight:700,fontSize:18,fontVariantNumeric:"tabular-nums",color:T.text}}>{fmtEuro(perso.total)}</span>
       </div>
       {personalStatus && <div style={{marginTop:12}}>{personalStatus}</div>}
     </>
@@ -1398,7 +1405,7 @@ export default function App() {
   const saveSaucesSettings  =async s=>{setSaucesSettings(s);   await setDoc(cfgRef("sauces"),  {settings:s},{merge:true});};
   const saveCruditesSettings=async s=>{setCruditesSettings(s); await setDoc(cfgRef("crudites"),{settings:s},{merge:true});};
   const saveAppConfig=async patch=>{ const n={...appConfig,...patch}; setAppConfig(n); await setDoc(cfgRef("app"),n); };
-  const saveDay=async patch=>{ const n={...dayState,...patch}; setDayState(n); await setDoc(doc(db,"state","today"),n); };
+  const saveDay=async patch=>{ const n={...day,...patch,date:todayStr()}; setDayState(n); await setDoc(doc(db,"state","today"),n); };
 
   const updateResto=(rid,fn)=>pr(restaurants.map(r=>r.id===rid?fn(r):r));
   const saveSection=(rid,cat,items)=>updateResto(rid,r=>({...r,sections:sectionsOf(r).map(s=>s.cat===cat?{...s,items}:s)}));
@@ -1411,19 +1418,21 @@ export default function App() {
   const orderers = members.filter(m=>!m.isAdmin).map(m=>m.username);
   const names = isAdmin ? orderers : [user, ...orderers.filter(n=>n!==user)];
   const adminCount = members.filter(m=>m.isAdmin).length;
-  const paid = dayState.paid || {};
+  // Un état d'un autre jour (journée pas archivée) est ignoré
+  const day = dayState.date===todayStr() ? dayState : {};
+  const paid = day.paid || {};
   const unsettledIds = new Set(ledger.map(e=>e.id));
 
   // ── Heure limite & verrouillage ──
   const deadlineTs = (()=>{ const d=appConfig.orderDeadline; if(!/^\d{1,2}:\d{2}$/.test(d||"")) return null; const [h,m]=d.split(":").map(Number); const x=new Date(); x.setHours(h,m,0,0); return x.getTime(); })();
   const pastDeadline = deadlineTs!=null && now>deadlineTs;
-  const locked = !!dayState.locked || (pastDeadline && !dayState.reopened);
+  const locked = !!day.locked || (pastDeadline && !day.reopened);
   const minutesLeft = deadlineTs!=null ? Math.ceil((deadlineTs-now)/60000) : null;
   const canEditFor = (name) => {
     if (isAdmin) return true;
     if (name!==user || locked) return false;
     const c = orders[name]?.choice;
-    return !(c && paid[c]);
+    return !(c && paid[c] && paid[c].shares?.[name]!=null);
   };
 
   // ── Notifications avec action (ex. Annuler) ──
@@ -1524,7 +1533,7 @@ export default function App() {
       batch.set(ref,{ date, restoId:rid, restoLabel:r?.label||rid, payer, debtor:s.name, amount:round2(s.amount), settled:false, claimed:false, ts });
     });
     const shareMap = Object.fromEntries(shares.map(s=>[s.name, s.amount]));
-    batch.set(doc(db,"state","today"),{ ...dayState, paid:{ ...paid, [rid]:{ payer, total:round2(total), shares:shareMap, entryIds:ids, ts } } });
+    batch.set(doc(db,"state","today"),{ ...day, date:todayStr(), paid:{ ...paid, [rid]:{ payer, total:round2(total), shares:shareMap, entryIds:ids, ts } } });
     await batch.commit();
     setPayModal(null);
     showToast(`Paiement enregistré : ${payer} · ${fmtEuro(total)}`);
@@ -1536,7 +1545,7 @@ export default function App() {
     const batch = writeBatch(db);
     (p.entryIds||[]).forEach(id=>{ if(unsettledIds.has(id)) batch.delete(doc(db,"ledger",id)); });
     const np = { ...paid }; delete np[rid];
-    batch.set(doc(db,"state","today"),{ ...dayState, paid:np });
+    batch.set(doc(db,"state","today"),{ ...day, date:todayStr(), paid:np });
     await batch.commit();
   };
   const pairEntries = (a,b) => ledger.filter(e=>(e.payer===a&&e.debtor===b)||(e.payer===b&&e.debtor===a));
@@ -1595,7 +1604,7 @@ export default function App() {
     const cleanPaid=Object.fromEntries(Object.entries(paid).map(([k,v])=>[k,{payer:v.payer,total:v.total,shares:v.shares||{}}]));
     if(Object.keys(snapshot).length>0) await setDoc(doc(db,"history",`${today}_${Date.now()}`),{date:today,orders:snapshot,paid:cleanPaid});
     await Promise.all(members.map(m=>deleteDoc(doc(db,"orders",m.username))));
-    await setDoc(doc(db,"state","today"),{locked:false,reopened:false,paid:{}});
+    await setDoc(doc(db,"state","today"),{date:todayStr(),locked:false,reopened:false,paid:{}});
     await logActivity("reset",`${user} a archivé et réinitialisé les commandes du jour`);
   };
   const deleteHistory=async id=>{ if(!window.confirm("Supprimer ce jour de l'historique ?"))return; await deleteDoc(doc(db,"history",id)); };
@@ -1656,7 +1665,7 @@ export default function App() {
   };
   const navPrimary = ["order","summary","menu","accounts"];
   const navSecondary = ["messages","history","profile", ...(isAdmin?["settings"]:[])];
-  const itemBadge = id => id==="messages" ? unreadChat+unreadActivity : id==="accounts" ? accountsBadge : 0;
+  const itemBadge = id => id==="messages" ? unreadChat : id==="accounts" ? accountsBadge : 0;
   const secBadge = navSecondary.reduce((a,id)=>a+itemBadge(id),0);
   const secActive = navSecondary.includes(tab);
 
@@ -1745,7 +1754,7 @@ export default function App() {
                 <button onClick={()=>chooseResto(name, order.choice)}
                   style={{background:"transparent",border:`1px solid ${T.red}55`,color:T.red,borderRadius:9,padding:"7px 12px",fontSize:12.5,cursor:"pointer"}}>Annuler la commande</button>
               )}
-              {!canEdit && isMe && <span style={{fontSize:12,color:T.textFaint}}>{paid[order.choice]?"💳 Déjà payé":"🔒 Clôturé"}</span>}
+              {!canEdit && isMe && <span style={{fontSize:12,color:T.textFaint}}>{paid[order.choice]?.shares?.[name]!=null?"💳 Déjà payé":"🔒 Clôturé"}</span>}
             </div>
           </div>
         </div>
@@ -1927,7 +1936,7 @@ export default function App() {
       <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0}}>
 
         {isMobile && (
-          <header style={{background:T.bgCard,borderBottom:`1px solid ${T.border}`,padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100}}>
+          <header style={{background:T.bgCard,borderBottom:`1px solid ${T.border}`,padding:"12px 16px",paddingTop:"calc(12px + env(safe-area-inset-top, 0px))",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100}}>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               {appConfig.logoEmoji && <span style={{fontSize:18}}>{appConfig.logoEmoji}</span>}
               <span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:15,color:T.text}}>{appConfig.title||""}</span>
@@ -2222,11 +2231,11 @@ export default function App() {
                     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
                       <div style={{...card,padding:"14px 16px"}}>
                         <div style={{fontSize:12,color:T.textSub}}>Je dois</div>
-                        <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:22,color:owe>0?T.orange:T.textFaint}}>{fmtEuro(owe)}</div>
+                        <div style={{fontWeight:700,fontSize:22,fontVariantNumeric:"tabular-nums",color:owe>0?T.orange:T.textFaint}}>{fmtEuro(owe)}</div>
                       </div>
                       <div style={{...card,padding:"14px 16px"}}>
                         <div style={{fontSize:12,color:T.textSub}}>On me doit</div>
-                        <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:22,color:owed>0?T.green:T.textFaint}}>{fmtEuro(owed)}</div>
+                        <div style={{fontWeight:700,fontSize:22,fontVariantNumeric:"tabular-nums",color:owed>0?T.green:T.textFaint}}>{fmtEuro(owed)}</div>
                       </div>
                     </div>
                     <div style={{display:"flex",flexDirection:"column",gap:10}}>
