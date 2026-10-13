@@ -5,6 +5,7 @@ import {
   query, where, writeBatch,
 } from "firebase/firestore";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
+import Planning from "./Planning.jsx";
 
 // ── Firebase (valeurs dans .env / variables d'environnement Vercel) ───────────
 const firebaseConfig = {
@@ -1048,7 +1049,7 @@ function ProfileTab({ user, profiles, members, T, editingProfile, setEditingProf
 
       <h3 style={{fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:15,color:T.text,margin:"24px 0 12px"}}>👥 L'équipe</h3>
       <div style={{display:"flex",flexDirection:"column",gap:8}}>
-        {members.map(m=>m.username).filter(n=>n!==user).map(name=>{
+        {members.filter(m=>!m.planningOnly).map(m=>m.username).filter(n=>n!==user).map(name=>{
           const p=profiles[name]||{};
           return (
             <div key={name} style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:12,padding:"12px 16px",display:"flex",alignItems:"center",gap:12,boxShadow:T.shadow}}>
@@ -1393,6 +1394,11 @@ export default function App() {
   if(!user) return <LoginScreen onLogin={setUser} T={T} isDark={isDark} toggleTheme={toggleTheme}
     members={members} membersLoaded={membersLoaded} appConfig={appConfig} restaurants={restaurants}/>;
 
+  // Profil « planning uniquement » : ne voit que le planning
+  if(members.find(m=>m.username===user)?.planningOnly) return (
+    <Planning db={db} T={T} user={user} isDark={isDark} toggleTheme={toggleTheme} isMobile={isMobile} onLogout={()=>setUser(null)}/>
+  );
+
   // ── Persistance config ──
   const cfgRef = id => doc(db,"config",id);
   const pm=async l=>{setMembers(l);     await setDoc(cfgRef("members"),    {list:l},{merge:true});};
@@ -1415,7 +1421,7 @@ export default function App() {
 
   const lists = { sauces:saucesSettings, crudites:cruditesSettings };
   const ctx = { restaurants, extras, sauces, crudites, listCfg:lists };
-  const orderers = members.filter(m=>!m.isAdmin).map(m=>m.username);
+  const orderers = members.filter(m=>!m.isAdmin&&!m.planningOnly).map(m=>m.username);
   const names = isAdmin ? orderers : [user, ...orderers.filter(n=>n!==user)];
   const adminCount = members.filter(m=>m.isAdmin).length;
   // Un état d'un autre jour (journée pas archivée) est ignoré
@@ -1501,7 +1507,13 @@ export default function App() {
   const toggleMemberAdmin=async n=>{
     const m=members.find(x=>x.username===n);
     if(m?.isAdmin && adminCount<=1){ alert("Il faut au moins un administrateur."); return; }
-    await pm(members.map(x=>x.username===n?{...x,isAdmin:!x.isAdmin}:x));
+    await pm(members.map(x=>x.username===n?{...x,isAdmin:!x.isAdmin,planningOnly:false}:x));
+  };
+  const toggleMemberPlanning=async n=>{
+    const m=members.find(x=>x.username===n);
+    if(n===user){ alert("Tu ne peux pas passer ton propre compte en « planning uniquement »."); return; }
+    if(!m?.planningOnly && m?.isAdmin && adminCount<=1){ alert("Il faut au moins un administrateur."); return; }
+    await pm(members.map(x=>x.username===n?{...x,planningOnly:!x.planningOnly,isAdmin:false}:x));
   };
   const saveMemberEdit=async()=>{ if(!editingMember)return; const {_orig,...clean}=editingMember; await pm(members.map(m=>m.username===_orig?clean:m)); setEditingMember(null); };
 
@@ -2604,7 +2616,7 @@ export default function App() {
               {/* Membres */}
               <div style={card}>
                 <h2 style={h2}>👥 Membres</h2>
-                <p style={helpS}>👑 = administrateur (ne commande pas, gère la configuration). La suppression d'un membre se fait uniquement ici.</p>
+                <p style={helpS}>👑 = administrateur (ne commande pas, gère la configuration). 📅 = planning uniquement (ne voit que le planning, ne commande pas). La suppression d'un membre se fait uniquement ici.</p>
                 <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
                   <input style={{...inp,flex:2,minWidth:140}} value={newMemberName} onChange={e=>setNewMemberName(e.target.value)} placeholder="Nom…"/>
                   <input style={{...inp,flex:1,minWidth:100}} value={newMemberCode} onChange={e=>setNewMemberCode(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addMember()} placeholder="Code…"/>
@@ -2623,10 +2635,12 @@ export default function App() {
                       ) : (
                         <>
                           <Avatar name={m.username} size={28} profile={profiles[m.username]}/>
-                          <span style={{flex:1,fontSize:13.5,fontWeight:500,color:T.text}}>{m.isAdmin?"👑 ":""}{m.username}</span>
+                          <span style={{flex:1,fontSize:13.5,fontWeight:500,color:T.text}}>{m.isAdmin?"👑 ":""}{m.planningOnly?"📅 ":""}{m.username}</span>
                           <Tag T={T}>{m.code}</Tag>
                           <button className="btn-ghost" title={m.isAdmin?"Retirer les droits admin":"Rendre admin"} onClick={()=>toggleMemberAdmin(m.username)}
                             style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",opacity:m.isAdmin?1:0.45}}>👑</button>
+                          <button className="btn-ghost" title={m.planningOnly?"Redonner l'accès normal":"Planning uniquement"} onClick={()=>toggleMemberPlanning(m.username)}
+                            style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",opacity:m.planningOnly?1:0.45}}>📅</button>
                           <button className="btn-ghost" aria-label="Modifier" style={{background:"transparent",border:`1px solid ${T.border}`,color:T.textSub,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer"}} onClick={()=>setEditingMember({...m,_orig:m.username})}>✏️</button>
                           <button aria-label="Supprimer" style={{background:"none",border:"none",color:T.red,cursor:"pointer",fontSize:14,padding:4}} onClick={()=>removeMember(m.username)}>✕</button>
                         </>
