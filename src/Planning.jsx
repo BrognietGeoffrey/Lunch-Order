@@ -2,14 +2,20 @@ import { useState, useEffect, useRef } from "react";
 import { doc, setDoc, onSnapshot } from "firebase/firestore";
 
 // ── Planning (profil « planning uniquement ») ─────────────────────────────────
-// Données : Firestore config/planning  →  { cards:[{id,name,slots:[{id,start,end,type,label}]}], updatedAt, updatedBy }
+// Données : Firestore config/planning  →  { cards:[{id,name,slots:[{id,start,end,type,label}]}], statuses:[{id,label,color}], updatedAt, updatedBy }
 
 const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-3);
 const toMin = t => { if (!/^\d{1,2}:\d{2}$/.test(t || "")) return NaN; const [h, m] = t.split(":").map(Number); return h * 60 + m; };
 const toTime = m => `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 const fmtDur = m => { if (!(m > 0)) return "—"; const h = Math.floor(m / 60), r = m % 60; return h ? `${h}h${r ? String(r).padStart(2, "0") : ""}` : `${r} min`; };
-const NEXT = { free: "busy", busy: "pause", pause: "free" };
-const LABEL = { free: "Libre", busy: "Occupé", pause: "Pause" };
+// Statuts de départ, utilisés seulement tant que config/planning n'a pas encore de liste « statuses »
+const DEFAULT_STATUSES = [
+  { id: "free", label: "Libre", color: "#2f9e44" },
+  { id: "busy", label: "Occupé", color: "#c92a2a" },
+  { id: "pause", label: "Pause", color: "#868e96" },
+];
+const SWATCHES = ["#2f9e44", "#74b816", "#f59f00", "#e8590c", "#c92a2a", "#d6336c", "#ae3ec9", "#7048e8", "#1c7ed6", "#0c8599", "#868e96", "#495057"];
+const rgba = (hex, a) => { const m = /^#?([0-9a-f]{6})$/i.exec(hex || ""); if (!m) return `rgba(134,142,150,${a})`; const n = parseInt(m[1], 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
 const sortByTime = slots => [...slots].sort((a, b) => (toMin(a.start) || 0) - (toMin(b.start) || 0));
 const swap = (arr, i, j) => { const a = [...arr]; [a[i], a[j]] = [a[j], a[i]]; return a; };
 
@@ -27,6 +33,9 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
   const [printSel, setPrintSel] = useState([]);
   const [onePerPage, setOnePerPage] = useState(false);
   const [printing, setPrinting] = useState(null); // ids des cartes à imprimer
+  const [statuses, setStatuses] = useState(DEFAULT_STATUSES);
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [newStatus, setNewStatus] = useState({ label: "", color: SWATCHES[2] });
 
   useEffect(() => {
     if (!printing) return;
@@ -46,20 +55,22 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
     if (s.metadata.hasPendingWrites || dirty.current) return; // on ignore l'écho de nos propres écritures
     const d = s.exists() ? s.data() : {};
     setCards(Array.isArray(d.cards) ? d.cards : []);
+    setStatuses(Array.isArray(d.statuses) && d.statuses.length ? d.statuses : DEFAULT_STATUSES);
     setLoaded(true);
   }, () => setLoaded(true)), []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => () => clearTimeout(saveTimer.current), []);
 
-  const commit = next => {
+  const commit = (next, nextStatuses = statuses) => {
     setCards(next);
+    setStatuses(nextStatuses);
     dirty.current = true;
     setSaveState("saving");
     const v = ++version.current;
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       try {
-        await setDoc(ref, { cards: next, updatedAt: Date.now(), updatedBy: user });
+        await setDoc(ref, { cards: next, statuses: nextStatuses, updatedAt: Date.now(), updatedBy: user });
         if (v === version.current) setSaveState("saved");
       } catch (e) {
         console.error("Planning : sauvegarde échouée", e);
@@ -71,8 +82,34 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
   const updCard = (ci, patch) => commit(cards.map((c, i) => i === ci ? { ...c, ...patch } : c));
   const updSlot = (ci, si, patch) => updCard(ci, { slots: cards[ci].slots.map((s, i) => i === si ? { ...s, ...patch } : s) });
 
-  const addCard = () => commit([...cards, { id: uid(), name: "Nouveau", slots: [{ id: uid(), start: "09:00", end: "10:00", type: "free", label: "" }] }]);
-  const addSlot = (ci, type = "free") => {
+  const stOf = id => statuses.find(x => x.id === id) || { id, label: "Sans statut", color: "#868e96" };
+  const defType = (statuses.find(x => x.id === "free") || statuses[0]).id;
+  const hasPause = statuses.some(x => x.id === "pause");
+  const totals = slots => {
+    const t = {};
+    slots.forEach(s => { const d = toMin(s.end) - toMin(s.start); if (d > 0 && s.type !== "pause") t[s.type] = (t[s.type] || 0) + d; });
+    return statuses.filter(x => t[x.id]).map(x => ({ ...x, mins: t[x.id] }));
+  };
+
+  // ── Gestion des statuts ──
+  const updStatus = (i, patch) => commit(cards, statuses.map((x, j) => j === i ? { ...x, ...patch } : x));
+  const addStatus = () => {
+    const label = newStatus.label.trim();
+    if (!label) return;
+    commit(cards, [...statuses, { id: "st_" + uid(), label, color: newStatus.color }]);
+    setNewStatus({ label: "", color: newStatus.color });
+  };
+  const removeStatus = i => {
+    if (statuses.length <= 1) return;
+    const gone = statuses[i].id;
+    const rest = statuses.filter((_, j) => j !== i);
+    const fallback = (rest.find(x => x.id === "free") || rest[0]).id;
+    commit(cards.map(c => ({ ...c, slots: c.slots.map(s => s.type === gone ? { ...s, type: fallback } : s) })), rest);
+  };
+  const usage = id => cards.reduce((n, c) => n + c.slots.filter(s => s.type === id).length, 0);
+
+  const addCard = () => commit([...cards, { id: uid(), name: "Nouveau", slots: [{ id: uid(), start: "09:00", end: "10:00", type: defType, label: "" }] }]);
+  const addSlot = (ci, type = defType) => {
     const slots = cards[ci].slots;
     const last = [...slots].reverse().find(s => !isNaN(toMin(s.end)));
     const start = last ? last.end : "09:00";
@@ -92,11 +129,7 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
   };
 
   // ── Styles ──
-  const C = {
-    free: { bg: T.isDark ? "#16301f" : "#e6f5ea", line: T.isDark ? "#2a5a38" : "#b9e2c7", chip: T.green },
-    busy: { bg: T.isDark ? "#3a1c1a" : "#fbe9e9", line: T.isDark ? "#5d2a26" : "#f0c4c4", chip: T.red },
-    pause: { bg: T.bgHover, line: T.border, chip: T.textFaint },
-  };
+  const colOf = id => { const c = stOf(id).color; return { bg: rgba(c, T.isDark ? .22 : .13), line: rgba(c, T.isDark ? .5 : .4), chip: c }; };
   const btn = { background: T.bgCard, border: `1px solid ${T.border}`, color: T.text, borderRadius: 9, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer" };
   const icon = { background: "transparent", border: "none", color: T.textFaint, cursor: "pointer", padding: "4px 6px", borderRadius: 6, fontSize: 13, lineHeight: 1 };
   const ghost = { background: "transparent", border: `1px dashed ${T.border}`, color: T.textSub, borderRadius: 8, padding: "6px 10px", fontSize: 12.5, cursor: "pointer" };
@@ -122,10 +155,11 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
       <main style={{ maxWidth: 1280, margin: "0 auto", padding: "18px 16px 0", display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, justifyContent: "space-between" }}>
           <p style={{ margin: 0, fontSize: 12.5, color: T.textSub, maxWidth: 640 }}>
-            Touche un nom ou une heure pour modifier · la pastille bascule Libre / Occupé / Pause · ▲▼ (ou glisser ⠿ sur ordinateur) pour réordonner.
+            Touche un nom ou une heure pour modifier · la pastille permet de choisir le statut · ▲▼ (ou glisser ⠿ sur ordinateur) pour réordonner.
           </p>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {cards.length > 0 && <button style={btn} onClick={() => commit(cards.map(c => ({ ...c, slots: sortByTime(c.slots) })))}>Trier tout par heure</button>}
+            <button style={btn} onClick={() => setStatusOpen(true)}>🎨 Statuts</button>
             {cards.length > 0 && <button style={btn} onClick={openPrint}>🖨️ Imprimer</button>}
             <button style={{ ...btn, background: T.accent, borderColor: T.accent, color: "#fff" }} onClick={addCard}>+ Ajouter une carte</button>
           </div>
@@ -142,8 +176,7 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill,minmax(330px,1fr))", gap: 14, alignItems: "start" }}>
             {cards.map((c, ci) => {
-              let free = 0, busy = 0;
-              c.slots.forEach(s => { const d = toMin(s.end) - toMin(s.start); if (d > 0) { if (s.type === "free") free += d; else if (s.type === "busy") busy += d; } });
+              const tot = totals(c.slots);
               const cKey = "card:" + c.id;
               return (
                 <article key={c.id} style={{ background: T.bgCard, border: `1px solid ${T.borderLight}`, borderRadius: 14, boxShadow: T.shadow, minWidth: 0 }}>
@@ -156,9 +189,10 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
                     <button style={confirm === cKey ? { ...icon, background: T.red, color: "#fff", fontSize: 11.5 } : icon} title="Supprimer la carte"
                       onClick={() => askOrDo(cKey, () => commit(cards.filter((_, i) => i !== ci)))}>{confirm === cKey ? "Confirmer" : "✕"}</button>
                   </div>
-                  <div style={{ display: "flex", gap: 14, fontSize: 12, color: T.textSub, padding: "8px 14px 0", fontVariantNumeric: "tabular-nums" }}>
-                    <span><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 4, background: T.green, marginRight: 5 }} />Libre {fmtDur(free)}</span>
-                    <span><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 4, background: T.red, marginRight: 5 }} />Occupé {fmtDur(busy)}</span>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px", fontSize: 12, color: T.textSub, padding: "8px 14px 0", fontVariantNumeric: "tabular-nums" }}>
+                    {tot.length ? tot.map(x => (
+                      <span key={x.id}><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 4, background: x.color, marginRight: 5 }} />{x.label} {fmtDur(x.mins)}</span>
+                    )) : <span>Aucun créneau</span>}
                   </div>
 
                   <div style={{ padding: 10, display: "flex", flexDirection: "column", gap: 6 }}
@@ -170,7 +204,8 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
                       const overlap = prev && toMin(s.start) < toMin(prev.end);
                       const bad = !(d > 0);
                       const sKey = "slot:" + s.id;
-                      const col = C[s.type] || C.free;
+                      const col = colOf(s.type);
+                      const st = stOf(s.type);
                       return (
                         <div key={s.id} draggable={!isMobile}
                           onDragStart={e => { drag.current = { ci, si }; e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", s.id); } catch { /* */ } }}
@@ -189,13 +224,16 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
                                 style={{ width: "100%", fontSize: 12.5, border: "1px solid transparent", background: "transparent", color: T.textSub, padding: "2px 4px", borderRadius: 6 }} />
                             )}
                             <div style={{ width: "100%", fontSize: 11.5, paddingLeft: 3, color: bad || overlap ? T.red : T.textSub, fontWeight: bad || overlap ? 600 : 400, fontVariantNumeric: "tabular-nums" }}>
-                              {bad ? "La fin est avant le début" : `${fmtDur(d)} · ${LABEL[s.type].toLowerCase()}${overlap ? " · chevauche le précédent" : ""}`}
+                              {bad ? "La fin est avant le début" : `${fmtDur(d)} · ${st.label.toLowerCase()}${overlap ? " · chevauche le précédent" : ""}`}
                             </div>
                           </div>
-                          <button onClick={() => updSlot(ci, si, { type: NEXT[s.type] || "free", label: s.label || (NEXT[s.type] === "pause" ? "pause déjeuner" : "") })}
-                            style={{ background: col.chip, color: "#fff", border: "none", borderRadius: 999, padding: "4px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
-                            ● {LABEL[s.type]}
-                          </button>
+                          <select id={`pl-ty-${s.id}`} value={s.type} aria-label="Statut"
+                            onChange={e => updSlot(ci, si, { type: e.target.value, label: s.label || (e.target.value === "pause" ? "pause déjeuner" : "") })}
+                            style={{ appearance: "none", WebkitAppearance: "none", background: col.chip, color: "#fff", border: "none", borderRadius: 999, padding: "5px 22px 5px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer", maxWidth: 150, textOverflow: "ellipsis",
+                              backgroundImage: "linear-gradient(45deg,transparent 50%,#fff 50%),linear-gradient(135deg,#fff 50%,transparent 50%)", backgroundPosition: "calc(100% - 11px) 50%,calc(100% - 7px) 50%", backgroundSize: "4px 4px", backgroundRepeat: "no-repeat" }}>
+                            {!statuses.some(x => x.id === s.type) && <option value={s.type}>Sans statut</option>}
+                            {statuses.map(x => <option key={x.id} value={x.id}>{x.label}</option>)}
+                          </select>
                           <div style={{ display: "flex", alignItems: "center" }}>
                             <div style={{ display: "flex", flexDirection: "column" }}>
                               <button style={{ ...icon, fontSize: 10, padding: "1px 5px" }} disabled={si === 0} aria-label="Monter" onClick={() => updCard(ci, { slots: swap(c.slots, si, si - 1) })}>▲</button>
@@ -211,7 +249,7 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
 
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6, padding: "0 10px 12px" }}>
                     <button style={ghost} onClick={() => addSlot(ci)}>+ Créneau</button>
-                    <button style={ghost} onClick={() => addSlot(ci, "pause")}>+ Pause</button>
+                    {hasPause && <button style={ghost} onClick={() => addSlot(ci, "pause")}>+ Pause</button>}
                     <button style={ghost} onClick={() => updCard(ci, { slots: sortByTime(c.slots) })}>Trier par heure</button>
                   </div>
                 </article>
@@ -220,6 +258,59 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
           </div>
         )}
       </main>
+
+      {statusOpen && (
+        <div role="dialog" aria-modal="true" aria-label="Statuts" onClick={e => { if (e.target === e.currentTarget) setStatusOpen(false); }}
+          style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,.45)", display: "flex", alignItems: isMobile ? "flex-end" : "center", justifyContent: "center", padding: isMobile ? 0 : 16 }}>
+          <div style={{ background: T.bgCard, color: T.text, width: "100%", maxWidth: 440, maxHeight: "88vh", overflow: "auto", borderRadius: isMobile ? "16px 16px 0 0" : 16, padding: `18px 18px calc(18px + env(safe-area-inset-bottom, 0px))`, boxShadow: T.shadowHover }}>
+            <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 18, marginBottom: 4 }}>🎨 Statuts</div>
+            <div style={{ fontSize: 12.5, color: T.textSub, marginBottom: 14 }}>Renomme, change la couleur ou ajoute tes propres statuts (ex. « Occupé mais dispo »). Touche la pastille de couleur pour la changer.</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+              {statuses.map((x, i) => {
+                const k = "status:" + x.id, n = usage(x.id);
+                return (
+                  <div key={x.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 8px", borderRadius: 10, background: rgba(x.color, T.isDark ? .2 : .1), border: `1px solid ${rgba(x.color, .4)}` }}>
+                    <input type="color" id={`pl-sc-${x.id}`} value={x.color} onChange={e => updStatus(i, { color: e.target.value })} aria-label={`Couleur de ${x.label}`}
+                      style={{ width: 30, height: 30, padding: 0, border: "none", borderRadius: 8, background: "transparent", cursor: "pointer", flexShrink: 0 }} />
+                    <input id={`pl-sl-${x.id}`} value={x.label} onChange={e => updStatus(i, { label: e.target.value })} aria-label="Nom du statut"
+                      style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, border: `1px solid ${T.borderLight}`, background: T.bgInput, color: T.text, borderRadius: 7, padding: "6px 8px" }} />
+                    <span style={{ fontSize: 11, color: T.textFaint, whiteSpace: "nowrap" }}>{n} créneau{n > 1 ? "x" : ""}</span>
+                    <div style={{ display: "flex", flexDirection: "column" }}>
+                      <button style={{ ...icon, fontSize: 10, padding: "1px 5px" }} disabled={i === 0} aria-label="Monter" onClick={() => commit(cards, swap(statuses, i, i - 1))}>▲</button>
+                      <button style={{ ...icon, fontSize: 10, padding: "1px 5px" }} disabled={i === statuses.length - 1} aria-label="Descendre" onClick={() => commit(cards, swap(statuses, i, i + 1))}>▼</button>
+                    </div>
+                    <button disabled={statuses.length <= 1} title={n ? "Les créneaux concernés passeront au premier statut restant" : "Supprimer"}
+                      style={confirm === k ? { ...icon, background: T.red, color: "#fff", fontSize: 11 } : icon}
+                      onClick={() => askOrDo(k, () => removeStatus(i))}>{confirm === k ? (n ? `Oui (${n})` : "Oui ?") : "✕"}</button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Nouveau statut</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              <input id="pl-ns-label" value={newStatus.label} onChange={e => setNewStatus({ ...newStatus, label: e.target.value })} onKeyDown={e => e.key === "Enter" && addStatus()}
+                placeholder="Ex. Occupé mais dispo" style={{ flex: 1, minWidth: 0, fontSize: 14, border: `1px solid ${T.border}`, background: T.bgInput, color: T.text, borderRadius: 8, padding: "8px 10px" }} />
+              <input type="color" id="pl-ns-color" value={newStatus.color} onChange={e => setNewStatus({ ...newStatus, color: e.target.value })} aria-label="Couleur"
+                style={{ width: 38, height: 38, padding: 0, border: "none", borderRadius: 8, background: "transparent", cursor: "pointer", flexShrink: 0 }} />
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+              {SWATCHES.map(c => (
+                <button key={c} aria-label={`Couleur ${c}`} onClick={() => setNewStatus({ ...newStatus, color: c })}
+                  style={{ width: 26, height: 26, borderRadius: 13, background: c, border: newStatus.color === c ? `3px solid ${T.text}` : `2px solid ${T.bgCard}`, boxShadow: `0 0 0 1px ${T.border}`, cursor: "pointer", padding: 0 }} />
+              ))}
+            </div>
+            {newStatus.label.trim() && (
+              <div style={{ marginBottom: 12, fontSize: 12, color: T.textSub }}>Aperçu : <span style={{ background: newStatus.color, color: "#fff", borderRadius: 999, padding: "3px 10px", fontWeight: 700 }}>{newStatus.label.trim()}</span></div>
+            )}
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button style={btn} onClick={() => setStatusOpen(false)}>Fermer</button>
+              <button disabled={!newStatus.label.trim()} onClick={addStatus}
+                style={{ ...btn, background: T.accent, borderColor: T.accent, color: "#fff", opacity: newStatus.label.trim() ? 1 : .5 }}>+ Ajouter</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {printOpen && (
         <div role="dialog" aria-modal="true" aria-label="Imprimer le planning" onClick={e => { if (e.target === e.currentTarget) setPrintOpen(false); }}
@@ -264,19 +355,21 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
       </div>
       <div className={onePerPage ? "pl-print-list" : "pl-print-grid"}>
         {printCards.map(c => {
-          let free = 0, busy = 0;
-          c.slots.forEach(s => { const d = toMin(s.end) - toMin(s.start); if (d > 0) { if (s.type === "free") free += d; else if (s.type === "busy") busy += d; } });
+          const tot = totals(c.slots);
           return (
             <section key={c.id} className={"pl-print-card" + (onePerPage ? " pl-big" : "")}>
               <div className="pl-print-name">{c.name}</div>
-              <div className="pl-print-stats">Libre {fmtDur(free)} · Occupé {fmtDur(busy)}</div>
-              {c.slots.map(s => (
-                <div key={s.id} className={"pl-print-slot " + s.type}>
-                  <span className="pl-print-time">{s.start || "--:--"} – {s.end || "--:--"}</span>
-                  <span className="pl-print-dur">{fmtDur(toMin(s.end) - toMin(s.start))}</span>
-                  <span className="pl-print-state">{s.type === "pause" ? (s.label || "Pause") : LABEL[s.type]}</span>
-                </div>
-              ))}
+              <div className="pl-print-stats">{tot.map(x => `${x.label} ${fmtDur(x.mins)}`).join(" · ")}</div>
+              {c.slots.map(s => {
+                const st = stOf(s.type);
+                return (
+                  <div key={s.id} className={"pl-print-slot" + (s.type === "pause" ? " pause" : "")} style={{ background: rgba(st.color, .14), borderColor: rgba(st.color, .5) }}>
+                    <span className="pl-print-time">{s.start || "--:--"} – {s.end || "--:--"}</span>
+                    <span className="pl-print-dur">{fmtDur(toMin(s.end) - toMin(s.start))}</span>
+                    <span className="pl-print-state" style={{ color: st.color }}>{s.type === "pause" ? (s.label || st.label) : st.label}</span>
+                  </div>
+                );
+              })}
             </section>
           );
         })}
@@ -305,15 +398,11 @@ const PRINT_CSS = `
   .pl-print-name{font-family:'Syne',system-ui,sans-serif;font-weight:700;font-size:15pt;margin-bottom:1mm}
   .pl-print-stats{font-size:8.5pt;color:#555;margin-bottom:3mm}
   .pl-print-slot{display:grid;grid-template-columns:auto 1fr auto;gap:3mm;align-items:center;padding:2mm 3mm;border-radius:2mm;margin-bottom:1.5mm;font-size:10pt;border:1px solid}
-  .pl-print-slot.free{background:#e3f4e8;border-color:#a9d9b8}
-  .pl-print-slot.busy{background:#fbe4e4;border-color:#eab3b3}
-  .pl-print-slot.pause{background:#f2f2f2;border-color:#ccc;border-style:dashed}
+  .pl-print-slot.pause{border-style:dashed}
   .pl-print-time{font-family:ui-monospace,Menlo,monospace;font-weight:600;font-variant-numeric:tabular-nums}
   .pl-print-dur{color:#555;font-size:9pt}
   .pl-print-state{font-weight:700;font-size:9pt}
-  .pl-print-slot.free .pl-print-state{color:#1c7a40}
-  .pl-print-slot.busy .pl-print-state{color:#b02a2a}
-  .pl-print-slot.pause .pl-print-state{color:#555;font-weight:500;font-style:italic}
+  .pl-print-slot.pause .pl-print-state{font-weight:500;font-style:italic}
   .pl-big .pl-print-name{font-size:26pt}
   .pl-big .pl-print-slot{font-size:15pt;padding:4mm 5mm;margin-bottom:3mm}
   .pl-big .pl-print-state,.pl-big .pl-print-dur{font-size:13pt}
