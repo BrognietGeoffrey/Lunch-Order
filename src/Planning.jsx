@@ -23,6 +23,22 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
   const version = useRef(0);
   const drag = useRef(null);
   const [overId, setOverId] = useState(null);
+  const [printOpen, setPrintOpen] = useState(false);
+  const [printSel, setPrintSel] = useState([]);
+  const [onePerPage, setOnePerPage] = useState(false);
+  const [printing, setPrinting] = useState(null); // ids des cartes à imprimer
+
+  useEffect(() => {
+    if (!printing) return;
+    const done = () => setPrinting(null);
+    window.addEventListener("afterprint", done);
+    const t = setTimeout(() => window.print(), 50); // laisse le temps au rendu de la feuille
+    return () => { clearTimeout(t); window.removeEventListener("afterprint", done); };
+  }, [printing]);
+
+  const openPrint = () => { setPrintSel(cards.map(c => c.id)); setPrintOpen(true); };
+  const togglePrint = id => setPrintSel(sel => sel.includes(id) ? sel.filter(x => x !== id) : [...sel, id]);
+  const launchPrint = () => { if (!printSel.length) return; setPrintOpen(false); setPrinting(cards.filter(c => printSel.includes(c.id)).map(c => c.id)); };
 
   const ref = doc(db, "config", "planning");
 
@@ -87,8 +103,14 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
   const timeInp = { fontFamily: "ui-monospace,Menlo,monospace", fontSize: 14, border: `1px solid transparent`, background: "transparent", color: T.text, borderRadius: 6, padding: "2px 2px", fontVariantNumeric: "tabular-nums", minWidth: 0 };
   const savedTxt = { idle: "", saving: "Enregistrement…", saved: "✓ Enregistré", error: "⚠️ Échec de l'enregistrement, vérifie ta connexion" }[saveState];
 
+  const printCards = printing ? cards.filter(c => printing.includes(c.id)) : [];
+  const todayRaw = new Date().toLocaleDateString("fr-BE", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const today = todayRaw.charAt(0).toUpperCase() + todayRaw.slice(1);
+
   return (
-    <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'DM Sans',sans-serif", paddingBottom: 40 }}>
+    <>
+    <style>{PRINT_CSS}</style>
+    <div className="pl-screen" style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'DM Sans',sans-serif", paddingBottom: 40 }}>
       <header style={{ position: "sticky", top: 0, zIndex: 5, background: T.sidebar, color: "#fff", padding: `calc(12px + env(safe-area-inset-top, 0px)) 16px 12px`, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 18, flex: 1, minWidth: 120 }}>📅 Planning</div>
         <span style={{ fontSize: 12, opacity: .75 }}>{savedTxt}</span>
@@ -104,6 +126,7 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
           </p>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {cards.length > 0 && <button style={btn} onClick={() => commit(cards.map(c => ({ ...c, slots: sortByTime(c.slots) })))}>Trier tout par heure</button>}
+            {cards.length > 0 && <button style={btn} onClick={openPrint}>🖨️ Imprimer</button>}
             <button style={{ ...btn, background: T.accent, borderColor: T.accent, color: "#fff" }} onClick={addCard}>+ Ajouter une carte</button>
           </div>
         </div>
@@ -197,6 +220,102 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
           </div>
         )}
       </main>
+
+      {printOpen && (
+        <div role="dialog" aria-modal="true" aria-label="Imprimer le planning" onClick={e => { if (e.target === e.currentTarget) setPrintOpen(false); }}
+          style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,.45)", display: "flex", alignItems: isMobile ? "flex-end" : "center", justifyContent: "center", padding: isMobile ? 0 : 16 }}>
+          <div style={{ background: T.bgCard, color: T.text, width: "100%", maxWidth: 420, maxHeight: "85vh", overflow: "auto", borderRadius: isMobile ? "16px 16px 0 0" : 16, padding: `18px 18px calc(18px + env(safe-area-inset-bottom, 0px))`, boxShadow: T.shadowHover }}>
+            <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 18, marginBottom: 4 }}>🖨️ Imprimer le planning</div>
+            <div style={{ fontSize: 12.5, color: T.textSub, marginBottom: 12 }}>Choisis les cartes à imprimer.</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              <button style={{ ...ghost, borderStyle: "solid" }} onClick={() => setPrintSel(cards.map(c => c.id))}>Tout sélectionner</button>
+              <button style={{ ...ghost, borderStyle: "solid" }} onClick={() => setPrintSel([])}>Aucune</button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 14 }}>
+              {cards.map(c => (
+                <label key={c.id} htmlFor={`pl-pr-${c.id}`} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 10px", borderRadius: 9, background: printSel.includes(c.id) ? T.accentLight : T.bgHover, cursor: "pointer", fontSize: 14 }}>
+                  <input type="checkbox" id={`pl-pr-${c.id}`} checked={printSel.includes(c.id)} onChange={() => togglePrint(c.id)} style={{ width: 18, height: 18, accentColor: T.accent }} />
+                  <span style={{ flex: 1, fontWeight: 600 }}>{c.name || "Sans nom"}</span>
+                  <span style={{ fontSize: 12, color: T.textFaint }}>{c.slots.length} créneau{c.slots.length > 1 ? "x" : ""}</span>
+                </label>
+              ))}
+            </div>
+            <label htmlFor="pl-pr-onepage" style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: T.textSub, marginBottom: 16, cursor: "pointer" }}>
+              <input type="checkbox" id="pl-pr-onepage" checked={onePerPage} onChange={e => setOnePerPage(e.target.checked)} style={{ width: 16, height: 16, accentColor: T.accent }} />
+              Une carte par page
+            </label>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button style={btn} onClick={() => setPrintOpen(false)}>Annuler</button>
+              <button disabled={!printSel.length} onClick={launchPrint}
+                style={{ ...btn, background: T.accent, borderColor: T.accent, color: "#fff", opacity: printSel.length ? 1 : .5, cursor: printSel.length ? "pointer" : "not-allowed" }}>
+                Imprimer{printSel.length ? ` (${printSel.length})` : ""}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+
+    {/* Feuille d'impression (invisible à l'écran) */}
+    <div className="pl-print">
+      <div className="pl-print-head">
+        <div className="pl-print-title">Planning</div>
+        <div className="pl-print-date">{today}</div>
+      </div>
+      <div className={onePerPage ? "pl-print-list" : "pl-print-grid"}>
+        {printCards.map(c => {
+          let free = 0, busy = 0;
+          c.slots.forEach(s => { const d = toMin(s.end) - toMin(s.start); if (d > 0) { if (s.type === "free") free += d; else if (s.type === "busy") busy += d; } });
+          return (
+            <section key={c.id} className={"pl-print-card" + (onePerPage ? " pl-big" : "")}>
+              <div className="pl-print-name">{c.name}</div>
+              <div className="pl-print-stats">Libre {fmtDur(free)} · Occupé {fmtDur(busy)}</div>
+              {c.slots.map(s => (
+                <div key={s.id} className={"pl-print-slot " + s.type}>
+                  <span className="pl-print-time">{s.start || "--:--"} – {s.end || "--:--"}</span>
+                  <span className="pl-print-dur">{fmtDur(toMin(s.end) - toMin(s.start))}</span>
+                  <span className="pl-print-state">{s.type === "pause" ? (s.label || "Pause") : LABEL[s.type]}</span>
+                </div>
+              ))}
+            </section>
+          );
+        })}
+      </div>
+    </div>
+    </>
   );
 }
+
+// Styles d'impression : à l'écran la feuille est masquée, à l'impression seule la feuille apparaît
+const PRINT_CSS = `
+.pl-print{display:none}
+@media print{
+  @page{size:A4 landscape;margin:10mm}
+  html,body,#root{background:#fff !important;color:#111 !important}
+  .pl-screen{display:none !important}
+  .pl-print{display:block !important;font-family:'DM Sans',system-ui,sans-serif;color:#111}
+  .pl-print *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .pl-print-head{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #111;padding-bottom:4mm;margin-bottom:5mm}
+  .pl-print-title{font-family:'Syne',system-ui,sans-serif;font-weight:700;font-size:20pt}
+  .pl-print-date{font-size:11pt;color:#444}
+  .pl-print-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5mm;align-items:start}
+  .pl-print-list .pl-print-card{break-after:page}
+  .pl-print-list .pl-print-card:last-child{break-after:auto}
+  .pl-print-card{break-inside:avoid;border:1px solid #bbb;border-radius:3mm;padding:4mm}
+  .pl-print-name{font-family:'Syne',system-ui,sans-serif;font-weight:700;font-size:15pt;margin-bottom:1mm}
+  .pl-print-stats{font-size:8.5pt;color:#555;margin-bottom:3mm}
+  .pl-print-slot{display:grid;grid-template-columns:auto 1fr auto;gap:3mm;align-items:center;padding:2mm 3mm;border-radius:2mm;margin-bottom:1.5mm;font-size:10pt;border:1px solid}
+  .pl-print-slot.free{background:#e3f4e8;border-color:#a9d9b8}
+  .pl-print-slot.busy{background:#fbe4e4;border-color:#eab3b3}
+  .pl-print-slot.pause{background:#f2f2f2;border-color:#ccc;border-style:dashed}
+  .pl-print-time{font-family:ui-monospace,Menlo,monospace;font-weight:600;font-variant-numeric:tabular-nums}
+  .pl-print-dur{color:#555;font-size:9pt}
+  .pl-print-state{font-weight:700;font-size:9pt}
+  .pl-print-slot.free .pl-print-state{color:#1c7a40}
+  .pl-print-slot.busy .pl-print-state{color:#b02a2a}
+  .pl-print-slot.pause .pl-print-state{color:#555;font-weight:500;font-style:italic}
+  .pl-big .pl-print-name{font-size:26pt}
+  .pl-big .pl-print-slot{font-size:15pt;padding:4mm 5mm;margin-bottom:3mm}
+  .pl-big .pl-print-state,.pl-big .pl-print-dur{font-size:13pt}
+}
+`;
