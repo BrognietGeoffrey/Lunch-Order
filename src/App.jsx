@@ -1305,7 +1305,7 @@ export default function App() {
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [feedback, setFeedback] = useState([]);
   const [now, setNow] = useState(Date.now());
-  const [space, setSpace] = useState(()=>{ try{ return localStorage.getItem("lunch_space"); }catch{ return null; } });
+  const [space, setSpace] = useState(null); // espace choisi pour cette connexion (redemandé à chaque login)
   const detailTimers = useRef({});
   const toastTimer = useRef(null);
   const ordersRef = useRef({});
@@ -1393,13 +1393,13 @@ export default function App() {
     </div>
   );
 
-  if(!user) return <LoginScreen onLogin={setUser} T={T} isDark={isDark} toggleTheme={toggleTheme}
+  if(!user) return <LoginScreen onLogin={u=>{ setSpace(null); setUser(u); }} T={T} isDark={isDark} toggleTheme={toggleTheme}
     members={members} membersLoaded={membersLoaded} appConfig={appConfig} restaurants={restaurants}/>;
 
   // ── Espaces : Lunch Order / Étude (droits par membre, voir access.js) ──
   const myAccess = accessOf(members.find(m=>m.username===user));
   const hasEtude = myAccess.etude!=="none";
-  const goSpace = s=>{ setSpace(s); try{ localStorage.setItem("lunch_space",s); }catch{ /* stockage indisponible */ } };
+  const goSpace = s=>setSpace(s);
   const spaceBtn = { background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:16, padding:"22px 20px", cursor:"pointer", textAlign:"left", color:T.text, boxShadow:T.shadow, display:"flex", flexDirection:"column", gap:6 };
 
   if(!myAccess.lunch && !hasEtude) return (
@@ -1421,7 +1421,7 @@ export default function App() {
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.bg,padding:"24px 16px",fontFamily:"'DM Sans',sans-serif"}}>
       <div style={{width:"100%",maxWidth:560}}>
         <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:24,color:T.text,margin:"0 0 4px"}}>Bonjour {profiles[user]?.alias||user}</h1>
-        <p style={{fontSize:14,color:T.textSub,margin:"0 0 18px"}}>Où veux-tu aller ? Tu pourras changer à tout moment depuis l'en-tête.</p>
+        <p style={{fontSize:14,color:T.textSub,margin:"0 0 18px"}}>Quelle application veux-tu utiliser ? Tu pourras changer à tout moment depuis l'en-tête.</p>
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12}}>
           <button style={spaceBtn} onClick={()=>goSpace("lunch")}>
             <span style={{fontSize:30}}>🍽️</span>
