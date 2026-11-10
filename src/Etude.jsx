@@ -12,7 +12,8 @@ import { accessOf } from "./access.js";
 //   stock_moves/{id}  { itemId, itemName, delta, qtyAfter, reason, by, ts }
 //   tickets/{id}      { number, title, description, category, priority, status, requester, assignee, assetId, comments[], createdAt, updatedAt }
 //   assets/{id}       { tag, type, brand, model, serial, assignedTo, location, status, purchaseDate, warrantyEnd, note, updatedAt }
-//   config/etude      { title, stockCategories[], units[], locations[], ticketCategories[], assetTypes[], ticketSeq }
+//   config/etude      { title, stockCategories[], units[], locations[], ticketCategories[], assetTypes[], ticketSeq,
+//                       alertEmails[], alertInstant, alertDigest }   → alertes mail via /api/stock-alert
 
 // Étapes de traitement (structure du workflow, pas des données métier)
 const TICKET_STATUSES = [
@@ -43,7 +44,11 @@ const STARTER_CFG = {
   locations: [],
   ticketCategories: ["Fournitures", "Informatique", "Matériel", "Bâtiment", "Autre"],
   assetTypes: ["PC portable", "PC fixe", "Écran", "Imprimante", "Téléphone", "Autre"],
+  alertEmails: [],
 };
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Demande au serveur d'envoyer l'alerte mail (il vérifie lui-même le seuil et n'envoie qu'une fois)
+const notifyLow = itemId => fetch("/api/stock-alert", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "item", itemId }) }).catch(() => {});
 const LIST_FIELDS = [
   { key: "stockCategories", label: "Catégories de stock", hint: "Ex. Papeterie, Cuisine" },
   { key: "units", label: "Unités", hint: "Ex. boîte, ramette" },
@@ -128,9 +133,12 @@ export default function Etude({ db, T, user, members, role, canLunch, onSwitch, 
     const before = num(it.qty), after = before + delta;
     if (after < 0) return;
     try {
-      await updateDoc(doc(db, "stock_items", it.id), { qty: increment(delta), updatedAt: nowTs(), ...(after > num(it.threshold) ? { orderedAt: null } : {}) });
+      await updateDoc(doc(db, "stock_items", it.id), { qty: increment(delta), updatedAt: nowTs(), ...(after > num(it.threshold) ? { orderedAt: null, alertSentAt: null } : {}) });
       await addDoc(collection(db, "stock_moves"), { itemId: it.id, itemName: it.name, delta, qtyAfter: after, reason: reason || (delta < 0 ? "Sortie" : "Entrée"), by: user, ts: nowTs() });
-      if (before > num(it.threshold) && after <= num(it.threshold)) showToast(`⚠️ ${it.name} passe sous le seuil : ${after} ${it.unit || ""} restant${after > 1 ? "s" : ""}.`, "warn");
+      if (before > num(it.threshold) && after <= num(it.threshold)) {
+        showToast(`⚠️ ${it.name} passe sous le seuil : ${after} ${it.unit || ""} restant${after > 1 ? "s" : ""}.`, "warn");
+        notifyLow(it.id);
+      }
     } catch (e) { fail(e); }
   };
   const saveItem = async v => {
@@ -144,10 +152,11 @@ export default function Etude({ db, T, user, members, role, canLunch, onSwitch, 
       if (v.id) {
         const old = items.find(x => x.id === v.id) || {};
         const delta = qty - num(old.qty);
-        await updateDoc(doc(db, "stock_items", v.id), { ...data, qty, ...(qty > data.threshold ? { orderedAt: null } : {}) });
+        await updateDoc(doc(db, "stock_items", v.id), { ...data, qty, ...(qty > data.threshold ? { orderedAt: null, alertSentAt: null } : {}) });
         if (delta) await addDoc(collection(db, "stock_moves"), { itemId: v.id, itemName: data.name, delta, qtyAfter: qty, reason: "Ajustement", by: user, ts: nowTs() });
+        if (num(old.qty) > num(old.threshold) && qty <= data.threshold) notifyLow(v.id);
       } else {
-        const r = await addDoc(collection(db, "stock_items"), { ...data, qty, orderedAt: null, createdAt: nowTs() });
+        const r = await addDoc(collection(db, "stock_items"), { ...data, qty, orderedAt: null, alertSentAt: null, createdAt: nowTs() });
         if (qty) await addDoc(collection(db, "stock_moves"), { itemId: r.id, itemName: data.name, delta: qty, qtyAfter: qty, reason: "Stock initial", by: user, ts: nowTs() });
       }
       setItemModal(null);
@@ -289,7 +298,7 @@ export default function Etude({ db, T, user, members, role, canLunch, onSwitch, 
         )}
 
         {current === "home" && (
-          <Home {...ctx} isAdmin={isAdmin} user={user} low={low} openTickets={openTickets} myTickets={myTickets} assets={assets} myAssets={myAssets}
+          <Home {...ctx} isAdmin={isAdmin} noMail={!cfg.alertEmails.length} user={user} low={low} openTickets={openTickets} myTickets={myTickets} assets={assets} myAssets={myAssets}
             warrantySoon={warrantySoon} tickets={tickets} go={setTab} onTicket={id => setOpenTicketId(id)} onNewTicket={() => setTicketModal({ category: cfg.ticketCategories[0] || "", priority: "normal" })}
             markOrdered={markOrdered} copyOrderList={copyOrderList} />
         )}
@@ -315,7 +324,7 @@ export default function Etude({ db, T, user, members, role, canLunch, onSwitch, 
           <Planning db={db} T={T} user={user} isDark={isDark} toggleTheme={toggleTheme} onLogout={onLogout} isMobile={isMobile} embedded />
         )}
 
-        {current === "settings" && isAdmin && <Settings {...ctx} cfg={cfg} saveCfg={saveCfg} members={members} />}
+        {current === "settings" && isAdmin && <Settings {...ctx} cfg={cfg} saveCfg={saveCfg} members={members} showToast={showToast} />}
       </main>
 
       {itemModal && <ItemModal {...ctx} value={itemModal} cfg={cfg} onClose={() => setItemModal(null)} onSave={saveItem} onDelete={deleteItem} />}
@@ -381,7 +390,7 @@ function Empty({ T, icon, title, text, action }) {
 }
 
 // ── Accueil ───────────────────────────────────────────────────────────────────
-function Home({ T, card, h2, btn, primary, muted, isMobile, isAdmin, user, low, openTickets, myTickets, assets, myAssets, warrantySoon, tickets, go, onTicket, onNewTicket, markOrdered, copyOrderList }) {
+function Home({ T, card, h2, btn, primary, muted, isMobile, isAdmin, noMail, user, low, openTickets, myTickets, assets, myAssets, warrantySoon, tickets, go, onTicket, onNewTicket, markOrdered, copyOrderList }) {
   const tiles = [
     { label: "À commander", value: low.filter(i => !i.orderedAt).length, sub: low.filter(i => i.orderedAt).length ? `${low.filter(i => i.orderedAt).length} déjà commandé(s)` : "sous le seuil", color: "#e8590c", to: "stock" },
     isAdmin
@@ -419,6 +428,7 @@ function Home({ T, card, h2, btn, primary, muted, isMobile, isAdmin, user, low, 
             <h2 style={{ ...h2, flex: 1 }}>📦 À commander</h2>
             {low.length > 0 && <button style={{ ...btn, padding: "6px 10px", fontSize: 12 }} onClick={copyOrderList}>📋 Copier la liste</button>}
           </div>
+          {isAdmin && noMail && <button onClick={() => go("settings")} style={{ ...btn, width: "100%", marginBottom: 10, fontWeight: 500, fontSize: 12.5, textAlign: "left", borderStyle: "dashed", color: T.textSub }}>📧 Aucune adresse pour les alertes mail. Ajoute-en une dans Réglages →</button>}
           {low.length === 0 ? <div style={{ fontSize: 13, color: T.textSub }}>✓ Tout le stock est au-dessus des seuils.</div> : (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {low.map(it => {
@@ -855,8 +865,31 @@ function AssetModal({ T, btn, primary, danger, inp, lbl, isMobile, value, cfg, m
 }
 
 // ── Réglages ──────────────────────────────────────────────────────────────────
-function Settings({ T, card, h2, btn, inp, muted, isMobile, cfg, saveCfg, members }) {
+function Toggle({ T, muted, id, on, label, sub, onChange }) {
+  return (
+    <label htmlFor={id} style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer", fontSize: 13.5 }}>
+      <input type="checkbox" id={id} checked={on} onChange={e => onChange(e.target.checked)} style={{ width: 18, height: 18, marginTop: 1, accentColor: T.accent, flexShrink: 0 }} />
+      <span><span style={{ fontWeight: 600 }}>{label}</span><br /><span style={muted}>{sub}</span></span>
+    </label>
+  );
+}
+
+function Settings({ T, card, h2, btn, inp, muted, isMobile, cfg, saveCfg, members, showToast }) {
   const [drafts, setDrafts] = useState({});
+  const [mail, setMail] = useState("");
+  const [testing, setTesting] = useState(false);
+  const mailOk = EMAIL_RE.test(mail.trim());
+  const addMail = () => { const v = mail.trim().toLowerCase(); if (!EMAIL_RE.test(v) || cfg.alertEmails.includes(v)) return; saveCfg({ alertEmails: [...cfg.alertEmails, v] }); setMail(""); };
+  const sendTest = async () => {
+    setTesting(true);
+    try {
+      const r = await fetch("/api/stock-alert", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "test" }) });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok) showToast(`Mail de test envoyé à ${j.sent} adresse${j.sent > 1 ? "s" : ""}`);
+      else showToast(j.error || `Échec de l'envoi (${r.status})`, "error");
+    } catch { showToast("Le serveur ne répond pas. Réessaie une fois l'app déployée.", "error"); }
+    setTesting(false);
+  };
   const [title, setTitle] = useState(cfg.title || "");
   const add = key => { const v = (drafts[key] || "").trim(); if (!v || cfg[key].includes(v)) return; saveCfg({ [key]: [...cfg[key], v] }); setDrafts(d => ({ ...d, [key]: "" })); };
   const remove = (key, v) => saveCfg({ [key]: cfg[key].filter(x => x !== v) });
@@ -870,6 +903,29 @@ function Settings({ T, card, h2, btn, inp, muted, isMobile, cfg, saveCfg, member
           <input id="cfg-title" style={{ ...inp, flex: 1 }} value={title} onChange={e => setTitle(e.target.value)} placeholder="Étude" />
           <button style={btn} disabled={title.trim() === (cfg.title || "")} onClick={() => saveCfg({ title: title.trim() || "Étude" })}>Enregistrer</button>
         </div>
+      </section>
+      <section style={card}>
+        <h2 style={{ ...h2, marginBottom: 4 }}>📧 Alertes par mail</h2>
+        <p style={{ ...muted, margin: "0 0 12px" }}>Ces adresses reçoivent un mail quand un article du stock atteint son seuil d'alerte.</p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+          {cfg.alertEmails.length === 0 && <span style={{ ...muted, color: T.orange }}>Aucune adresse : aucun mail ne part pour l'instant.</span>}
+          {cfg.alertEmails.map(v => (
+            <span key={v} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: T.bgTag, borderRadius: 999, padding: "4px 6px 4px 11px", fontSize: 13 }}>
+              {v}<button onClick={() => saveCfg({ alertEmails: cfg.alertEmails.filter(x => x !== v) })} aria-label={`Retirer ${v}`} style={{ background: "transparent", border: "none", color: T.textFaint, cursor: "pointer", fontSize: 12, padding: "0 4px" }}>✕</button>
+            </span>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          <input id="cfg-mail" type="email" inputMode="email" autoComplete="email" style={{ ...inp, flex: 1 }} value={mail} onChange={e => setMail(e.target.value)} onKeyDown={e => e.key === "Enter" && addMail()} placeholder="adresse@exemple.be" />
+          <button style={{ ...btn, opacity: mailOk ? 1 : .5 }} disabled={!mailOk} onClick={addMail}>Ajouter</button>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
+          <Toggle T={T} muted={muted} id="cfg-instant" on={cfg.alertInstant !== false} onChange={v => saveCfg({ alertInstant: v })}
+            label="Mail immédiat" sub="Dès qu'un article passe sous son seuil. Un seul mail par article, jusqu'à ce que le stock remonte." />
+          <Toggle T={T} muted={muted} id="cfg-digest" on={cfg.alertDigest !== false} onChange={v => saveCfg({ alertDigest: v })}
+            label="Récapitulatif du matin" sub="Du lundi au vendredi, vers 7 h, s'il reste des articles sous le seuil (y compris ceux déjà commandés)." />
+        </div>
+        <button style={{ ...btn, opacity: cfg.alertEmails.length && !testing ? 1 : .5 }} disabled={!cfg.alertEmails.length || testing} onClick={sendTest}>{testing ? "Envoi…" : "Envoyer un mail de test"}</button>
       </section>
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14, alignItems: "start" }}>
         {LIST_FIELDS.map(f => (

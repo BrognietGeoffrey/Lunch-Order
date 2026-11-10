@@ -1305,7 +1305,8 @@ export default function App() {
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [feedback, setFeedback] = useState([]);
   const [now, setNow] = useState(Date.now());
-  const [space, setSpace] = useState(null); // espace choisi pour cette connexion (redemandé à chaque login)
+  const [space, setSpace] = useState(null);
+  const [etudeLow, setEtudeLow] = useState(0); // articles sous le seuil, pas encore commandés (badge 🏢 Étude) // espace choisi pour cette connexion (redemandé à chaque login)
   const detailTimers = useRef({});
   const toastTimer = useRef(null);
   const ordersRef = useRef({});
@@ -1370,6 +1371,7 @@ export default function App() {
         setUnreadActivity(acts.filter(a=>a.ts>lastSeen&&a.author!==user).length);
       }),
       onSnapshot(collection(db,"profiles"), snap=>{ const d={}; snap.forEach(s=>{d[s.id]=s.data();}); setProfiles(d); }),
+      onSnapshot(collection(db,"stock_items"), snap=>{ let n=0; snap.forEach(s=>{ const d=s.data(); if(Number(d.qty||0)<=Number(d.threshold||0) && !d.orderedAt) n++; }); setEtudeLow(n); }, ()=>setEtudeLow(0)),
       onSnapshot(collection(db,"feedback"), snap=>{ const arr=[]; snap.forEach(s=>arr.push({id:s.id,...s.data()})); arr.sort((a,b)=>b.ts-a.ts); setFeedback(arr); }),
     ];
     return ()=>unsubs.forEach(u=>u());
@@ -1432,6 +1434,7 @@ export default function App() {
             <span style={{fontSize:30}}>🏢</span>
             <span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:18}}>Étude</span>
             <span style={{fontSize:13,color:T.textSub}}>Stock et alertes, demandes, matériel et planning.</span>
+            {etudeLow>0 && <span style={{alignSelf:"flex-start",marginTop:4,background:"#e8590c",color:"#fff",borderRadius:999,padding:"3px 10px",fontSize:12,fontWeight:700}}>⚠️ {etudeLow} article{etudeLow>1?"s":""} à commander</span>}
           </button>
         </div>
         <button onClick={()=>setUser(null)} style={{marginTop:16,background:"transparent",border:"none",color:T.textFaint,fontSize:13,cursor:"pointer"}}>Déconnexion</button>
@@ -1980,7 +1983,7 @@ export default function App() {
               <Avatar name={user} size={28} profile={profiles[user]}/>
               <span style={{position:"absolute",bottom:-1,right:-1,padding:2,borderRadius:"50%",background:T.sidebar,display:"flex"}}><StatusDot status={status}/></span>
             </div>
-            {hasEtude && <button onClick={()=>goSpace("etude")} title="Aller à l'espace Étude" style={{background:"rgba(255,252,245,0.12)",border:"none",borderRadius:7,padding:"4px 8px",fontSize:10,fontWeight:600,cursor:"pointer",color:"#fff"}}>🏢 Étude</button>}
+            {hasEtude && <button onClick={()=>goSpace("etude")} title={etudeLow?`Espace Étude : ${etudeLow} article(s) à commander`:"Aller à l'espace Étude"} style={{position:"relative",background:"rgba(255,252,245,0.12)",border:"none",borderRadius:7,padding:"4px 8px",fontSize:10,fontWeight:600,cursor:"pointer",color:"#fff"}}>🏢 Étude{etudeLow>0 && <span style={{position:"absolute",top:-6,right:-6,minWidth:16,height:16,borderRadius:8,background:"#e8590c",color:"#fff",fontSize:9.5,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px"}}>{etudeLow}</span>}</button>}
             <button onClick={toggleTheme} aria-label="Changer de thème" style={{background:"rgba(255,252,245,0.12)",border:"none",borderRadius:7,padding:"4px 8px",fontSize:12,cursor:"pointer",color:"#fff"}}>{isDark?"☀️":"🌙"}</button>
             <button onClick={()=>setUser(null)} style={{background:"rgba(255,252,245,0.12)",border:"none",borderRadius:7,padding:"3px 6px",fontSize:9.5,cursor:"pointer",color:"rgba(255,252,245,0.75)"}}>Quitter</button>
           </div>
@@ -1997,7 +2000,7 @@ export default function App() {
               <StatusDot status={status}/>
             </div>
             <div style={{display:"flex",gap:6}}>
-              {hasEtude && <button onClick={()=>goSpace("etude")} style={{background:T.bgTag,border:`1px solid ${T.border}`,borderRadius:8,padding:"5px 9px",fontSize:12,fontWeight:600,cursor:"pointer",color:T.text}}>🏢 Étude</button>}
+              {hasEtude && <button onClick={()=>goSpace("etude")} aria-label={etudeLow?`Espace Étude, ${etudeLow} article(s) à commander`:"Espace Étude"} style={{position:"relative",background:T.bgTag,border:`1px solid ${T.border}`,borderRadius:8,padding:"5px 9px",fontSize:12,fontWeight:600,cursor:"pointer",color:T.text}}>🏢 Étude{etudeLow>0 && <span style={{position:"absolute",top:-7,right:-7,minWidth:17,height:17,borderRadius:9,background:"#e8590c",color:"#fff",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px"}}>{etudeLow}</span>}</button>}
               <button onClick={toggleTheme} aria-label="Changer de thème" style={{background:T.bgTag,border:`1px solid ${T.border}`,borderRadius:8,padding:"5px 8px",fontSize:13,cursor:"pointer",color:T.text}}>{isDark?"☀️":"🌙"}</button>
               <button onClick={()=>setUser(null)} style={{background:T.bgTag,border:`1px solid ${T.border}`,borderRadius:8,padding:"5px 10px",fontSize:11.5,cursor:"pointer",color:T.textSub}}>Déconnexion</button>
             </div>
