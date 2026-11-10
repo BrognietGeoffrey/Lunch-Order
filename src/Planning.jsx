@@ -19,7 +19,7 @@ const rgba = (hex, a) => { const m = /^#?([0-9a-f]{6})$/i.exec(hex || ""); if (!
 const sortByTime = slots => [...slots].sort((a, b) => (toMin(a.start) || 0) - (toMin(b.start) || 0));
 const swap = (arr, i, j) => { const a = [...arr]; [a[i], a[j]] = [a[j], a[i]]; return a; };
 
-export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, isMobile }) {
+export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, isMobile, embedded }) {
   const [cards, setCards] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved | error
@@ -143,14 +143,14 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
   return (
     <>
     <style>{PRINT_CSS}</style>
-    <div className="pl-screen" style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'DM Sans',sans-serif", paddingBottom: 40 }}>
-      <header style={{ position: "sticky", top: 0, zIndex: 5, background: T.sidebar, color: "#fff", padding: `calc(12px + env(safe-area-inset-top, 0px)) 16px 12px`, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+    <div className="pl-screen" style={embedded ? { color: T.text } : { minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'DM Sans',sans-serif", paddingBottom: 40 }}>
+      {!embedded && <header style={{ position: "sticky", top: 0, zIndex: 5, background: T.sidebar, color: "#fff", padding: `calc(12px + env(safe-area-inset-top, 0px)) 16px 12px`, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 18, flex: 1, minWidth: 120 }}>📅 Planning</div>
         <span style={{ fontSize: 12, opacity: .75 }}>{savedTxt}</span>
         <span style={{ fontSize: 12.5, opacity: .85 }}>{user}</span>
         <button onClick={toggleTheme} aria-label="Changer de thème" style={{ background: "rgba(255,255,255,.12)", border: "none", color: "#fff", borderRadius: 8, padding: "5px 9px", cursor: "pointer" }}>{isDark ? "☀️" : "🌙"}</button>
         <button onClick={onLogout} style={{ background: "rgba(255,255,255,.12)", border: "none", color: "#fff", borderRadius: 8, padding: "5px 10px", fontSize: 12, cursor: "pointer" }}>Déconnexion</button>
-      </header>
+      </header>}
 
       <main style={{ maxWidth: 1280, margin: "0 auto", padding: "18px 16px 0", display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, justifyContent: "space-between" }}>
@@ -383,6 +383,8 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
 const PRINT_CSS = `
 .pl-print{display:none}
 @media print{
+  .no-print{display:none !important}
+  .etude-root{background:#fff !important;padding:0 !important;min-height:0 !important}
   @page{size:A4 landscape;margin:10mm}
   html,body,#root{background:#fff !important;color:#111 !important}
   .pl-screen{display:none !important}

@@ -5,7 +5,8 @@ import {
   query, where, writeBatch,
 } from "firebase/firestore";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
-import Planning from "./Planning.jsx";
+import Etude from "./Etude.jsx";
+import { accessOf, ETUDE_ROLES } from "./access.js";
 
 // ── Firebase (valeurs dans .env / variables d'environnement Vercel) ───────────
 const firebaseConfig = {
@@ -1049,7 +1050,7 @@ function ProfileTab({ user, profiles, members, T, editingProfile, setEditingProf
 
       <h3 style={{fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:15,color:T.text,margin:"24px 0 12px"}}>👥 L'équipe</h3>
       <div style={{display:"flex",flexDirection:"column",gap:8}}>
-        {members.filter(m=>!m.planningOnly).map(m=>m.username).filter(n=>n!==user).map(name=>{
+        {members.filter(m=>accessOf(m).lunch).map(m=>m.username).filter(n=>n!==user).map(name=>{
           const p=profiles[name]||{};
           return (
             <div key={name} style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:12,padding:"12px 16px",display:"flex",alignItems:"center",gap:12,boxShadow:T.shadow}}>
@@ -1304,6 +1305,7 @@ export default function App() {
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [feedback, setFeedback] = useState([]);
   const [now, setNow] = useState(Date.now());
+  const [space, setSpace] = useState(()=>{ try{ return localStorage.getItem("lunch_space"); }catch{ return null; } });
   const detailTimers = useRef({});
   const toastTimer = useRef(null);
   const ordersRef = useRef({});
@@ -1394,9 +1396,47 @@ export default function App() {
   if(!user) return <LoginScreen onLogin={setUser} T={T} isDark={isDark} toggleTheme={toggleTheme}
     members={members} membersLoaded={membersLoaded} appConfig={appConfig} restaurants={restaurants}/>;
 
-  // Profil « planning uniquement » : ne voit que le planning
-  if(members.find(m=>m.username===user)?.planningOnly) return (
-    <Planning db={db} T={T} user={user} isDark={isDark} toggleTheme={toggleTheme} isMobile={isMobile} onLogout={()=>setUser(null)}/>
+  // ── Espaces : Lunch Order / Étude (droits par membre, voir access.js) ──
+  const myAccess = accessOf(members.find(m=>m.username===user));
+  const hasEtude = myAccess.etude!=="none";
+  const goSpace = s=>{ setSpace(s); try{ localStorage.setItem("lunch_space",s); }catch{ /* stockage indisponible */ } };
+  const spaceBtn = { background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:16, padding:"22px 20px", cursor:"pointer", textAlign:"left", color:T.text, boxShadow:T.shadow, display:"flex", flexDirection:"column", gap:6 };
+
+  if(!myAccess.lunch && !hasEtude) return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.bg,padding:24,fontFamily:"'DM Sans',sans-serif"}}>
+      <div style={{textAlign:"center",color:T.textSub,maxWidth:360}}>
+        <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:8}}>Aucun accès pour {user}</div>
+        <div style={{fontSize:13,marginBottom:18}}>Ton compte n'a accès ni à Lunch ni à l'espace Étude. Demande à un admin de t'ouvrir un accès.</div>
+        <button onClick={()=>setUser(null)} style={{background:T.sidebar,color:"#fff",border:"none",borderRadius:10,padding:"10px 22px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Retour</button>
+      </div>
+    </div>
+  );
+
+  if(hasEtude && (!myAccess.lunch || space==="etude")) return (
+    <Etude db={db} T={T} user={user} members={members} role={myAccess.etude} canLunch={myAccess.lunch} onSwitch={goSpace}
+      isDark={isDark} toggleTheme={toggleTheme} isMobile={isMobile} onLogout={()=>setUser(null)}/>
+  );
+
+  if(hasEtude && myAccess.lunch && space!=="lunch") return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.bg,padding:"24px 16px",fontFamily:"'DM Sans',sans-serif"}}>
+      <div style={{width:"100%",maxWidth:560}}>
+        <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:24,color:T.text,margin:"0 0 4px"}}>Bonjour {profiles[user]?.alias||user}</h1>
+        <p style={{fontSize:14,color:T.textSub,margin:"0 0 18px"}}>Où veux-tu aller ? Tu pourras changer à tout moment depuis l'en-tête.</p>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12}}>
+          <button style={spaceBtn} onClick={()=>goSpace("lunch")}>
+            <span style={{fontSize:30}}>🍽️</span>
+            <span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:18}}>{appConfig.title||"Lunch Order"}</span>
+            <span style={{fontSize:13,color:T.textSub}}>Commandes du midi, menus, paiements et chat.</span>
+          </button>
+          <button style={spaceBtn} onClick={()=>goSpace("etude")}>
+            <span style={{fontSize:30}}>🏢</span>
+            <span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:18}}>Étude</span>
+            <span style={{fontSize:13,color:T.textSub}}>Stock et alertes, demandes, matériel et planning.</span>
+          </button>
+        </div>
+        <button onClick={()=>setUser(null)} style={{marginTop:16,background:"transparent",border:"none",color:T.textFaint,fontSize:13,cursor:"pointer"}}>Déconnexion</button>
+      </div>
+    </div>
   );
 
   // ── Persistance config ──
@@ -1421,7 +1461,7 @@ export default function App() {
 
   const lists = { sauces:saucesSettings, crudites:cruditesSettings };
   const ctx = { restaurants, extras, sauces, crudites, listCfg:lists };
-  const orderers = members.filter(m=>!m.isAdmin&&!m.planningOnly).map(m=>m.username);
+  const orderers = members.filter(m=>!m.isAdmin&&accessOf(m).lunch).map(m=>m.username);
   const names = isAdmin ? orderers : [user, ...orderers.filter(n=>n!==user)];
   const adminCount = members.filter(m=>m.isAdmin).length;
   // Un état d'un autre jour (journée pas archivée) est ignoré
@@ -1507,13 +1547,14 @@ export default function App() {
   const toggleMemberAdmin=async n=>{
     const m=members.find(x=>x.username===n);
     if(m?.isAdmin && adminCount<=1){ alert("Il faut au moins un administrateur."); return; }
-    await pm(members.map(x=>x.username===n?{...x,isAdmin:!x.isAdmin,planningOnly:false}:x));
+    await pm(members.map(x=>x.username===n?{...x,...accessOf(x),isAdmin:!x.isAdmin,lunch:true,planningOnly:false}:x));
   };
-  const toggleMemberPlanning=async n=>{
-    const m=members.find(x=>x.username===n);
-    if(n===user){ alert("Tu ne peux pas passer ton propre compte en « planning uniquement »."); return; }
-    if(!m?.planningOnly && m?.isAdmin && adminCount<=1){ alert("Il faut au moins un administrateur."); return; }
-    await pm(members.map(x=>x.username===n?{...x,planningOnly:!x.planningOnly,isAdmin:false}:x));
+  // Droits par espace : lunch (oui/non) et etude (none/user/admin)
+  const setMemberAccess=async(n,patch)=>{
+    const m=members.find(x=>x.username===n); if(!m) return;
+    if(patch.lunch===false && m.isAdmin){ alert("Un administrateur Lunch garde toujours l'accès à Lunch. Retire d'abord la couronne 👑."); return; }
+    if(n===user && patch.lunch===false){ alert("Tu ne peux pas retirer ton propre accès à Lunch."); return; }
+    await pm(members.map(x=>x.username===n?{...x,...accessOf(x),...patch,planningOnly:false}:x));
   };
   const saveMemberEdit=async()=>{ if(!editingMember)return; const {_orig,...clean}=editingMember; await pm(members.map(m=>m.username===_orig?clean:m)); setEditingMember(null); };
 
@@ -1939,6 +1980,7 @@ export default function App() {
               <Avatar name={user} size={28} profile={profiles[user]}/>
               <span style={{position:"absolute",bottom:-1,right:-1,padding:2,borderRadius:"50%",background:T.sidebar,display:"flex"}}><StatusDot status={status}/></span>
             </div>
+            {hasEtude && <button onClick={()=>goSpace("etude")} title="Aller à l'espace Étude" style={{background:"rgba(255,252,245,0.12)",border:"none",borderRadius:7,padding:"4px 8px",fontSize:10,fontWeight:600,cursor:"pointer",color:"#fff"}}>🏢 Étude</button>}
             <button onClick={toggleTheme} aria-label="Changer de thème" style={{background:"rgba(255,252,245,0.12)",border:"none",borderRadius:7,padding:"4px 8px",fontSize:12,cursor:"pointer",color:"#fff"}}>{isDark?"☀️":"🌙"}</button>
             <button onClick={()=>setUser(null)} style={{background:"rgba(255,252,245,0.12)",border:"none",borderRadius:7,padding:"3px 6px",fontSize:9.5,cursor:"pointer",color:"rgba(255,252,245,0.75)"}}>Quitter</button>
           </div>
@@ -1955,6 +1997,7 @@ export default function App() {
               <StatusDot status={status}/>
             </div>
             <div style={{display:"flex",gap:6}}>
+              {hasEtude && <button onClick={()=>goSpace("etude")} style={{background:T.bgTag,border:`1px solid ${T.border}`,borderRadius:8,padding:"5px 9px",fontSize:12,fontWeight:600,cursor:"pointer",color:T.text}}>🏢 Étude</button>}
               <button onClick={toggleTheme} aria-label="Changer de thème" style={{background:T.bgTag,border:`1px solid ${T.border}`,borderRadius:8,padding:"5px 8px",fontSize:13,cursor:"pointer",color:T.text}}>{isDark?"☀️":"🌙"}</button>
               <button onClick={()=>setUser(null)} style={{background:T.bgTag,border:`1px solid ${T.border}`,borderRadius:8,padding:"5px 10px",fontSize:11.5,cursor:"pointer",color:T.textSub}}>Déconnexion</button>
             </div>
@@ -2616,7 +2659,7 @@ export default function App() {
               {/* Membres */}
               <div style={card}>
                 <h2 style={h2}>👥 Membres</h2>
-                <p style={helpS}>👑 = administrateur (ne commande pas, gère la configuration). 📅 = planning uniquement (ne voit que le planning, ne commande pas). La suppression d'un membre se fait uniquement ici.</p>
+                <p style={helpS}>👑 = administrateur Lunch (ne commande pas, gère la configuration). 🍽️ = accès à Lunch (barré = pas d'accès, ne commande pas). 🏢 = accès à l'espace Étude (stock, demandes, matériel, planning). La suppression d'un membre se fait uniquement ici.</p>
                 <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
                   <input style={{...inp,flex:2,minWidth:140}} value={newMemberName} onChange={e=>setNewMemberName(e.target.value)} placeholder="Nom…"/>
                   <input style={{...inp,flex:1,minWidth:100}} value={newMemberCode} onChange={e=>setNewMemberCode(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addMember()} placeholder="Code…"/>
@@ -2635,12 +2678,16 @@ export default function App() {
                       ) : (
                         <>
                           <Avatar name={m.username} size={28} profile={profiles[m.username]}/>
-                          <span style={{flex:1,fontSize:13.5,fontWeight:500,color:T.text}}>{m.isAdmin?"👑 ":""}{m.planningOnly?"📅 ":""}{m.username}</span>
+                          <span style={{flex:1,fontSize:13.5,fontWeight:500,color:T.text}}>{m.isAdmin?"👑 ":""}{m.username}</span>
                           <Tag T={T}>{m.code}</Tag>
                           <button className="btn-ghost" title={m.isAdmin?"Retirer les droits admin":"Rendre admin"} onClick={()=>toggleMemberAdmin(m.username)}
                             style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",opacity:m.isAdmin?1:0.45}}>👑</button>
-                          <button className="btn-ghost" title={m.planningOnly?"Redonner l'accès normal":"Planning uniquement"} onClick={()=>toggleMemberPlanning(m.username)}
-                            style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",opacity:m.planningOnly?1:0.45}}>📅</button>
+                          <button className="btn-ghost" title={accessOf(m).lunch?"Accès Lunch : oui (toucher pour retirer)":"Accès Lunch : non (toucher pour donner)"} onClick={()=>setMemberAccess(m.username,{lunch:!accessOf(m).lunch})}
+                            style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",opacity:accessOf(m).lunch?1:0.4,textDecoration:accessOf(m).lunch?"none":"line-through"}}>🍽️</button>
+                          <select aria-label={`Accès Étude de ${m.username}`} id={`etude-role-${m.username}`} value={accessOf(m).etude} onChange={e=>setMemberAccess(m.username,{etude:e.target.value})}
+                            style={{background:T.bgInput,border:`1px solid ${T.border}`,borderRadius:7,padding:"4px 6px",fontSize:11.5,color:T.text,cursor:"pointer"}}>
+                            {ETUDE_ROLES.map(r=><option key={r.id} value={r.id}>🏢 {r.label}</option>)}
+                          </select>
                           <button className="btn-ghost" aria-label="Modifier" style={{background:"transparent",border:`1px solid ${T.border}`,color:T.textSub,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer"}} onClick={()=>setEditingMember({...m,_orig:m.username})}>✏️</button>
                           <button aria-label="Supprimer" style={{background:"none",border:"none",color:T.red,cursor:"pointer",fontSize:14,padding:4}} onClick={()=>removeMember(m.username)}>✕</button>
                         </>
