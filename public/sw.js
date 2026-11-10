@@ -1,4 +1,4 @@
-const CACHE_NAME = "lunch-orders-v1";
+const CACHE_NAME = "gestion-etude-v2";
 const ASSETS = ["/", "/index.html"];
 
 self.addEventListener("install", e => {

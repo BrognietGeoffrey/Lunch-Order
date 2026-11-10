@@ -1,24 +1,14 @@
 {
-  "name": "Lunch Orders",
-  "short_name": "Lunch",
-  "description": "Commandes de lunch pour l'équipe",
+  "name": "Gestion Étude",
+  "short_name": "Gestion Étude",
+  "description": "Administration de l'étude (stock, demandes, matériel, planning) et commandes du midi",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f0f13",
-  "theme_color": "#16161f",
+  "background_color": "#f3f3f1",
+  "theme_color": "#0e0e10",
   "orientation": "portrait",
   "icons": [
-    {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }

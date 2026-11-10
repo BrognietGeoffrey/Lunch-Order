@@ -6,6 +6,7 @@ import {
 } from "firebase/firestore";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
 import Etude from "./Etude.jsx";
+import { BrandLogo, Icon } from "./brand.jsx";
 import { accessOf, ETUDE_ROLES } from "./access.js";
 
 // ── Firebase (valeurs dans .env / variables d'environnement Vercel) ───────────
@@ -38,25 +39,26 @@ const EMOJIS_LIST = ["😊","😎","🤩","🥳","😋","🤔","😴","🤓","�
 const COLORS_LIST = ["#c97a8f","#c97a4a","#5a8f7b","#7a9ab5","#9b7fa6","#c8922a","#5a7a9b","#8f5a7a","#4a8f6a","#9b6a4a"];
 
 // ── Thèmes ────────────────────────────────────────────────────────────────────
+// Identité « Gestion Étude » : encre noire sur papier, accent bleu encre (cf. logo de l'étude)
 const LIGHT = {
   isDark:false,
-  sidebar:"#1a1a2e", sidebarBg:"#16213e",
-  bg:"#f0f2f5", bgCard:"#ffffff", bgHover:"#f5f7fa", bgInput:"#f5f7fa", bgTag:"#e8eaed",
-  border:"#d0d3d8", borderLight:"#e4e6ea",
-  text:"#0a0a0a", textSub:"#3a3a3a", textFaint:"#6b6b6b",
-  accent:"#3b5bdb", accentLight:"#e8edff",
-  green:"#2f9e44", red:"#c92a2a", orange:"#d9480f",
-  shadow:"0 2px 12px rgba(0,0,0,0.08)", shadowHover:"0 4px 20px rgba(0,0,0,0.12)",
+  sidebar:"#151517", sidebarBg:"#0e0e10",
+  bg:"#f3f3f1", bgCard:"#ffffff", bgHover:"#f7f7f5", bgInput:"#f6f6f4", bgTag:"#ebebe8",
+  border:"#d6d6d2", borderLight:"#e6e6e2",
+  text:"#121214", textSub:"#46464c", textFaint:"#76767c",
+  accent:"#24345f", accentLight:"#e8ecf5",
+  green:"#2b7a48", red:"#b3261e", orange:"#c2410c",
+  shadow:"0 1px 2px rgba(18,18,20,0.05), 0 2px 10px rgba(18,18,20,0.05)", shadowHover:"0 6px 24px rgba(18,18,20,0.12)",
 };
 const DARK = {
   isDark:true,
-  sidebar:"#2a1f14", sidebarBg:"#1e1610",
-  bg:"#0f0c08", bgCard:"#1c1610", bgHover:"#231c14", bgInput:"#231c14", bgTag:"#2a2018",
-  border:"#3a2e20", borderLight:"#2a2018",
-  text:"#f5efe6", textSub:"#b8a58c", textFaint:"#8a7560",
-  accent:"#e0a83a", accentLight:"#2a2010",
-  green:"#6fb39a", red:"#e0735a", orange:"#f08c4a",
-  shadow:"0 2px 16px rgba(0,0,0,0.3)", shadowHover:"0 4px 24px rgba(0,0,0,0.4)",
+  sidebar:"#18181b", sidebarBg:"#111113",
+  bg:"#0c0c0e", bgCard:"#17171a", bgHover:"#1e1e22", bgInput:"#1e1e22", bgTag:"#26262b",
+  border:"#33333a", borderLight:"#26262b",
+  text:"#f1f1ef", textSub:"#b6b6b2", textFaint:"#86868b",
+  accent:"#5a6ec4", accentLight:"#1d2236",
+  green:"#5fae7f", red:"#e2675d", orange:"#e8894a",
+  shadow:"0 1px 2px rgba(0,0,0,0.4), 0 2px 12px rgba(0,0,0,0.25)", shadowHover:"0 6px 26px rgba(0,0,0,0.5)",
 };
 
 // ── Helpers génériques ────────────────────────────────────────────────────────
@@ -297,7 +299,6 @@ function restoRecapText(recap){
 
 // ── CSS global ────────────────────────────────────────────────────────────────
 const CSS = (T) => `
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html { -webkit-text-size-adjust: 100%; }
   body { background: ${T.bg}; font-family: 'DM Sans', sans-serif; color: ${T.text}; overflow-x: hidden;
@@ -325,6 +326,8 @@ const CSS = (T) => `
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
   .row-hover:hover { background: ${T.bgHover} !important; }
   .btn-ghost:hover { background: ${T.bgTag} !important; }
+  .space-card { transition: border-color .15s, transform .15s; }
+  .space-card:hover { border-color: ${T.text} !important; transform: translateY(-1px); }
   .avatar-tooltip-wrap:hover .avatar-tooltip { display: block !important; }
   .info-wrap:hover .info-pop { display: block !important; }
 `;
@@ -772,7 +775,7 @@ function ListSettingsEditor({ T, settings, onChange }) {
 }
 
 // ── Connexion ─────────────────────────────────────────────────────────────────
-function LoginScreen({ onLogin, T, isDark, toggleTheme, members, membersLoaded, appConfig, restaurants }) {
+function LoginScreen({ onLogin, T, isDark, toggleTheme, members, membersLoaded, appConfig, brandName, brandSubtitle, lunchName }) {
   const [username, setUsername] = useState("");
   const [code, setCode]         = useState("");
   const [error, setError]       = useState("");
@@ -780,10 +783,7 @@ function LoginScreen({ onLogin, T, isDark, toggleTheme, members, membersLoaded, 
   const [isMobile, setIsMobile] = useState(()=>window.innerWidth<640);
   useEffect(()=>{ const h=()=>setIsMobile(window.innerWidth<640); window.addEventListener("resize",h); return ()=>window.removeEventListener("resize",h); },[]);
 
-  const title = appConfig.title || "";
-  const logo  = appConfig.logoEmoji || "";
   const hint  = appConfig.loginHint || "";
-  const sub   = appConfig.subtitle || "";
 
   const attempt = () => {
     const u = members.find(m=>m.username.toLowerCase()===username.toLowerCase()&&String(m.code)===code.trim());
@@ -801,66 +801,80 @@ function LoginScreen({ onLogin, T, isDark, toggleTheme, members, membersLoaded, 
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.bg,padding:24}}>
       <style>{CSS(T)}</style>
       <div style={{maxWidth:420,background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:16,padding:28,boxShadow:T.shadow}}>
-        <h2 style={{fontFamily:"'Syne',sans-serif",fontSize:18,color:T.text,marginBottom:8}}>La base de données est vide</h2>
+        <h2 style={{fontFamily:"'Jost',sans-serif",fontSize:18,color:T.text,marginBottom:8}}>La base de données est vide</h2>
         <p style={{fontSize:13,color:T.textSub,lineHeight:1.6}}>Aucun membre n'est configuré dans <code>config/members</code>. Lance le script d'import une fois :</p>
         <code style={{display:"block",marginTop:10,fontSize:12,background:T.bgTag,padding:"8px 10px",borderRadius:8,color:T.text}}>node --env-file=.env scripts/seed.mjs</code>
       </div>
     </div>
   );
 
-  const labelS = {display:"block",fontSize:11,fontWeight:600,color:T.textSub,marginBottom:6,letterSpacing:"0.06em",textTransform:"uppercase"};
-  const fieldS = {width:"100%",background:T.bgInput,border:`1px solid ${T.border}`,borderRadius:10,color:T.text,padding:"11px 14px",fontSize:15};
+  const labelS = {display:"block",fontSize:11,fontWeight:600,color:T.textSub,marginBottom:6,letterSpacing:"0.12em",textTransform:"uppercase"};
+  const fieldS = {width:"100%",background:T.bgInput,border:`1px solid ${T.border}`,borderRadius:8,color:T.text,padding:"12px 14px",fontSize:15};
+  const wordmark = (onDark) => (
+    <div style={{fontFamily:"'Jost',sans-serif",fontWeight:500,fontSize:13,letterSpacing:"0.32em",textTransform:"uppercase",color:onDark?"rgba(255,255,255,0.86)":T.text}}>{brandName}</div>
+  );
   const form = (
     <>
-      <div style={{marginBottom:14}}>
-        <label htmlFor="login-name" style={labelS}>Ton nom</label>
+      <div style={{marginBottom:16}}>
+        <label htmlFor="login-name" style={labelS}>Nom</label>
         <select id="login-name" style={{...fieldS,cursor:"pointer"}} value={username} onChange={e=>setUsername(e.target.value)}>
-          <option value="">— Sélectionne ton nom —</option>
+          <option value="">Sélectionne ton nom</option>
           {members.map(u=><option key={u.username} value={u.username}>{u.username}</option>)}
         </select>
       </div>
-      <div style={{marginBottom:20}}>
+      <div style={{marginBottom:22}}>
         <label htmlFor="login-code" style={labelS}>Code</label>
         <input id="login-code" style={fieldS} type="password" inputMode="numeric" value={code} placeholder="••••"
           onChange={e=>setCode(e.target.value)} onKeyDown={e=>e.key==="Enter"&&attempt()}/>
       </div>
       {error && <p role="alert" style={{color:T.red,fontSize:13,marginBottom:14}}>{error}</p>}
-      <button style={{width:"100%",background:`linear-gradient(135deg, ${T.sidebarBg}, ${T.sidebar})`,color:"#fff",border:"none",borderRadius:12,padding:"13px",fontSize:15,fontWeight:600,cursor:"pointer"}}
-        onClick={attempt}>Entrer →</button>
+      <button style={{width:"100%",background:T.text,color:T.bg,border:"none",borderRadius:8,padding:"13px",fontSize:14.5,fontWeight:600,letterSpacing:"0.04em",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}
+        onClick={attempt}>Se connecter <Icon name="arrow" size={17}/></button>
       {hint && <p style={{color:T.textFaint,fontSize:11.5,marginTop:14,textAlign:"center"}}>{hint}</p>}
     </>
   );
+  const modules = (onDark) => (
+    <div style={{display:"flex",flexDirection:"column",gap:9,fontSize:13,color:onDark?"rgba(255,255,255,0.6)":T.textSub}}>
+      <span style={{display:"flex",alignItems:"center",gap:9}}><Icon name="building" size={16}/>Administration : stock, demandes, matériel, planning</span>
+      <span style={{display:"flex",alignItems:"center",gap:9}}><Icon name="utensils" size={16}/>{lunchName} : commandes du midi</span>
+    </div>
+  );
 
   return (
-    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.bg,padding:isMobile?"20px 16px":"24px"}}>
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.bg,padding:isMobile?"24px 16px":"24px"}}>
       <style>{CSS(T)}</style>
-      <button onClick={toggleTheme} aria-label="Changer de thème" style={{position:"fixed",top:16,right:16,background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:10,padding:"8px 12px",fontSize:15,cursor:"pointer",color:T.text,zIndex:10}}>
-        {isDark?"☀️":"🌙"}
+      <button onClick={toggleTheme} aria-label="Changer de thème" style={{position:"fixed",top:"calc(14px + env(safe-area-inset-top, 0px))",right:14,background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:8,padding:"8px 10px",cursor:"pointer",color:T.text,zIndex:10,display:"flex"}}>
+        <Icon name={isDark?"sun":"moon"} size={17}/>
       </button>
       {isMobile ? (
         <div style={{width:"100%",maxWidth:400,animation:shake?"shake 0.5s":"fadeUp 0.5s both"}}>
-          <div style={{background:`linear-gradient(145deg, ${T.sidebarBg}, ${T.sidebar})`,borderRadius:"20px 20px 0 0",padding:"32px 28px 28px",textAlign:"center"}}>
-            {logo && <div style={{width:52,height:52,borderRadius:14,background:"rgba(255,252,245,0.18)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,margin:"0 auto 16px"}}>{logo}</div>}
-            <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:30,color:"#fff",marginBottom:6,letterSpacing:"-0.5px"}}>{title}</h1>
-            {sub && <p style={{color:"rgba(255,252,245,0.6)",fontSize:14}}>{sub}</p>}
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:16,marginBottom:28}}>
+            <BrandLogo height={112} onDark={isDark}/>
+            {wordmark(false)}
+            {brandSubtitle && <div style={{fontSize:13,color:T.textSub,textAlign:"center"}}>{brandSubtitle}</div>}
           </div>
-          <div style={{background:T.bgCard,borderRadius:"0 0 20px 20px",padding:"28px",boxShadow:"0 16px 40px rgba(44,31,14,0.12)"}}>{form}</div>
+          <div style={{background:T.bgCard,border:`1px solid ${T.borderLight}`,borderRadius:14,padding:"24px 22px",boxShadow:T.shadow}}>
+            <h2 style={{fontFamily:"'Jost',sans-serif",fontWeight:500,fontSize:21,color:T.text,marginBottom:4}}>Connexion</h2>
+            <p style={{color:T.textSub,fontSize:13.5,marginBottom:20}}>Accède aux outils de l'étude.</p>
+            {form}
+          </div>
         </div>
       ) : (
-        <div style={{display:"flex",width:"100%",maxWidth:860,borderRadius:24,overflow:"hidden",boxShadow:"0 24px 80px rgba(44,31,14,0.15)",border:`1px solid ${T.border}`,animation:shake?"shake 0.5s":"fadeUp 0.5s both"}}>
-          <div style={{width:260,background:`linear-gradient(160deg, ${T.sidebarBg} 0%, ${T.sidebar} 100%)`,padding:"44px 36px",display:"flex",flexDirection:"column",justifyContent:"space-between"}}>
-            <div>
-              {logo && <div style={{width:48,height:48,borderRadius:14,background:"rgba(255,252,245,0.18)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,marginBottom:28}}>{logo}</div>}
-              <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:26,color:"#fff",marginBottom:8,letterSpacing:"-0.5px",lineHeight:1.2}}>{title}</h1>
-              {sub && <p style={{color:"rgba(255,252,245,0.55)",fontSize:13,lineHeight:1.6}}>{sub}</p>}
+        <div style={{display:"flex",width:"100%",maxWidth:900,borderRadius:18,overflow:"hidden",boxShadow:T.shadowHover,border:`1px solid ${T.border}`,animation:shake?"shake 0.5s":"fadeUp 0.5s both"}}>
+          <div style={{width:340,background:T.sidebarBg,padding:"48px 40px 40px",display:"flex",flexDirection:"column",justifyContent:"space-between",gap:40}}>
+            <div style={{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:26}}>
+              <BrandLogo height={150} onDark/>
+              <div style={{width:48,height:1,background:"rgba(255,255,255,0.3)"}}/>
+              <div>
+                {wordmark(true)}
+                {brandSubtitle && <p style={{color:"rgba(255,255,255,0.55)",fontSize:13,lineHeight:1.6,marginTop:8}}>{brandSubtitle}</p>}
+              </div>
             </div>
-            <div style={{borderTop:"1px solid rgba(255,252,245,0.12)",paddingTop:20}}>
-              {restaurants.map(r=><div key={r.id} style={{color:"rgba(255,252,245,0.5)",fontSize:13,marginBottom:7}}>{r.emoji} {r.label}</div>)}
-            </div>
+            {modules(true)}
           </div>
-          <div style={{flex:1,background:T.bgCard,padding:"44px 40px",display:"flex",flexDirection:"column",justifyContent:"center"}}>
-            <h2 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:22,color:T.text,marginBottom:4}}>Bienvenue 👋</h2>
-            <p style={{color:T.textSub,fontSize:14,marginBottom:28}}>Connecte-toi pour passer ta commande</p>
+          <div style={{flex:1,background:T.bgCard,padding:"52px 48px",display:"flex",flexDirection:"column",justifyContent:"center"}}>
+            <h2 style={{fontFamily:"'Jost',sans-serif",fontWeight:500,fontSize:28,color:T.text,marginBottom:6}}>Connexion</h2>
+            <p style={{color:T.textSub,fontSize:14,marginBottom:30}}>Accède aux outils de l'étude.</p>
             {form}
           </div>
         </div>
@@ -889,7 +903,7 @@ function MenuSection({ section, T, isAdmin, onSave, onOrder }) {
   return (
     <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:14,marginBottom:12,overflow:"hidden",boxShadow:T.shadow}}>
       <div style={{padding:"11px 20px",background:`${accent}14`,borderBottom:`1px solid ${accent}22`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <span style={{fontSize:14,fontWeight:700,color:accent,fontFamily:"'Syne',sans-serif"}}>{section.cat}</span>
+        <span style={{fontSize:14,fontWeight:700,color:accent,fontFamily:"'Jost',sans-serif"}}>{section.cat}</span>
         <div style={{display:"flex",alignItems:"center",gap:8}}>
           <span style={{fontSize:11,color:accent,opacity:0.8}}>{items.length} article{items.length>1?"s":""}</span>
           {isAdmin && (
@@ -1001,7 +1015,7 @@ function ProfileTab({ user, profiles, members, T, editingProfile, setEditingProf
         <div style={{width:80,height:80,borderRadius:"50%",background:displayColor+"22",border:`3px solid ${displayColor}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:myProfile.emoji?36:28,fontWeight:700,color:displayColor,margin:"0 auto 12px"}}>
           {myProfile.emoji||getInitials(user)}
         </div>
-        <h2 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:20,color:T.text,marginBottom:2}}>{myProfile.alias||user}</h2>
+        <h2 style={{fontFamily:"'Jost',sans-serif",fontWeight:500,fontSize:20,color:T.text,marginBottom:2}}>{myProfile.alias||user}</h2>
         {myProfile.alias && <p style={{fontSize:13,color:T.textSub,marginBottom:4}}>({user})</p>}
         {myProfile.bio && <p style={{fontSize:13,color:T.textSub,marginBottom:8,fontStyle:"italic"}}>"{myProfile.bio}"</p>}
         {myProfile.favoriteOrder && <div style={{background:T.bgTag,borderRadius:20,padding:"4px 14px",fontSize:12,color:T.textSub,display:"inline-block",marginBottom:4}}>🍴 Commande fav : {myProfile.favoriteOrder}</div>}
@@ -1048,7 +1062,7 @@ function ProfileTab({ user, profiles, members, T, editingProfile, setEditingProf
         </div>
       )}
 
-      <h3 style={{fontFamily:"'Syne',sans-serif",fontWeight:600,fontSize:15,color:T.text,margin:"24px 0 12px"}}>👥 L'équipe</h3>
+      <h3 style={{fontFamily:"'Jost',sans-serif",fontWeight:600,fontSize:15,color:T.text,margin:"24px 0 12px"}}>👥 L'équipe</h3>
       <div style={{display:"flex",flexDirection:"column",gap:8}}>
         {members.filter(m=>accessOf(m).lunch).map(m=>m.username).filter(n=>n!==user).map(name=>{
           const p=profiles[name]||{};
@@ -1141,7 +1155,7 @@ function RecapPanel({ user, names, orders, ctx, T, isMobile, only, onSuggest, pe
   );
 
   const colHeader=(icon,label)=>(
-    <div style={{display:"flex",alignItems:"center",gap:7,fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:13.5,color:T.text,marginBottom:12}}><span>{icon}</span>{label}</div>
+    <div style={{display:"flex",alignItems:"center",gap:7,fontFamily:"'Jost',sans-serif",fontWeight:500,fontSize:13.5,color:T.text,marginBottom:12}}><span>{icon}</span>{label}</div>
   );
   const box = {background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:14,padding:16,marginBottom:20,boxShadow:T.shadow};
 
@@ -1194,7 +1208,7 @@ function PayModal({ T, r, people, orders, ctx, payerOptions, defaultPayer, onClo
     <div role="dialog" aria-modal="true" style={{position:"fixed",inset:0,background:"rgba(20,15,10,0.45)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:3000,padding:16}}
       onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:16,padding:22,width:460,maxWidth:"100%",maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 80px rgba(44,31,14,0.25)"}}>
-        <h3 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:17,color:T.text,marginBottom:4}}>💳 Paiement · {r.emoji} {r.label}</h3>
+        <h3 style={{fontFamily:"'Jost',sans-serif",fontWeight:500,fontSize:17,color:T.text,marginBottom:4}}>💳 Paiement · {r.emoji} {r.label}</h3>
         <p style={{fontSize:12.5,color:T.textSub,lineHeight:1.5,marginBottom:16}}>Chacun devra sa part à la personne qui a payé. Le montant se retrouve dans l'onglet Comptes.</p>
 
         <label style={{fontSize:12,fontWeight:600,color:T.textSub,display:"block",marginBottom:5}}>Qui a payé ?</label>
@@ -1305,8 +1319,9 @@ export default function App() {
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [feedback, setFeedback] = useState([]);
   const [now, setNow] = useState(Date.now());
-  const [space, setSpace] = useState(null);
-  const [etudeLow, setEtudeLow] = useState(0); // articles sous le seuil, pas encore commandés (badge 🏢 Étude) // espace choisi pour cette connexion (redemandé à chaque login)
+  const [space, setSpace] = useState(null); // application choisie pour cette connexion (redemandée à chaque login)
+  const [brand, setBrand] = useState({}); // config/etude : brandName, brandSubtitle
+  const [etudeLow, setEtudeLow] = useState(0); // articles sous le seuil, pas encore commandés (badge Administration)
   const detailTimers = useRef({});
   const toastTimer = useRef(null);
   const ordersRef = useRef({});
@@ -1325,7 +1340,8 @@ export default function App() {
     m.setAttribute("content","width=device-width, initial-scale=1, viewport-fit=cover");
   },[]);
   useEffect(()=>{ if(user && quotes.length) setQuote(quotes[Math.floor(Math.random()*quotes.length)]); },[user]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(()=>{ if(appConfig.title) document.title = appConfig.title; },[appConfig.title]);
+  const brandName = brand.brandName || "Gestion Étude";
+  useEffect(()=>{ document.title = brandName; },[brandName]);
 
   useEffect(()=>{
     const unsub = onAuthStateChanged(auth, u=>{
@@ -1371,6 +1387,7 @@ export default function App() {
         setUnreadActivity(acts.filter(a=>a.ts>lastSeen&&a.author!==user).length);
       }),
       onSnapshot(collection(db,"profiles"), snap=>{ const d={}; snap.forEach(s=>{d[s.id]=s.data();}); setProfiles(d); }),
+      onSnapshot(doc(db,"config","etude"), s=>setBrand(s.exists()?s.data():{}), ()=>{}),
       onSnapshot(collection(db,"stock_items"), snap=>{ let n=0; snap.forEach(s=>{ const d=s.data(); if(Number(d.qty||0)<=Number(d.threshold||0) && !d.orderedAt) n++; }); setEtudeLow(n); }, ()=>setEtudeLow(0)),
       onSnapshot(collection(db,"feedback"), snap=>{ const arr=[]; snap.forEach(s=>arr.push({id:s.id,...s.data()})); arr.sort((a,b)=>b.ts-a.ts); setFeedback(arr); }),
     ];
@@ -1395,51 +1412,66 @@ export default function App() {
     </div>
   );
 
-  if(!user) return <LoginScreen onLogin={u=>{ setSpace(null); setUser(u); }} T={T} isDark={isDark} toggleTheme={toggleTheme}
-    members={members} membersLoaded={membersLoaded} appConfig={appConfig} restaurants={restaurants}/>;
+  if(!user) return <LoginScreen onLogin={u=>{ setSpace(null); setUser(u); }} T={T} isDark={isDark} toggleTheme={toggleTheme} brandName={brandName} brandSubtitle={brand.brandSubtitle||""} lunchName={appConfig.title||"Lunch"}
+    members={members} membersLoaded={membersLoaded} appConfig={appConfig}/>;
 
-  // ── Espaces : Lunch Order / Étude (droits par membre, voir access.js) ──
+  // ── Espaces : Administration (Étude) / Lunch (droits par membre, voir access.js) ──
   const myAccess = accessOf(members.find(m=>m.username===user));
   const hasEtude = myAccess.etude!=="none";
   const goSpace = s=>setSpace(s);
-  const spaceBtn = { background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:16, padding:"22px 20px", cursor:"pointer", textAlign:"left", color:T.text, boxShadow:T.shadow, display:"flex", flexDirection:"column", gap:6 };
-
-  if(!myAccess.lunch && !hasEtude) return (
-    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.bg,padding:24,fontFamily:"'DM Sans',sans-serif"}}>
-      <div style={{textAlign:"center",color:T.textSub,maxWidth:360}}>
-        <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:8}}>Aucun accès pour {user}</div>
-        <div style={{fontSize:13,marginBottom:18}}>Ton compte n'a accès ni à Lunch ni à l'espace Étude. Demande à un admin de t'ouvrir un accès.</div>
-        <button onClick={()=>setUser(null)} style={{background:T.sidebar,color:"#fff",border:"none",borderRadius:10,padding:"10px 22px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Retour</button>
+  const lunchName = appConfig.title || "Lunch";
+  const shell = children => (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.bg,padding:"32px 16px",fontFamily:"'DM Sans',sans-serif"}}>
+      <style>{CSS(T)}</style>
+      <button onClick={toggleTheme} aria-label="Changer de thème" style={{position:"fixed",top:"calc(14px + env(safe-area-inset-top, 0px))",right:14,background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:8,padding:"8px 10px",cursor:"pointer",color:T.text,display:"flex"}}><Icon name={isDark?"sun":"moon"} size={17}/></button>
+      <div style={{width:"100%",maxWidth:620,animation:"fadeUp 0.4s both"}}>
+        <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:28}}>
+          <BrandLogo variant="mono" height={40} onDark={isDark}/>
+          <div style={{width:1,alignSelf:"stretch",background:T.border}}/>
+          <div style={{fontFamily:"'Jost',sans-serif",fontWeight:500,fontSize:13,letterSpacing:"0.3em",textTransform:"uppercase",color:T.text}}>{brandName}</div>
+        </div>
+        {children}
       </div>
+    </div>
+  );
+  const spaceBtn = { background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:14, padding:"22px 20px", cursor:"pointer", textAlign:"left", color:T.text, boxShadow:T.shadow, display:"flex", flexDirection:"column", gap:8, minWidth:0 };
+  const spaceIcon = name => <span style={{width:46,height:46,borderRadius:23,border:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"center",color:T.text,marginBottom:6}}><Icon name={name} size={22} stroke={1.4}/></span>;
+
+  if(!myAccess.lunch && !hasEtude) return shell(
+    <div style={{background:T.bgCard,border:`1px solid ${T.borderLight}`,borderRadius:14,padding:24,boxShadow:T.shadow}}>
+      <div style={{fontFamily:"'Jost',sans-serif",fontSize:20,fontWeight:500,color:T.text,marginBottom:6}}>Aucun accès pour {user}</div>
+      <div style={{fontSize:14,color:T.textSub,marginBottom:18}}>Ton compte n'a accès à aucune application. Demande à un administrateur de t'ouvrir un accès.</div>
+      <button onClick={()=>setUser(null)} style={{background:T.text,color:T.bg,border:"none",borderRadius:8,padding:"10px 20px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Retour</button>
     </div>
   );
 
   if(hasEtude && (!myAccess.lunch || space==="etude")) return (
-    <Etude db={db} T={T} user={user} members={members} role={myAccess.etude} canLunch={myAccess.lunch} onSwitch={goSpace}
-      isDark={isDark} toggleTheme={toggleTheme} isMobile={isMobile} onLogout={()=>setUser(null)}/>
+    <>
+      <style>{CSS(T)}</style>
+      <Etude db={db} T={T} user={user} members={members} role={myAccess.etude} canLunch={myAccess.lunch} lunchName={lunchName} brandName={brandName} onSwitch={goSpace}
+        isDark={isDark} toggleTheme={toggleTheme} isMobile={isMobile} onLogout={()=>setUser(null)}/>
+    </>
   );
 
-  if(hasEtude && myAccess.lunch && space!=="lunch") return (
-    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:T.bg,padding:"24px 16px",fontFamily:"'DM Sans',sans-serif"}}>
-      <div style={{width:"100%",maxWidth:560}}>
-        <h1 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:24,color:T.text,margin:"0 0 4px"}}>Bonjour {profiles[user]?.alias||user}</h1>
-        <p style={{fontSize:14,color:T.textSub,margin:"0 0 18px"}}>Quelle application veux-tu utiliser ? Tu pourras changer à tout moment depuis l'en-tête.</p>
-        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12}}>
-          <button style={spaceBtn} onClick={()=>goSpace("lunch")}>
-            <span style={{fontSize:30}}>🍽️</span>
-            <span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:18}}>{appConfig.title||"Lunch Order"}</span>
-            <span style={{fontSize:13,color:T.textSub}}>Commandes du midi, menus, paiements et chat.</span>
-          </button>
-          <button style={spaceBtn} onClick={()=>goSpace("etude")}>
-            <span style={{fontSize:30}}>🏢</span>
-            <span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:18}}>Étude</span>
-            <span style={{fontSize:13,color:T.textSub}}>Stock et alertes, demandes, matériel et planning.</span>
-            {etudeLow>0 && <span style={{alignSelf:"flex-start",marginTop:4,background:"#e8590c",color:"#fff",borderRadius:999,padding:"3px 10px",fontSize:12,fontWeight:700}}>⚠️ {etudeLow} article{etudeLow>1?"s":""} à commander</span>}
-          </button>
-        </div>
-        <button onClick={()=>setUser(null)} style={{marginTop:16,background:"transparent",border:"none",color:T.textFaint,fontSize:13,cursor:"pointer"}}>Déconnexion</button>
+  if(hasEtude && myAccess.lunch && space!=="lunch") return shell(
+    <>
+      <h1 style={{fontFamily:"'Jost',sans-serif",fontWeight:500,fontSize:isMobile?26:30,color:T.text,margin:"0 0 6px"}}>Bonjour {profiles[user]?.alias||user}</h1>
+      <p style={{fontSize:14.5,color:T.textSub,margin:"0 0 22px"}}>Quelle application veux-tu utiliser ? Tu pourras changer à tout moment depuis l'en-tête.</p>
+      <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12}}>
+        <button className="space-card" style={spaceBtn} onClick={()=>goSpace("etude")}>
+          {spaceIcon("building")}
+          <span style={{fontFamily:"'Jost',sans-serif",fontWeight:500,fontSize:20}}>Administration</span>
+          <span style={{fontSize:13.5,color:T.textSub,lineHeight:1.5}}>Stock et alertes, demandes, parc matériel et planning de l'étude.</span>
+          {etudeLow>0 && <span style={{alignSelf:"flex-start",marginTop:4,display:"inline-flex",alignItems:"center",gap:6,background:T.orange,color:"#fff",borderRadius:999,padding:"4px 11px",fontSize:12,fontWeight:700}}><Icon name="alert" size={14}/>{etudeLow} article{etudeLow>1?"s":""} à commander</span>}
+        </button>
+        <button className="space-card" style={spaceBtn} onClick={()=>goSpace("lunch")}>
+          {spaceIcon("utensils")}
+          <span style={{fontFamily:"'Jost',sans-serif",fontWeight:500,fontSize:20}}>{lunchName}</span>
+          <span style={{fontSize:13.5,color:T.textSub,lineHeight:1.5}}>Commandes du midi, menus, paiements et messages.</span>
+        </button>
       </div>
-    </div>
+      <button onClick={()=>setUser(null)} style={{marginTop:18,background:"transparent",border:"none",color:T.textFaint,fontSize:13,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6}}><Icon name="logout" size={15}/>Déconnexion</button>
+    </>
   );
 
   // ── Persistance config ──
@@ -1698,7 +1730,7 @@ export default function App() {
   const inp={ width:"100%", background:T.bgInput, border:`1px solid ${T.border}`, borderRadius:8, color:T.text, padding:"8px 12px", fontSize:14 };
   const addBtn={ background:T.sidebar, color:"#f5efe6", border:"none", borderRadius:8, padding:"8px 18px", fontSize:13, fontWeight:600, cursor:"pointer", whiteSpace:"nowrap" };
   const card={ background:T.bgCard, border:`1px solid ${T.border}`, borderRadius:14, padding:"20px 24px", boxShadow:T.shadow };
-  const h1={ fontFamily:"'Syne',sans-serif", fontWeight:700, fontSize:22, color:T.text };
+  const h1={ fontFamily:"'Jost',sans-serif", fontWeight:700, fontSize:22, color:T.text };
   const h2={ fontSize:15, fontWeight:600, color:T.text, marginBottom:4 };
   const helpS={ fontSize:12, color:T.textFaint, marginBottom:14, lineHeight:1.5 };
   const emptyBox=(icon,text,sub)=>(
@@ -1710,14 +1742,14 @@ export default function App() {
 
   // ── Navigation ──
   const NAV = {
-    order:    { icon:"📋", label:"Commander" },
-    summary:  { icon:"📊", label:"Résumé" },
-    menu:     { icon:"🍽️", label:"Menu" },
-    accounts: { icon:"💶", label:"Comptes" },
-    messages: { icon:"💬", label:"Messages" },
-    history:  { icon:"📅", label:"Historique" },
-    profile:  { icon:"👤", label:"Profil" },
-    settings: { icon:"⚙️", label:"Config" },
+    order:    { icon:"clipboard", label:"Commander" },
+    summary:  { icon:"chart", label:"Résumé" },
+    menu:     { icon:"utensils", label:"Menu" },
+    accounts: { icon:"wallet", label:"Comptes" },
+    messages: { icon:"chat", label:"Messages" },
+    history:  { icon:"clock", label:"Historique" },
+    profile:  { icon:"user", label:"Profil" },
+    settings: { icon:"settings", label:"Config" },
   };
   const navPrimary = ["order","summary","menu","accounts"];
   const navSecondary = ["messages","history","profile", ...(isAdmin?["settings"]:[])];
@@ -1747,7 +1779,7 @@ export default function App() {
         )}
         <button onClick={()=>selectTab(id)} aria-current={isActive?"page":undefined} title={item.label}
           style={{position:"relative",zIndex:2,width:82,height:62,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:4,border:"none",cursor:"pointer",background:"transparent",color:isActive?T.accent:"rgba(255,255,255,0.78)",transition:"color 0.2s"}}>
-          <span style={{fontSize:20,lineHeight:1,position:"relative"}}>{item.icon}{badgeEl(itemBadge(id))}</span>
+          <span style={{lineHeight:1,position:"relative",display:"inline-flex"}}><Icon name={item.icon} size={21} stroke={1.5}/>{badgeEl(itemBadge(id))}</span>
           <span style={{fontSize:10,fontWeight:isActive?700:500,letterSpacing:"0.02em"}}>{item.label}</span>
         </button>
       </div>
@@ -1879,7 +1911,7 @@ export default function App() {
         <div role="dialog" aria-modal="true" style={{position:"fixed",inset:0,background:"rgba(20,15,10,0.4)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:3000,padding:16}}
           onClick={e=>e.target===e.currentTarget&&setShowFeedback(false)}>
           <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:16,padding:24,width:420,maxWidth:"100%",boxShadow:"0 24px 80px rgba(44,31,14,0.2)"}}>
-            <h3 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:17,color:T.text,marginBottom:6}}>💡 Signaler un prix ou une idée</h3>
+            <h3 style={{fontFamily:"'Jost',sans-serif",fontWeight:500,fontSize:17,color:T.text,marginBottom:6}}>💡 Signaler un prix ou une idée</h3>
             <p style={{fontSize:13,color:T.textSub,lineHeight:1.5,marginBottom:14}}>Les totaux sont estimés à partir des prix Take Away. Indique les vrais prix ou toute amélioration : l'admin les verra.</p>
             {feedbackSent ? (
               <div style={{background:T.green+"18",border:`1px solid ${T.green}44`,color:T.green,borderRadius:10,padding:"14px",textAlign:"center",fontSize:14,fontWeight:600}}>✓ Merci, c'est envoyé !</div>
@@ -1902,7 +1934,7 @@ export default function App() {
         <div role="dialog" aria-modal="true" style={{position:"fixed",inset:0,background:"rgba(44,31,14,0.4)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:3000,padding:16}}
           onClick={e=>e.target===e.currentTarget&&setShowFavModal(false)}>
           <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:16,padding:"26px",width:360,maxWidth:"100%",boxShadow:"0 24px 80px rgba(44,31,14,0.2)"}}>
-            <h3 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:17,color:T.text,marginBottom:6}}>⭐ Nommer ce favori</h3>
+            <h3 style={{fontFamily:"'Jost',sans-serif",fontWeight:500,fontSize:17,color:T.text,marginBottom:6}}>⭐ Nommer ce favori</h3>
             <p style={{fontSize:13,color:T.textSub,marginBottom:16}}>Tu pourras le recharger en un clic depuis Commander.</p>
             <input autoFocus style={{...inp,marginBottom:12}} value={favNameInput} onChange={e=>setFavNameInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&saveFavorite()} placeholder="ex : Mon durum du vendredi"/>
             <div style={{display:"flex",gap:8}}>
@@ -1927,7 +1959,7 @@ export default function App() {
         <div role="dialog" aria-modal="true" style={{position:"fixed",inset:0,background:"rgba(44,31,14,0.4)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:3000}}
           onClick={e=>e.target===e.currentTarget&&setSauceModal(null)}>
           <div style={{background:T.bgCard,border:`1px solid ${T.border}`,borderRadius:16,padding:"24px",width:300,boxShadow:"0 24px 60px rgba(44,31,14,0.15)"}}>
-            <h3 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:16,color:T.text,marginBottom:6}}>🫙 {sauceModal.sauceName}</h3>
+            <h3 style={{fontFamily:"'Jost',sans-serif",fontWeight:500,fontSize:16,color:T.text,marginBottom:6}}>🫙 {sauceModal.sauceName}</h3>
             <p style={{fontSize:13,color:T.textSub,marginBottom:16}}>Où ajouter cette sauce ?</p>
             <div style={{display:"flex",flexDirection:"column",gap:8}}>
               {[
@@ -1965,7 +1997,8 @@ export default function App() {
       {!isMobile && (
         <aside style={{width:88,background:`linear-gradient(180deg, ${T.sidebarBg} 0%, ${T.sidebar} 100%)`,display:"flex",flexDirection:"column",position:"sticky",top:0,height:"100vh",flexShrink:0,zIndex:10}}>
           <div style={{padding:"20px 0 16px",display:"flex",flexDirection:"column",alignItems:"center",borderBottom:"1px solid rgba(255,252,245,0.12)",marginBottom:8}}>
-            <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:11,color:"#fff",letterSpacing:"0.5px",lineHeight:1.2,textAlign:"center"}}>
+            <BrandLogo variant="mono" width={46} onDark style={{marginBottom:10}}/>
+            <div style={{fontFamily:"'Jost',sans-serif",fontWeight:500,fontSize:10.5,color:"#fff",letterSpacing:"0.14em",textTransform:"uppercase",lineHeight:1.3,textAlign:"center"}}>
               {shortTitle.map((l,i)=><div key={i} style={i>0?{opacity:0.6}:undefined}>{l}</div>)}
             </div>
           </div>
@@ -1983,8 +2016,8 @@ export default function App() {
               <Avatar name={user} size={28} profile={profiles[user]}/>
               <span style={{position:"absolute",bottom:-1,right:-1,padding:2,borderRadius:"50%",background:T.sidebar,display:"flex"}}><StatusDot status={status}/></span>
             </div>
-            {hasEtude && <button onClick={()=>goSpace("etude")} title={etudeLow?`Espace Étude : ${etudeLow} article(s) à commander`:"Aller à l'espace Étude"} style={{position:"relative",background:"rgba(255,252,245,0.12)",border:"none",borderRadius:7,padding:"4px 8px",fontSize:10,fontWeight:600,cursor:"pointer",color:"#fff"}}>🏢 Étude{etudeLow>0 && <span style={{position:"absolute",top:-6,right:-6,minWidth:16,height:16,borderRadius:8,background:"#e8590c",color:"#fff",fontSize:9.5,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px"}}>{etudeLow}</span>}</button>}
-            <button onClick={toggleTheme} aria-label="Changer de thème" style={{background:"rgba(255,252,245,0.12)",border:"none",borderRadius:7,padding:"4px 8px",fontSize:12,cursor:"pointer",color:"#fff"}}>{isDark?"☀️":"🌙"}</button>
+            {hasEtude && <button onClick={()=>goSpace("etude")} title={etudeLow?`Administration : ${etudeLow} article(s) à commander`:"Aller à l'Administration"} style={{position:"relative",background:"rgba(255,252,245,0.12)",border:"none",borderRadius:7,padding:"6px 8px",fontSize:9.5,fontWeight:600,cursor:"pointer",color:"#fff",display:"flex",flexDirection:"column",alignItems:"center",gap:3}}><Icon name="building" size={16}/>Admin.{etudeLow>0 && <span style={{position:"absolute",top:-6,right:-6,minWidth:16,height:16,borderRadius:8,background:T.orange,color:"#fff",fontSize:9.5,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px"}}>{etudeLow}</span>}</button>}
+            <button onClick={toggleTheme} aria-label="Changer de thème" style={{background:"rgba(255,252,245,0.12)",border:"none",borderRadius:7,padding:"5px 8px",cursor:"pointer",color:"#fff",display:"flex"}}><Icon name={isDark?"sun":"moon"} size={15}/></button>
             <button onClick={()=>setUser(null)} style={{background:"rgba(255,252,245,0.12)",border:"none",borderRadius:7,padding:"3px 6px",fontSize:9.5,cursor:"pointer",color:"rgba(255,252,245,0.75)"}}>Quitter</button>
           </div>
         </aside>
@@ -1995,13 +2028,13 @@ export default function App() {
         {isMobile && (
           <header style={{background:T.bgCard,borderBottom:`1px solid ${T.border}`,padding:"12px 16px",paddingTop:"calc(12px + env(safe-area-inset-top, 0px))",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100}}>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
-              {appConfig.logoEmoji && <span style={{fontSize:18}}>{appConfig.logoEmoji}</span>}
-              <span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:15,color:T.text}}>{appConfig.title||""}</span>
+              <BrandLogo variant="mono" height={22} onDark={isDark}/>
+              <span style={{fontFamily:"'Jost',sans-serif",fontWeight:500,fontSize:15,letterSpacing:"0.04em",color:T.text}}>{appConfig.title||""}</span>
               <StatusDot status={status}/>
             </div>
             <div style={{display:"flex",gap:6}}>
-              {hasEtude && <button onClick={()=>goSpace("etude")} aria-label={etudeLow?`Espace Étude, ${etudeLow} article(s) à commander`:"Espace Étude"} style={{position:"relative",background:T.bgTag,border:`1px solid ${T.border}`,borderRadius:8,padding:"5px 9px",fontSize:12,fontWeight:600,cursor:"pointer",color:T.text}}>🏢 Étude{etudeLow>0 && <span style={{position:"absolute",top:-7,right:-7,minWidth:17,height:17,borderRadius:9,background:"#e8590c",color:"#fff",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px"}}>{etudeLow}</span>}</button>}
-              <button onClick={toggleTheme} aria-label="Changer de thème" style={{background:T.bgTag,border:`1px solid ${T.border}`,borderRadius:8,padding:"5px 8px",fontSize:13,cursor:"pointer",color:T.text}}>{isDark?"☀️":"🌙"}</button>
+              {hasEtude && <button onClick={()=>goSpace("etude")} aria-label={etudeLow?`Administration, ${etudeLow} article(s) à commander`:"Administration"} style={{position:"relative",background:T.bgTag,border:`1px solid ${T.border}`,borderRadius:8,padding:"5px 9px",fontSize:12,fontWeight:600,cursor:"pointer",color:T.text,display:"flex",alignItems:"center",gap:5}}><Icon name="building" size={15}/>Admin{etudeLow>0 && <span style={{position:"absolute",top:-7,right:-7,minWidth:17,height:17,borderRadius:9,background:T.orange,color:"#fff",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px"}}>{etudeLow}</span>}</button>}
+              <button onClick={toggleTheme} aria-label="Changer de thème" style={{background:T.bgTag,border:`1px solid ${T.border}`,borderRadius:8,padding:"5px 8px",cursor:"pointer",color:T.text,display:"flex",alignItems:"center"}}><Icon name={isDark?"sun":"moon"} size={16}/></button>
               <button onClick={()=>setUser(null)} style={{background:T.bgTag,border:`1px solid ${T.border}`,borderRadius:8,padding:"5px 10px",fontSize:11.5,cursor:"pointer",color:T.textSub}}>Déconnexion</button>
             </div>
           </header>
@@ -2017,7 +2050,7 @@ export default function App() {
                   return (
                     <button key={id} onClick={()=>{ selectTab(id); setNavOpen(false); }}
                       style={{display:"flex",alignItems:"center",gap:9,padding:"12px",borderRadius:10,border:"none",cursor:"pointer",background:isActive?T.accentLight:"transparent",color:isActive?T.accent:T.text}}>
-                      <span style={{fontSize:19,position:"relative"}}>{item.icon}{badgeEl(itemBadge(id))}</span>
+                      <span style={{lineHeight:1,position:"relative",display:"inline-flex"}}><Icon name={item.icon} size={21} stroke={1.5}/>{badgeEl(itemBadge(id))}</span>
                       <span style={{fontSize:13.5,fontWeight:isActive?700:500}}>{item.label}</span>
                     </button>
                   );
@@ -2030,7 +2063,7 @@ export default function App() {
                 return (
                   <button key={id} onClick={()=>selectTab(id)} aria-current={isActive?"page":undefined}
                     style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,padding:"10px 0",background:"none",border:"none",cursor:"pointer",color:isActive?T.accent:T.textFaint,borderTop:isActive?`2px solid ${T.accent}`:"2px solid transparent"}}>
-                    <span style={{fontSize:20,position:"relative"}}>{item.icon}{badgeEl(itemBadge(id))}</span>
+                    <span style={{lineHeight:1,position:"relative",display:"inline-flex"}}><Icon name={item.icon} size={21} stroke={1.5}/>{badgeEl(itemBadge(id))}</span>
                     <span style={{fontSize:10,fontWeight:isActive?700:500}}>{item.label}</span>
                   </button>
                 );
@@ -2112,7 +2145,7 @@ export default function App() {
                     return (
                       <div style={{background:T.bgCard,border:`1.5px solid ${r?r.accent+"66":T.border}`,borderRadius:16,overflow:"hidden",boxShadow:T.shadow,marginBottom:16}}>
                         <div style={{padding:"12px 16px",display:"flex",alignItems:"center",gap:10,borderBottom:`1px solid ${T.borderLight}`,background:r?r.bg+(isDark?"22":""):"transparent"}}>
-                          <span style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:15,color:r&&!isDark?r.accent:T.text,flex:1}}>
+                          <span style={{fontFamily:"'Jost',sans-serif",fontWeight:500,fontSize:15,color:r&&!isDark?r.accent:T.text,flex:1}}>
                             {r?`${r.emoji} ${r.label}`:"Ma commande"}
                           </span>
                           {statusTag(user)}
@@ -2509,7 +2542,7 @@ export default function App() {
                 <div>
                   {menuResto.header && (
                     <div style={{background:menuResto.header.gradient||menuResto.bg,borderRadius:16,padding:"24px",marginBottom:20,textAlign:"center",boxShadow:T.shadow,position:"relative"}}>
-                      <div style={{fontFamily:"'Syne',sans-serif",fontWeight:800,fontSize:28,color:"#fff",letterSpacing:"-0.5px",marginBottom:4}}>{menuResto.header.title}</div>
+                      <div style={{fontFamily:"'Jost',sans-serif",fontWeight:600,fontSize:28,color:"#fff",letterSpacing:"-0.5px",marginBottom:4}}>{menuResto.header.title}</div>
                       {menuResto.header.subtitle && <div style={{fontSize:14,color:"rgba(255,255,255,0.9)",fontStyle:"italic"}}>{menuResto.header.subtitle}</div>}
                       {isAdmin && sectionsOf(menuResto).some(s=>s.aiKey) && (
                         <label style={{position:"absolute",top:12,right:12,background:"rgba(255,255,255,0.25)",border:"1px solid rgba(255,255,255,0.4)",borderRadius:10,padding:"6px 12px",fontSize:12,fontWeight:600,color:"#fff",cursor:"pointer"}}>
@@ -2544,7 +2577,7 @@ export default function App() {
 
                   {aiState.preview && aiState.extracted && aiState.restoId===menuResto.id && (
                     <div style={{background:T.bgCard,border:`2px solid ${menuResto.accent}`,borderRadius:14,padding:"20px",marginBottom:16,boxShadow:T.shadow}}>
-                      <h3 style={{fontFamily:"'Syne',sans-serif",fontWeight:700,fontSize:15,color:menuResto.accent,marginBottom:12}}>✨ Éléments détectés : on enregistre ?</h3>
+                      <h3 style={{fontFamily:"'Jost',sans-serif",fontWeight:500,fontSize:15,color:menuResto.accent,marginBottom:12}}>✨ Éléments détectés : on enregistre ?</h3>
                       <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12,marginBottom:16}}>
                         {sectionsOf(menuResto).filter(s=>s.aiKey).map(s=>(
                           <div key={s.aiKey}>

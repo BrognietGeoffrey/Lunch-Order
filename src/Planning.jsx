@@ -145,7 +145,7 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
     <style>{PRINT_CSS}</style>
     <div className="pl-screen" style={embedded ? { color: T.text } : { minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'DM Sans',sans-serif", paddingBottom: 40 }}>
       {!embedded && <header style={{ position: "sticky", top: 0, zIndex: 5, background: T.sidebar, color: "#fff", padding: `calc(12px + env(safe-area-inset-top, 0px)) 16px 12px`, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 18, flex: 1, minWidth: 120 }}>📅 Planning</div>
+        <div style={{ fontFamily: "'Jost',sans-serif", fontWeight: 500, fontSize: 18, flex: 1, minWidth: 120 }}>📅 Planning</div>
         <span style={{ fontSize: 12, opacity: .75 }}>{savedTxt}</span>
         <span style={{ fontSize: 12.5, opacity: .85 }}>{user}</span>
         <button onClick={toggleTheme} aria-label="Changer de thème" style={{ background: "rgba(255,255,255,.12)", border: "none", color: "#fff", borderRadius: 8, padding: "5px 9px", cursor: "pointer" }}>{isDark ? "☀️" : "🌙"}</button>
@@ -182,7 +182,7 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
                 <article key={c.id} style={{ background: T.bgCard, border: `1px solid ${T.borderLight}`, borderRadius: 14, boxShadow: T.shadow, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "12px 10px 8px 12px", borderBottom: `1px solid ${T.borderLight}` }}>
                     <input id={`pl-name-${c.id}`} value={c.name} onChange={e => updCard(ci, { name: e.target.value })} aria-label="Nom"
-                      style={{ flex: 1, minWidth: 0, fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 21, border: "1px solid transparent", background: "transparent", color: T.text, padding: "2px 6px", borderRadius: 6 }} />
+                      style={{ flex: 1, minWidth: 0, fontFamily: "'Jost',sans-serif", fontWeight: 500, fontSize: 21, border: "1px solid transparent", background: "transparent", color: T.text, padding: "2px 6px", borderRadius: 6 }} />
                     <button style={icon} disabled={ci === 0} title="Déplacer à gauche" onClick={() => commit(swap(cards, ci, ci - 1))}>◀</button>
                     <button style={icon} disabled={ci === cards.length - 1} title="Déplacer à droite" onClick={() => commit(swap(cards, ci, ci + 1))}>▶</button>
                     <button style={icon} title="Dupliquer" onClick={() => { const n = [...cards]; n.splice(ci + 1, 0, { ...c, id: uid(), name: c.name + " (copie)", slots: c.slots.map(s => ({ ...s, id: uid() })) }); commit(n); }}>⧉</button>
@@ -263,7 +263,7 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
         <div role="dialog" aria-modal="true" aria-label="Statuts" onClick={e => { if (e.target === e.currentTarget) setStatusOpen(false); }}
           style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,.45)", display: "flex", alignItems: isMobile ? "flex-end" : "center", justifyContent: "center", padding: isMobile ? 0 : 16 }}>
           <div style={{ background: T.bgCard, color: T.text, width: "100%", maxWidth: 440, maxHeight: "88vh", overflow: "auto", borderRadius: isMobile ? "16px 16px 0 0" : 16, padding: `18px 18px calc(18px + env(safe-area-inset-bottom, 0px))`, boxShadow: T.shadowHover }}>
-            <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 18, marginBottom: 4 }}>🎨 Statuts</div>
+            <div style={{ fontFamily: "'Jost',sans-serif", fontWeight: 500, fontSize: 18, marginBottom: 4 }}>🎨 Statuts</div>
             <div style={{ fontSize: 12.5, color: T.textSub, marginBottom: 14 }}>Renomme, change la couleur ou ajoute tes propres statuts (ex. « Occupé mais dispo »). Touche la pastille de couleur pour la changer.</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
               {statuses.map((x, i) => {
@@ -316,7 +316,7 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
         <div role="dialog" aria-modal="true" aria-label="Imprimer le planning" onClick={e => { if (e.target === e.currentTarget) setPrintOpen(false); }}
           style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,.45)", display: "flex", alignItems: isMobile ? "flex-end" : "center", justifyContent: "center", padding: isMobile ? 0 : 16 }}>
           <div style={{ background: T.bgCard, color: T.text, width: "100%", maxWidth: 420, maxHeight: "85vh", overflow: "auto", borderRadius: isMobile ? "16px 16px 0 0" : 16, padding: `18px 18px calc(18px + env(safe-area-inset-bottom, 0px))`, boxShadow: T.shadowHover }}>
-            <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 18, marginBottom: 4 }}>🖨️ Imprimer le planning</div>
+            <div style={{ fontFamily: "'Jost',sans-serif", fontWeight: 500, fontSize: 18, marginBottom: 4 }}>🖨️ Imprimer le planning</div>
             <div style={{ fontSize: 12.5, color: T.textSub, marginBottom: 12 }}>Choisis les cartes à imprimer.</div>
             <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
               <button style={{ ...ghost, borderStyle: "solid" }} onClick={() => setPrintSel(cards.map(c => c.id))}>Tout sélectionner</button>
@@ -391,13 +391,13 @@ const PRINT_CSS = `
   .pl-print{display:block !important;font-family:'DM Sans',system-ui,sans-serif;color:#111}
   .pl-print *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .pl-print-head{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #111;padding-bottom:4mm;margin-bottom:5mm}
-  .pl-print-title{font-family:'Syne',system-ui,sans-serif;font-weight:700;font-size:20pt}
+  .pl-print-title{font-family:'Jost',system-ui,sans-serif;font-weight:700;font-size:20pt}
   .pl-print-date{font-size:11pt;color:#444}
   .pl-print-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5mm;align-items:start}
   .pl-print-list .pl-print-card{break-after:page}
   .pl-print-list .pl-print-card:last-child{break-after:auto}
   .pl-print-card{break-inside:avoid;border:1px solid #bbb;border-radius:3mm;padding:4mm}
-  .pl-print-name{font-family:'Syne',system-ui,sans-serif;font-weight:700;font-size:15pt;margin-bottom:1mm}
+  .pl-print-name{font-family:'Jost',system-ui,sans-serif;font-weight:700;font-size:15pt;margin-bottom:1mm}
   .pl-print-stats{font-size:8.5pt;color:#555;margin-bottom:3mm}
   .pl-print-slot{display:grid;grid-template-columns:auto 1fr auto;gap:3mm;align-items:center;padding:2mm 3mm;border-radius:2mm;margin-bottom:1.5mm;font-size:10pt;border:1px solid}
   .pl-print-slot.pause{border-style:dashed}

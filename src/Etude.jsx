@@ -5,6 +5,7 @@ import {
 } from "firebase/firestore";
 import Planning from "./Planning.jsx";
 import { accessOf } from "./access.js";
+import { BrandLogo, Icon } from "./brand.jsx";
 
 // ── Espace Étude : stock, demandes, matériel, planning ────────────────────────
 // Firestore :
@@ -38,7 +39,6 @@ const ASSET_STATUSES = [
 ];
 // Listes de départ, écrites dans config/etude au premier passage d'un admin puis modifiables dans Réglages
 const STARTER_CFG = {
-  title: "Étude",
   stockCategories: ["Papeterie", "Impression", "Cuisine", "Entretien", "Informatique"],
   units: ["pièce", "boîte", "ramette", "paquet", "cartouche"],
   locations: [],
@@ -72,7 +72,7 @@ const stockState = it => {
   return { label: "OK", color: "#2f9e44" };
 };
 
-export default function Etude({ db, T, user, members, role, canLunch, onSwitch, isDark, toggleTheme, onLogout, isMobile }) {
+export default function Etude({ db, T, user, members, role, canLunch, lunchName = "Lunch", brandName = "Gestion Étude", onSwitch, isDark, toggleTheme, onLogout, isMobile }) {
   const isAdmin = role === "admin";
   const [tab, setTab] = useState(() => { try { return localStorage.getItem("etude_tab") || "home"; } catch { return "home"; } });
   const [items, setItems] = useState([]);
@@ -223,7 +223,7 @@ export default function Etude({ db, T, user, members, role, canLunch, onSwitch, 
 
   // ── Styles partagés ──
   const card = { background: T.bgCard, border: `1px solid ${T.borderLight}`, borderRadius: 14, boxShadow: T.shadow, padding: 16, minWidth: 0 };
-  const h2 = { fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 16, color: T.text, margin: 0 };
+  const h2 = { fontFamily: "'Jost',sans-serif", fontWeight: 500, fontSize: 16, color: T.text, margin: 0 };
   const btn = { background: T.bgCard, border: `1px solid ${T.border}`, color: T.text, borderRadius: 9, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" };
   const primary = { ...btn, background: T.accent, borderColor: T.accent, color: "#fff" };
   const danger = { ...btn, background: "transparent", borderColor: T.red, color: T.red };
@@ -233,16 +233,17 @@ export default function Etude({ db, T, user, members, role, canLunch, onSwitch, 
   const ctx = { T, card, h2, btn, primary, danger, inp, lbl, muted, isMobile };
 
   const TABS = [
-    { id: "home", icon: "🏠", label: "Accueil" },
-    { id: "stock", icon: "📦", label: "Stock", badge: lowToOrder.length },
-    { id: "tickets", icon: "🎫", label: "Demandes", badge: isAdmin ? newTickets.length : 0 },
-    { id: "assets", icon: "💻", label: "Matériel" },
-    { id: "planning", icon: "📅", label: "Planning" },
-    ...(isAdmin ? [{ id: "settings", icon: "⚙️", label: "Réglages" }] : []),
+    { id: "home", icon: "home", label: "Accueil" },
+    { id: "stock", icon: "box", label: "Stock", badge: lowToOrder.length },
+    { id: "tickets", icon: "ticket", label: "Demandes", badge: isAdmin ? newTickets.length : 0 },
+    { id: "assets", icon: "laptop", label: "Matériel" },
+    { id: "planning", icon: "calendar", label: "Planning" },
+    ...(isAdmin ? [{ id: "settings", icon: "settings", label: "Réglages" }] : []),
   ];
   const current = TABS.some(t => t.id === tab) ? tab : "home";
   const openTicket = tickets.find(t => t.id === openTicketId);
 
+  const hdrBtn = { background: "rgba(255,255,255,.08)", border: "1px solid rgba(255,255,255,.14)", color: "#fff", borderRadius: 8, padding: "7px 10px", fontSize: 12.5, fontWeight: 500, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7 };
   const badge = n => n > 0 && (
     <span style={{ position: "absolute", top: -5, right: -9, minWidth: 16, height: 16, borderRadius: 8, background: T.red, color: "#fff", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{n}</span>
   );
@@ -252,17 +253,24 @@ export default function Etude({ db, T, user, members, role, canLunch, onSwitch, 
       {/* En-tête */}
       <header className="no-print" style={{ position: "sticky", top: 0, zIndex: 20, background: T.sidebar, color: "#fff", padding: "calc(10px + env(safe-area-inset-top, 0px)) 16px 0" }}>
         <div style={{ maxWidth: 1280, margin: "0 auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", paddingBottom: isMobile ? 10 : 0 }}>
-          <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 18, flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>🏢 {cfg.title || "Étude"}</div>
-          {canLunch && <button onClick={() => onSwitch("lunch")} style={{ background: "rgba(255,255,255,.14)", border: "none", color: "#fff", borderRadius: 8, padding: "6px 10px", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>🍽️ Lunch</button>}
-          <button onClick={toggleTheme} aria-label="Changer de thème" style={{ background: "rgba(255,255,255,.14)", border: "none", color: "#fff", borderRadius: 8, padding: "6px 9px", cursor: "pointer" }}>{isDark ? "☀️" : "🌙"}</button>
-          <button onClick={onLogout} style={{ background: "rgba(255,255,255,.14)", border: "none", color: "#fff", borderRadius: 8, padding: "6px 10px", fontSize: 12, cursor: "pointer" }}>{isMobile ? "Quitter" : `Déconnexion (${user})`}</button>
+          <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 14, flex: 1, minWidth: 0 }}>
+            <BrandLogo variant="mono" height={isMobile ? 26 : 30} onDark />
+            <span style={{ width: 1, height: 26, background: "rgba(255,255,255,.25)" }} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontFamily: "'Jost',sans-serif", fontWeight: 500, fontSize: isMobile ? 11.5 : 12.5, letterSpacing: "0.28em", textTransform: "uppercase", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{brandName}</div>
+              <div style={{ fontSize: 11.5, color: "rgba(255,255,255,.55)", letterSpacing: "0.04em" }}>Administration</div>
+            </div>
+          </div>
+          {canLunch && <button onClick={() => onSwitch("lunch")} style={hdrBtn}><Icon name="utensils" size={16} />{!isMobile && lunchName}</button>}
+          <button onClick={toggleTheme} aria-label="Changer de thème" style={hdrBtn}><Icon name={isDark ? "sun" : "moon"} size={16} /></button>
+          <button onClick={onLogout} aria-label="Déconnexion" title={`Déconnexion (${user})`} style={hdrBtn}><Icon name="logout" size={16} />{!isMobile && user}</button>
         </div>
         {!isMobile && (
           <nav style={{ maxWidth: 1280, margin: "0 auto", display: "flex", gap: 2, marginTop: 8, overflowX: "auto" }}>
             {TABS.map(t => (
               <button key={t.id} onClick={() => setTab(t.id)}
                 style={{ background: current === t.id ? T.bg : "transparent", color: current === t.id ? T.text : "rgba(255,255,255,.75)", border: "none", borderRadius: "10px 10px 0 0", padding: "10px 16px", fontSize: 13.5, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
-                <span>{t.icon}</span>{t.label}
+                <Icon name={t.icon} size={17} />{t.label}
                 {t.badge > 0 && <span style={{ minWidth: 18, height: 18, borderRadius: 9, background: T.red, color: "#fff", fontSize: 10.5, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 5px" }}>{t.badge}</span>}
               </button>
             ))}
@@ -276,7 +284,7 @@ export default function Etude({ db, T, user, members, role, canLunch, onSwitch, 
           {TABS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               style={{ background: "transparent", border: "none", padding: "9px 0 8px", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", color: current === t.id ? T.accent : T.textFaint }}>
-              <span style={{ fontSize: 19, position: "relative", lineHeight: 1 }}>{t.icon}{badge(t.badge)}</span>
+              <span style={{ position: "relative", lineHeight: 1 }}><Icon name={t.icon} size={21} stroke={current === t.id ? 1.9 : 1.5} />{badge(t.badge)}</span>
               <span style={{ fontSize: 10, fontWeight: current === t.id ? 700 : 500 }}>{t.label}</span>
             </button>
           ))}
@@ -288,7 +296,7 @@ export default function Etude({ db, T, user, members, role, canLunch, onSwitch, 
         {lowToOrder.length > 0 && !["stock", "planning"].includes(current) && (
           <button className="no-print" onClick={() => { setStockFilter({ q: "", cat: "", low: true }); setTab("stock"); }}
             style={{ textAlign: "left", display: "flex", gap: 10, alignItems: "center", background: rgba("#e8590c", T.isDark ? .18 : .1), border: `1px solid ${rgba("#e8590c", .45)}`, color: T.text, borderRadius: 12, padding: "11px 14px", cursor: "pointer", fontSize: 13.5 }}>
-            <span style={{ fontSize: 18 }}>⚠️</span>
+            <Icon name="alert" size={19} style={{ color: T.orange }} />
             <span style={{ flex: 1, minWidth: 0 }}>
               <strong>{lowToOrder.length} article{lowToOrder.length > 1 ? "s" : ""} à commander</strong>
               <span style={{ color: T.textSub }}> · {lowToOrder.slice(0, 3).map(i => i.name).join(", ")}{lowToOrder.length > 3 ? "…" : ""}</span>
@@ -362,7 +370,7 @@ function Sheet({ T, isMobile, title, onClose, children, footer, wide }) {
       style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,.45)", display: "flex", alignItems: isMobile ? "flex-end" : "center", justifyContent: "center", padding: isMobile ? 0 : 16 }}>
       <div style={{ background: T.bgCard, color: T.text, width: "100%", maxWidth: wide ? 640 : 480, maxHeight: isMobile ? "92vh" : "88vh", display: "flex", flexDirection: "column", borderRadius: isMobile ? "16px 16px 0 0" : 16, boxShadow: T.shadowHover }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 18px 10px" }}>
-          <div style={{ flex: 1, fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 18, minWidth: 0 }}>{title}</div>
+          <div style={{ flex: 1, fontFamily: "'Jost',sans-serif", fontWeight: 500, fontSize: 18, minWidth: 0 }}>{title}</div>
           <button onClick={onClose} aria-label="Fermer" style={{ background: "transparent", border: "none", color: T.textFaint, fontSize: 18, cursor: "pointer", padding: 4 }}>✕</button>
         </div>
         <div style={{ overflowY: "auto", padding: "4px 18px 14px", display: "flex", flexDirection: "column", gap: 12 }}>{children}</div>
@@ -381,7 +389,7 @@ function Confirm({ label, confirmLabel = "Confirmer la suppression", onConfirm, 
 function Empty({ T, icon, title, text, action }) {
   return (
     <div style={{ border: `1px dashed ${T.border}`, borderRadius: 14, padding: "32px 16px", textAlign: "center", color: T.textSub }}>
-      <div style={{ fontSize: 28, marginBottom: 6 }}>{icon}</div>
+      <div style={{ marginBottom: 8, color: T.textFaint }}><Icon name={icon} size={30} stroke={1.3} /></div>
       <div style={{ fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 4 }}>{title}</div>
       <div style={{ fontSize: 13, marginBottom: action ? 14 : 0 }}>{text}</div>
       {action}
@@ -406,7 +414,7 @@ function Home({ T, card, h2, btn, primary, muted, isMobile, isAdmin, noMail, use
     <>
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
         <div>
-          <h1 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 24, margin: 0 }}>Bonjour {user}</h1>
+          <h1 style={{ fontFamily: "'Jost',sans-serif", fontWeight: 500, fontSize: 24, margin: 0 }}>Bonjour {user}</h1>
           <div style={muted}>{new Date().toLocaleDateString("fr-BE", { weekday: "long", day: "numeric", month: "long" })}</div>
         </div>
         <button style={primary} onClick={onNewTicket}>+ Nouvelle demande</button>
@@ -414,9 +422,9 @@ function Home({ T, card, h2, btn, primary, muted, isMobile, isAdmin, noMail, use
 
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : `repeat(${tiles.length},1fr)`, gap: 10 }}>
         {tiles.map(t => (
-          <button key={t.label} onClick={() => go(t.to)} style={{ ...card, padding: 14, textAlign: "left", cursor: "pointer", color: T.text, borderLeft: `4px solid ${t.color}` }}>
-            <div style={{ fontSize: 12, color: T.textSub, fontWeight: 600 }}>{t.label}</div>
-            <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 30, fontWeight: 700, lineHeight: 1.15, color: t.value ? t.color : T.textFaint, fontVariantNumeric: "tabular-nums" }}>{t.value}</div>
+          <button key={t.label} onClick={() => go(t.to)} style={{ ...card, padding: 14, textAlign: "left", cursor: "pointer", color: T.text }}>
+            <div style={{ fontSize: 11, color: T.textSub, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 7, height: 7, borderRadius: 4, background: t.color, flexShrink: 0 }} />{t.label}</div>
+            <div style={{ fontFamily: "'Jost',sans-serif", fontSize: 30, fontWeight: 700, lineHeight: 1.15, color: t.value ? t.color : T.textFaint, fontVariantNumeric: "tabular-nums" }}>{t.value}</div>
             <div style={muted}>{t.sub}</div>
           </button>
         ))}
@@ -425,10 +433,10 @@ function Home({ T, card, h2, btn, primary, muted, isMobile, isAdmin, noMail, use
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14, alignItems: "start" }}>
         <section style={card}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-            <h2 style={{ ...h2, flex: 1 }}>📦 À commander</h2>
-            {low.length > 0 && <button style={{ ...btn, padding: "6px 10px", fontSize: 12 }} onClick={copyOrderList}>📋 Copier la liste</button>}
+            <h2 style={{ ...h2, flex: 1, display: "flex", alignItems: "center", gap: 8 }}><Icon name="box" />À commander</h2>
+            {low.length > 0 && <button style={{ ...btn, padding: "6px 10px", fontSize: 12 }} onClick={copyOrderList}><Icon name="copy" size={14} /> Copier la liste</button>}
           </div>
-          {isAdmin && noMail && <button onClick={() => go("settings")} style={{ ...btn, width: "100%", marginBottom: 10, fontWeight: 500, fontSize: 12.5, textAlign: "left", borderStyle: "dashed", color: T.textSub }}>📧 Aucune adresse pour les alertes mail. Ajoute-en une dans Réglages →</button>}
+          {isAdmin && noMail && <button onClick={() => go("settings")} style={{ ...btn, width: "100%", marginBottom: 10, fontWeight: 500, fontSize: 12.5, textAlign: "left", borderStyle: "dashed", color: T.textSub }}><Icon name="mail" size={15} /> Aucune adresse pour les alertes mail. Ajoute-en une dans Réglages →</button>}
           {low.length === 0 ? <div style={{ fontSize: 13, color: T.textSub }}>✓ Tout le stock est au-dessus des seuils.</div> : (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {low.map(it => {
@@ -452,7 +460,7 @@ function Home({ T, card, h2, btn, primary, muted, isMobile, isAdmin, noMail, use
 
         <section style={card}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-            <h2 style={{ ...h2, flex: 1 }}>🎫 {isAdmin ? "Dernières demandes" : "Mes demandes"}</h2>
+            <h2 style={{ ...h2, flex: 1, display: "flex", alignItems: "center", gap: 8 }}><Icon name="ticket" />{isAdmin ? "Dernières demandes" : "Mes demandes"}</h2>
             <button style={{ ...btn, padding: "6px 10px", fontSize: 12 }} onClick={() => go("tickets")}>Tout voir</button>
           </div>
           {recent.length === 0 ? <div style={{ fontSize: 13, color: T.textSub }}>Aucune demande pour l'instant.</div> : (
@@ -464,7 +472,7 @@ function Home({ T, card, h2, btn, primary, muted, isMobile, isAdmin, noMail, use
 
         {isAdmin && warrantySoon.length > 0 && (
           <section style={card}>
-            <h2 style={{ ...h2, marginBottom: 10 }}>🛡️ Garanties à surveiller</h2>
+            <h2 style={{ ...h2, marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}><Icon name="shield" />Garanties à surveiller</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {warrantySoon.map(a => { const d = daysUntil(a.warrantyEnd); return (
                 <div key={a.id} style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 13.5 }}>
@@ -499,14 +507,14 @@ function Stock({ T, card, h2, btn, primary, inp, muted, isMobile, isAdmin, items
           {cats.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
         <button style={filter.low ? { ...btn, background: rgba("#e8590c", .14), borderColor: "#e8590c", color: "#e8590c" } : btn} onClick={() => setFilter({ ...filter, low: !filter.low })}>
-          ⚠️ Sous le seuil ({lowCount})
+          <Icon name="alert" size={15} /> Sous le seuil ({lowCount})
         </button>
-        {lowCount > 0 && <button style={btn} onClick={copyOrderList}>📋 Copier la liste</button>}
+        {lowCount > 0 && <button style={btn} onClick={copyOrderList}><Icon name="copy" size={15} /> Copier la liste</button>}
         {isAdmin && <button style={primary} onClick={onNew}>+ Article</button>}
       </div>
 
       {items.length === 0 ? (
-        <Empty T={T} icon="📦" title="Aucun article en stock" text={isAdmin ? "Ajoute les fournitures de l'étude avec leur seuil : une alerte apparaît dès que la quantité l'atteint." : "Un admin doit d'abord ajouter les articles."}
+        <Empty T={T} icon="box" title="Aucun article en stock" text={isAdmin ? "Ajoute les fournitures de l'étude avec leur seuil : une alerte apparaît dès que la quantité l'atteint." : "Un admin doit d'abord ajouter les articles."}
           action={isAdmin && <button style={primary} onClick={onNew}>+ Ajouter un article</button>} />
       ) : shown.length === 0 ? (
         <div style={{ ...muted, textAlign: "center", padding: 24, fontSize: 13 }}>Aucun article ne correspond à ces filtres.</div>
@@ -523,12 +531,12 @@ function Stock({ T, card, h2, btn, primary, inp, muted, isMobile, isAdmin, items
                     <div style={muted}>{[it.category, it.location, it.supplier].filter(Boolean).join(" · ") || "—"}</div>
                   </div>
                   <Pill color={st.color}>{st.label}</Pill>
-                  {isAdmin && <button onClick={() => onEdit(it)} aria-label="Modifier" style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 14, padding: 2, color: T.textFaint }}>✏️</button>}
+                  {isAdmin && <button onClick={() => onEdit(it)} aria-label="Modifier" style={{ background: "transparent", border: "none", cursor: "pointer", padding: 4, color: T.textFaint, display: "flex" }}><Icon name="pencil" size={16} /></button>}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <button style={{ ...qtyBtn, opacity: num(it.qty) <= 0 ? .4 : 1 }} disabled={num(it.qty) <= 0} aria-label={`Retirer un ${it.unit || "article"}`} onClick={() => changeQty(it, -1, "Sortie")}>−</button>
                   <div style={{ minWidth: 70, textAlign: "center" }}>
-                    <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 24, lineHeight: 1, fontVariantNumeric: "tabular-nums", color: st.label === "OK" ? T.text : st.color }}>{num(it.qty)}</div>
+                    <div style={{ fontFamily: "'Jost',sans-serif", fontWeight: 500, fontSize: 24, lineHeight: 1, fontVariantNumeric: "tabular-nums", color: st.label === "OK" ? T.text : st.color }}>{num(it.qty)}</div>
                     <div style={muted}>{it.unit || "unité"}</div>
                   </div>
                   {isAdmin && <button style={qtyBtn} aria-label="Ajouter un" onClick={() => changeQty(it, 1, "Entrée")}>+</button>}
@@ -543,7 +551,7 @@ function Stock({ T, card, h2, btn, primary, inp, muted, isMobile, isAdmin, items
                   <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                     {it.orderedAt
                       ? <><span style={{ ...muted, flex: 1 }}>Commandé le {fmtDate(it.orderedAt)}{it.orderedBy ? ` par ${it.orderedBy}` : ""}</span><button style={{ ...btn, padding: "5px 9px", fontSize: 11.5 }} onClick={() => markOrdered(it, false)}>Annuler</button></>
-                      : <button style={{ ...btn, padding: "5px 9px", fontSize: 11.5 }} onClick={() => markOrdered(it, true)}>✓ Marquer commandé</button>}
+                      : <button style={{ ...btn, padding: "5px 9px", fontSize: 11.5 }} onClick={() => markOrdered(it, true)}><Icon name="check" size={13} /> Marquer commandé</button>}
                   </div>
                 )}
               </div>
@@ -555,7 +563,7 @@ function Stock({ T, card, h2, btn, primary, inp, muted, isMobile, isAdmin, items
       {isAdmin && moves.length > 0 && (
         <section style={card}>
           <button onClick={() => setShowMoves(!showMoves)} style={{ ...h2, background: "transparent", border: "none", padding: 0, cursor: "pointer", display: "flex", width: "100%", alignItems: "center", gap: 8 }}>
-            <span style={{ flex: 1, textAlign: "left" }}>🧾 Derniers mouvements</span><span style={{ fontSize: 13, color: T.textFaint }}>{showMoves ? "▴" : "▾"}</span>
+            <span style={{ flex: 1, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }}><Icon name="list" />Derniers mouvements</span><span style={{ fontSize: 13, color: T.textFaint }}>{showMoves ? "▴" : "▾"}</span>
           </button>
           {showMoves && (
             <div style={{ marginTop: 10, overflowX: "auto" }}>
@@ -642,7 +650,7 @@ function Tickets({ T, btn, primary, muted, isAdmin, tickets, filter, setFilter, 
   return (
     <>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <h1 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 22, margin: 0, flex: 1 }}>{isAdmin ? "Demandes" : "Mes demandes"}</h1>
+        <h1 style={{ fontFamily: "'Jost',sans-serif", fontWeight: 500, fontSize: 22, margin: 0, flex: 1 }}>{isAdmin ? "Demandes" : "Mes demandes"}</h1>
         <button style={primary} onClick={onNew}>+ Nouvelle demande</button>
       </div>
       <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
@@ -652,7 +660,7 @@ function Tickets({ T, btn, primary, muted, isAdmin, tickets, filter, setFilter, 
         })}
       </div>
       {tickets.length === 0 ? (
-        <Empty T={T} icon="🎫" title="Aucune demande" text="Besoin de fournitures, d'un dépannage ou d'un nouvel équipement ? Crée une demande, elle sera suivie jusqu'à sa résolution."
+        <Empty T={T} icon="ticket" title="Aucune demande" text="Besoin de fournitures, d'un dépannage ou d'un nouvel équipement ? Crée une demande, elle sera suivie jusqu'à sa résolution."
           action={<button style={primary} onClick={onNew}>+ Nouvelle demande</button>} />
       ) : shown.length === 0 ? (
         <div style={{ ...muted, textAlign: "center", padding: 24, fontSize: 13 }}>Aucune demande dans ce statut.</div>
@@ -712,7 +720,7 @@ function TicketDetail({ T, btn, danger, inp, lbl, muted, isMobile, t, isAdmin, u
         {t.category && <Pill color="#495057">{t.category}</Pill>}
       </div>
       <div style={muted}>Demandé par <strong style={{ color: T.text }}>{t.requester}</strong> le {fmtDateTime(t.createdAt)}{t.assignee ? <> · pris en charge par <strong style={{ color: T.text }}>{t.assignee}</strong></> : ""}</div>
-      {asset && <div style={{ fontSize: 13, color: T.textSub }}>💻 {asset.tag} · {[asset.type, asset.brand, asset.model].filter(Boolean).join(" ")}</div>}
+      {asset && <div style={{ fontSize: 13, color: T.textSub, display: "flex", alignItems: "center", gap: 6 }}><Icon name="laptop" size={15} />{asset.tag} · {[asset.type, asset.brand, asset.model].filter(Boolean).join(" ")}</div>}
       {t.description && <div style={{ whiteSpace: "pre-wrap", fontSize: 14, lineHeight: 1.5, background: T.bgHover, borderRadius: 10, padding: 12 }}>{t.description}</div>}
 
       {isAdmin && (
@@ -767,7 +775,7 @@ function Assets({ T, card, btn, primary, inp, muted, isMobile, isAdmin, assets, 
   return (
     <>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <h1 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 22, margin: 0, flex: 1 }}>{isAdmin ? "Parc matériel" : "Mon matériel"}</h1>
+        <h1 style={{ fontFamily: "'Jost',sans-serif", fontWeight: 500, fontSize: 22, margin: 0, flex: 1 }}>{isAdmin ? "Parc matériel" : "Mon matériel"}</h1>
         {isAdmin && <button style={primary} onClick={onNew}>+ Matériel</button>}
       </div>
       {isAdmin && assets.length > 0 && (
@@ -782,7 +790,7 @@ function Assets({ T, card, btn, primary, inp, muted, isMobile, isAdmin, assets, 
         </div>
       )}
       {assets.length === 0 ? (
-        <Empty T={T} icon="💻" title={isAdmin ? "Aucun matériel enregistré" : "Aucun matériel ne t'est attribué"}
+        <Empty T={T} icon="laptop" title={isAdmin ? "Aucun matériel enregistré" : "Aucun matériel ne t'est attribué"}
           text={isAdmin ? "Enregistre les PC, écrans, imprimantes… avec leur n° de série, la personne qui les utilise et la fin de garantie." : "Si tu utilises du matériel de l'étude, demande à un admin de te l'attribuer."}
           action={isAdmin && <button style={primary} onClick={onNew}>+ Ajouter du matériel</button>} />
       ) : shown.length === 0 ? (
@@ -797,17 +805,17 @@ function Assets({ T, card, btn, primary, inp, muted, isMobile, isAdmin, assets, 
                   <span style={{ fontFamily: "ui-monospace,Menlo,monospace", fontWeight: 700, fontSize: 14 }}>{a.tag || "Sans n°"}</span>
                   <span style={{ flex: 1, fontSize: 12.5, color: T.textSub, minWidth: 0 }}>{a.type}</span>
                   <Pill color={st.color}>{st.label}</Pill>
-                  {isAdmin && <button onClick={() => onEdit(a)} aria-label="Modifier" style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 14, padding: 2 }}>✏️</button>}
+                  {isAdmin && <button onClick={() => onEdit(a)} aria-label="Modifier" style={{ background: "transparent", border: "none", cursor: "pointer", padding: 4, color: T.textFaint, display: "flex" }}><Icon name="pencil" size={16} /></button>}
                 </div>
                 <div style={{ fontWeight: 600, fontSize: 14.5 }}>{[a.brand, a.model].filter(Boolean).join(" ") || "—"}</div>
                 <div style={{ ...muted, display: "flex", flexWrap: "wrap", gap: "2px 12px" }}>
-                  {a.assignedTo && <span>👤 {a.assignedTo}</span>}
-                  {a.location && <span>📍 {a.location}</span>}
+                  {a.assignedTo && <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Icon name="user" size={13} />{a.assignedTo}</span>}
+                  {a.location && <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Icon name="pin" size={13} />{a.location}</span>}
                   {a.serial && <span style={{ fontFamily: "ui-monospace,Menlo,monospace" }}>S/N {a.serial}</span>}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   {a.warrantyEnd
-                    ? <span style={{ fontSize: 12, color: d < 0 ? T.red : d <= 60 ? "#7048e8" : T.textFaint, fontWeight: d <= 60 ? 600 : 400 }}>🛡️ Garantie {d < 0 ? `expirée le ${fmtDate(a.warrantyEnd + "T00:00:00")}` : `jusqu'au ${fmtDate(a.warrantyEnd + "T00:00:00")}`}</span>
+                    ? <span style={{ fontSize: 12, color: d < 0 ? T.red : d <= 60 ? "#7048e8" : T.textFaint, fontWeight: d <= 60 ? 600 : 400, display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="shield" size={13} />Garantie {d < 0 ? `expirée le ${fmtDate(a.warrantyEnd + "T00:00:00")}` : `jusqu'au ${fmtDate(a.warrantyEnd + "T00:00:00")}`}</span>
                     : <span style={muted}>Garantie non renseignée</span>}
                   <span style={{ flex: 1 }} />
                   <button style={{ ...btn, padding: "5px 9px", fontSize: 11.5 }} onClick={() => onReport(a)}>Signaler un problème</button>
@@ -874,7 +882,7 @@ function Toggle({ T, muted, id, on, label, sub, onChange }) {
   );
 }
 
-function Settings({ T, card, h2, btn, inp, muted, isMobile, cfg, saveCfg, members, showToast }) {
+function Settings({ T, card, h2, btn, inp, lbl, muted, isMobile, cfg, saveCfg, members, showToast }) {
   const [drafts, setDrafts] = useState({});
   const [mail, setMail] = useState("");
   const [testing, setTesting] = useState(false);
@@ -890,22 +898,26 @@ function Settings({ T, card, h2, btn, inp, muted, isMobile, cfg, saveCfg, member
     } catch { showToast("Le serveur ne répond pas. Réessaie une fois l'app déployée.", "error"); }
     setTesting(false);
   };
-  const [title, setTitle] = useState(cfg.title || "");
+  const [name, setName] = useState(cfg.brandName || "");
+  const [subtitle, setSubtitle] = useState(cfg.brandSubtitle || "");
   const add = key => { const v = (drafts[key] || "").trim(); if (!v || cfg[key].includes(v)) return; saveCfg({ [key]: [...cfg[key], v] }); setDrafts(d => ({ ...d, [key]: "" })); };
   const remove = (key, v) => saveCfg({ [key]: cfg[key].filter(x => x !== v) });
   const roleOf = m => accessOf(m).etude;
   return (
     <>
-      <h1 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 22, margin: 0 }}>Réglages de l'espace</h1>
+      <h1 style={{ fontFamily: "'Jost',sans-serif", fontWeight: 500, fontSize: 22, margin: 0 }}>Réglages de l'espace</h1>
       <section style={card}>
-        <h2 style={{ ...h2, marginBottom: 8 }}>Nom de l'espace</h2>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input id="cfg-title" style={{ ...inp, flex: 1 }} value={title} onChange={e => setTitle(e.target.value)} placeholder="Étude" />
-          <button style={btn} disabled={title.trim() === (cfg.title || "")} onClick={() => saveCfg({ title: title.trim() || "Étude" })}>Enregistrer</button>
+        <h2 style={{ ...h2, marginBottom: 4 }}>Identité de l'application</h2>
+        <p style={{ ...muted, margin: "0 0 12px" }}>Affichée sur l'écran de connexion, dans les en-têtes et dans l'onglet du navigateur.</p>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 10, marginBottom: 10 }}>
+          <label style={lbl}>Nom<input id="cfg-brand" style={inp} value={name} onChange={e => setName(e.target.value)} placeholder="Gestion Étude" /></label>
+          <label style={lbl}>Sous-titre (facultatif)<input id="cfg-brand-sub" style={inp} value={subtitle} onChange={e => setSubtitle(e.target.value)} placeholder="Ex. Étude du notaire…" /></label>
         </div>
+        <button style={btn} disabled={name.trim() === (cfg.brandName || "") && subtitle.trim() === (cfg.brandSubtitle || "")}
+          onClick={() => saveCfg({ brandName: name.trim(), brandSubtitle: subtitle.trim() })}>Enregistrer</button>
       </section>
       <section style={card}>
-        <h2 style={{ ...h2, marginBottom: 4 }}>📧 Alertes par mail</h2>
+        <h2 style={{ ...h2, marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}><Icon name="mail" />Alertes par mail</h2>
         <p style={{ ...muted, margin: "0 0 12px" }}>Ces adresses reçoivent un mail quand un article du stock atteint son seuil d'alerte.</p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
           {cfg.alertEmails.length === 0 && <span style={{ ...muted, color: T.orange }}>Aucune adresse : aucun mail ne part pour l'instant.</span>}
