@@ -17,6 +17,23 @@ const DEFAULT_STATUSES = [
 const SWATCHES = ["#2f9e44", "#74b816", "#f59f00", "#e8590c", "#c92a2a", "#d6336c", "#ae3ec9", "#7048e8", "#1c7ed6", "#0c8599", "#868e96", "#495057"];
 const rgba = (hex, a) => { const m = /^#?([0-9a-f]{6})$/i.exec(hex || ""); if (!m) return `rgba(134,142,150,${a})`; const n = parseInt(m[1], 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
 const sortByTime = slots => [...slots].sort((a, b) => (toMin(a.start) || 0) - (toMin(b.start) || 0));
+// Heure actuelle en minutes depuis minuit (fuseau de l'appareil)
+const nowMin = () => { const d = new Date(); return d.getHours() * 60 + d.getMinutes(); };
+// Situation d'un créneau par rapport à maintenant : "now" (en cours), "past" (terminé), "next" (le prochain de la carte), "later"
+function timeline(slots, now) {
+  const out = {}; let next = null;
+  slots.forEach(s => {
+    const a = toMin(s.start), b = toMin(s.end);
+    if (isNaN(a) || isNaN(b) || b <= a) { out[s.id] = "later"; return; }
+    if (a <= now && now < b) out[s.id] = "now";
+    else if (b <= now) out[s.id] = "past";
+    else { out[s.id] = "later"; if (!next || a < toMin(next.start)) next = s; }
+  });
+  if (next) out[next.id] = "next";
+  return out;
+}
+const hhmm = m => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+
 const swap = (arr, i, j) => { const a = [...arr]; [a[i], a[j]] = [a[j], a[i]]; return a; };
 
 export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, isMobile, embedded }) {
@@ -36,6 +53,9 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
   const [statuses, setStatuses] = useState(DEFAULT_STATUSES);
   const [statusOpen, setStatusOpen] = useState(false);
   const [newStatus, setNewStatus] = useState({ label: "", color: SWATCHES[2] });
+  const [now, setNow] = useState(nowMin);
+  const [showNow, setShowNow] = useState(true); // mise en évidence de l'heure actuelle
+  useEffect(() => { const t = setInterval(() => setNow(nowMin()), 30000); return () => clearInterval(t); }, []);
 
   useEffect(() => {
     if (!printing) return;
@@ -157,7 +177,11 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
           <p style={{ margin: 0, fontSize: 12.5, color: T.textSub, maxWidth: 640 }}>
             Touche un nom ou une heure pour modifier · la pastille permet de choisir le statut · ▲▼ (ou glisser ⠿ sur ordinateur) pour réordonner.
           </p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <button onClick={() => setShowNow(v => !v)} aria-pressed={showNow} title="Mettre en évidence l'heure actuelle"
+              style={{ ...btn, display: "inline-flex", alignItems: "center", gap: 7, fontVariantNumeric: "tabular-nums", background: showNow ? T.accent : T.bgCard, borderColor: showNow ? T.accent : T.border, color: showNow ? "#fff" : T.text }}>
+              <span style={{ width: 8, height: 8, borderRadius: 4, background: showNow ? "#fff" : T.red, boxShadow: showNow ? "0 0 0 3px rgba(255,255,255,.3)" : "none" }} />Maintenant · {hhmm(now)}
+            </button>
             {cards.length > 0 && <button style={btn} onClick={() => commit(cards.map(c => ({ ...c, slots: sortByTime(c.slots) })))}>Trier tout par heure</button>}
             <button style={btn} onClick={() => setStatusOpen(true)}>🎨 Statuts</button>
             {cards.length > 0 && <button style={btn} onClick={openPrint}>🖨️ Imprimer</button>}
@@ -178,6 +202,9 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
             {cards.map((c, ci) => {
               const tot = totals(c.slots);
               const cKey = "card:" + c.id;
+              const tl = showNow ? timeline(c.slots, now) : {};
+              const cur = showNow && c.slots.find(s => tl[s.id] === "now");
+              const nxt = showNow && c.slots.find(s => tl[s.id] === "next");
               return (
                 <article key={c.id} style={{ background: T.bgCard, border: `1px solid ${T.borderLight}`, borderRadius: 14, boxShadow: T.shadow, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "12px 10px 8px 12px", borderBottom: `1px solid ${T.borderLight}` }}>
@@ -194,6 +221,14 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
                       <span key={x.id}><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 4, background: x.color, marginRight: 5 }} />{x.label} {fmtDur(x.mins)}</span>
                     )) : <span>Aucun créneau</span>}
                   </div>
+                  {showNow && c.slots.length > 0 && (
+                    <div style={{ margin: "8px 10px 0", padding: "7px 10px", borderRadius: 9, fontSize: 12.5, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+                      background: cur ? colOf(cur.type).bg : T.bgHover, border: `1px solid ${cur ? colOf(cur.type).line : T.borderLight}` }}>
+                      <span style={{ width: 8, height: 8, borderRadius: 4, background: cur ? colOf(cur.type).chip : T.textFaint, flexShrink: 0 }} />
+                      {cur ? <span><strong>{stOf(cur.type).label}</strong> jusqu'à {cur.end}</span> : <span style={{ color: T.textSub }}>Aucun créneau en ce moment</span>}
+                      {nxt && <span style={{ color: T.textSub }}>· ensuite {stOf(nxt.type).label.toLowerCase()} à {nxt.start}{!cur ? ` (dans ${fmtDur(toMin(nxt.start) - now)})` : ""}</span>}
+                    </div>
+                  )}
 
                   <div style={{ padding: 10, display: "flex", flexDirection: "column", gap: 6 }}
                     onDragOver={e => { if (drag.current && e.target === e.currentTarget) e.preventDefault(); }}
@@ -206,14 +241,24 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
                       const sKey = "slot:" + s.id;
                       const col = colOf(s.type);
                       const st = stOf(s.type);
+                      const when = tl[s.id];
+                      const pct = when === "now" ? Math.min(100, Math.max(0, ((now - toMin(s.start)) / d) * 100)) : 0;
                       return (
                         <div key={s.id} draggable={!isMobile}
                           onDragStart={e => { drag.current = { ci, si }; e.dataTransfer.effectAllowed = "move"; try { e.dataTransfer.setData("text/plain", s.id); } catch { /* */ } }}
                           onDragEnd={() => { drag.current = null; setOverId(null); }}
                           onDragOver={e => { if (!drag.current) return; e.preventDefault(); setOverId(s.id); }}
                           onDrop={e => { e.preventDefault(); onDrop(ci, si); }}
-                          style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", alignItems: "center", gap: 6, padding: "7px 6px 7px 4px", borderRadius: 10,
-                            background: col.bg, border: `1px ${s.type === "pause" ? "dashed" : "solid"} ${col.line}`, outline: overId === s.id ? `2px solid ${T.accent}` : "none" }}>
+                          style={{ position: "relative", display: "grid", gridTemplateColumns: "auto 1fr auto auto", alignItems: "center", gap: 6, padding: "7px 6px 7px 4px", borderRadius: 10,
+                            background: col.bg, border: `1px ${s.type === "pause" ? "dashed" : "solid"} ${col.line}`,
+                            outline: overId === s.id ? `2px solid ${T.accent}` : when === "now" ? `2px solid ${col.chip}` : "none", outlineOffset: when === "now" ? 1 : 0,
+                            boxShadow: when === "now" ? `0 4px 14px ${rgba(col.chip, .28)}` : "none",
+                            opacity: when === "past" ? .45 : 1, transition: "opacity .2s" }}>
+                          {when === "now" && (
+                            <span aria-hidden="true" style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 3, borderRadius: "0 0 10px 10px", overflow: "hidden" }}>
+                              <span style={{ display: "block", width: `${pct}%`, height: "100%", background: col.chip }} />
+                            </span>
+                          )}
                           <span style={{ cursor: isMobile ? "default" : "grab", color: T.textFaint, padding: "0 3px", userSelect: "none", visibility: isMobile ? "hidden" : "visible" }}>⠿</span>
                           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 2, minWidth: 0 }}>
                             <input type="time" id={`pl-st-${s.id}`} value={s.start} onChange={e => updSlot(ci, si, { start: e.target.value })} aria-label="Début" style={timeInp} />
@@ -225,6 +270,8 @@ export default function Planning({ db, T, user, isDark, toggleTheme, onLogout, i
                             )}
                             <div style={{ width: "100%", fontSize: 11.5, paddingLeft: 3, color: bad || overlap ? T.red : T.textSub, fontWeight: bad || overlap ? 600 : 400, fontVariantNumeric: "tabular-nums" }}>
                               {bad ? "La fin est avant le début" : `${fmtDur(d)} · ${st.label.toLowerCase()}${overlap ? " · chevauche le précédent" : ""}`}
+                              {when === "now" && <strong style={{ marginLeft: 6, color: col.chip }}>● En ce moment · encore {fmtDur(toMin(s.end) - now)}</strong>}
+                              {when === "next" && <span style={{ marginLeft: 6, color: T.text, fontWeight: 600 }}>· dans {fmtDur(toMin(s.start) - now)}</span>}
                             </div>
                           </div>
                           <select id={`pl-ty-${s.id}`} value={s.type} aria-label="Statut"
