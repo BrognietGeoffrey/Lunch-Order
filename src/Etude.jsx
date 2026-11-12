@@ -13,6 +13,8 @@ import { normCode, parseScan, findByCode } from "./codes.js";
 import { num, isLow, isVisual } from "./stockRules.js";
 import { recipientsOf } from "./alertRules.js";
 import { AlertSettings } from "./AlertSettings.jsx";
+import { ApprovalSettings } from "./ApprovalSettings.jsx";
+import { approvalFor, canApprove, involves } from "./approval.js";
 
 // ── Espace Étude : stock, demandes, matériel, planning ────────────────────────
 // Firestore :
@@ -20,20 +22,24 @@ import { AlertSettings } from "./AlertSettings.jsx";
 //                       codes[], codeFormat, scanQty, image, imageKind }   → scanner et étiquettes (Scanner.jsx, Labels.jsx)
 //                       trackMode "count"|"visual", lowFlag, lowAt, lowBy  → seuil visuel (voir stockRules.js)
 //   stock_moves/{id}  { itemId, itemName, delta, qtyAfter, reason, by, ts }
-//   tickets/{id}      { number, title, description, category, priority, status, requester, assignee, assetId, comments[], createdAt, updatedAt }
+//   tickets/{id}      { number, title, description, category, priority, status, requester, assignee, assetId, comments[], createdAt, updatedAt,
+//                       approval { required, state, approvers[], by, at, comment, auto } }   → approbation (approval.js)
 //   assets/{id}       { tag, type, brand, model, serial, assignedTo, location, status, purchaseDate, warrantyEnd, note, updatedAt }
 //   config/etude      { title, stockCategories[], units[], locations[], ticketCategories[], assetTypes[], ticketSeq,
 //                       alertRecipients[{email,instant,digest,days,hour}], digestSent, digestLastRun } → alertes mail (alertRules.js)
 
 // Étapes de traitement (structure du workflow, pas des données métier)
 const TICKET_STATUSES = [
+  { id: "approval", label: "À approuver", color: "#b7791f" },
   { id: "new", label: "Nouveau", color: "#1c7ed6" },
   { id: "progress", label: "En cours", color: "#e67700" },
   { id: "waiting", label: "En attente", color: "#7048e8" },
   { id: "resolved", label: "Résolu", color: "#2f9e44" },
+  { id: "rejected", label: "Refusée", color: "#b3261e" },
   { id: "closed", label: "Fermé", color: "#868e96" },
 ];
-const OPEN = ["new", "progress", "waiting"];
+const OPEN = ["approval", "new", "progress", "waiting"];
+const APPROVAL_ONLY = ["approval", "rejected"]; // statuts posés uniquement par la décision d'approbation
 const PRIORITIES = [
   { id: "low", label: "Basse", color: "#868e96" },
   { id: "normal", label: "Normale", color: "#1c7ed6" },
@@ -146,6 +152,8 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
   const lowToOrder = low.filter(it => !it.orderedAt);
   const openTickets = tickets.filter(t => OPEN.includes(t.status));
   const myTickets = tickets.filter(t => t.requester === user);
+  const visibleTickets = isAdmin ? tickets : tickets.filter(t => involves(t, user)); // demandeur ou approbateur
+  const toApprove = tickets.filter(t => canApprove(t, user));
   const newTickets = tickets.filter(t => t.status === "new");
   const myAssets = assets.filter(a => a.assignedTo === user);
   const warrantySoon = assets.filter(a => a.status !== "retired" && a.warrantyEnd && daysUntil(a.warrantyEnd) <= 60);
@@ -301,6 +309,14 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
 
   // ── Demandes ──
   const createTicket = async v => {
+    const ap = approvalFor(cfg, v.category || "", user);
+    const pending = !!ap && !ap.auto;
+    const t0 = nowTs();
+    const approval = !ap ? null : ap.auto
+      ? { required: true, state: "approved", approvers: [], by: user, at: t0, auto: true }
+      : { required: true, state: "pending", approvers: ap.approvers };
+    const firstNote = !ap ? [] : [{ author: user, ts: t0, system: true,
+      text: ap.auto ? "Approuvée automatiquement (le demandeur est le seul approbateur)" : `En attente d'approbation : ${ap.approvers.join(", ")}` }];
     try {
       const ref = doc(collection(db, "tickets"));
       const number = await runTransaction(db, async tx => {
@@ -309,13 +325,27 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
         tx.set(cfgRef, { ticketSeq: n }, { merge: true });
         tx.set(ref, {
           number: n, title: v.title.trim(), description: (v.description || "").trim(), category: v.category || "",
-          priority: v.priority || "normal", status: "new", requester: user, assignee: "", assetId: v.assetId || "",
-          comments: [], createdAt: nowTs(), updatedAt: nowTs(),
+          priority: v.priority || "normal", status: pending ? "approval" : "new", requester: user, assignee: "", assetId: v.assetId || "",
+          approval, comments: firstNote, createdAt: t0, updatedAt: t0,
         });
         return n;
       });
       setTicketModal(null);
-      showToast(`Demande ${ticketNo(number)} créée`);
+      showToast(pending ? `Demande ${ticketNo(number)} envoyée pour approbation` : `Demande ${ticketNo(number)} créée`);
+      if (pending) fetch("/api/ticket-notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticketId: ref.id }) }).catch(() => {});
+    } catch (e) { fail(e); }
+  };
+  // Décision d'un approbateur
+  const decideTicket = async (t, ok, comment) => {
+    if (!canApprove(t, user)) return;
+    const c = (comment || "").trim();
+    try {
+      await updateDoc(doc(db, "tickets", t.id), {
+        status: ok ? "new" : "rejected", updatedAt: nowTs(),
+        approval: { ...(t.approval || {}), state: ok ? "approved" : "rejected", by: user, at: nowTs(), comment: c },
+        comments: arrayUnion({ author: user, ts: nowTs(), system: true, text: (ok ? "Approuvée" : "Refusée") + (c ? ` : ${c}` : "") }),
+      });
+      showToast(ok ? `${ticketNo(t.number)} approuvée` : `${ticketNo(t.number)} refusée`);
     } catch (e) { fail(e); }
   };
   const updateTicket = async (t, patch, note) => {
@@ -364,7 +394,7 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
     { id: "home", icon: "home", label: "Accueil" },
     { id: "stock", icon: "box", label: "Stock", badge: lowToOrder.length },
     { id: "scan", icon: "scan", label: "Scanner" },
-    { id: "tickets", icon: "ticket", label: "Demandes", badge: isAdmin ? newTickets.length : 0 },
+    { id: "tickets", icon: "ticket", label: "Demandes", badge: (isAdmin ? newTickets.length : 0) + toApprove.length },
     { id: "assets", icon: "laptop", label: "Matériel" },
     { id: "planning", icon: "calendar", label: "Planning" },
     ...(isAdmin ? [{ id: "labels", icon: "tag", label: "Étiquettes" }, { id: "settings", icon: "settings", label: "Réglages" }] : []),
@@ -443,6 +473,17 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
 
       <main style={{ maxWidth: 1280, margin: "0 auto", padding: current === "planning" ? 0 : "18px 16px 0", display: "flex", flexDirection: "column", gap: 16 }}>
         {/* Alerte stock, visible partout sauf dans Stock et Planning */}
+        {toApprove.length > 0 && !["tickets", "planning"].includes(current) && (
+          <button className="no-print" onClick={() => { setTicketFilter("toapprove"); setTab("tickets"); }}
+            style={{ textAlign: "left", display: "flex", gap: 10, alignItems: "center", background: rgba("#b7791f", T.isDark ? .2 : .1), border: `1px solid ${rgba("#b7791f", .45)}`, color: T.text, borderRadius: 12, padding: "11px 14px", cursor: "pointer", fontSize: 13.5 }}>
+            <Icon name="check" size={19} style={{ color: "#b7791f" }} />
+            <span style={{ flex: 1, minWidth: 0 }}>
+              <strong>{toApprove.length} demande{toApprove.length > 1 ? "s" : ""} à approuver</strong>
+              <span style={{ color: T.textSub }}> · {toApprove.slice(0, 2).map(t => t.title).join(", ")}{toApprove.length > 2 ? "…" : ""}</span>
+            </span>
+            <span style={{ color: T.accent, fontWeight: 600, whiteSpace: "nowrap" }}>Voir →</span>
+          </button>
+        )}
         {lowToOrder.length > 0 && !["stock", "planning"].includes(current) && (
           <button className="no-print" onClick={() => { setStockFilter({ q: "", cat: "", low: true }); setTab("stock"); }}
             style={{ textAlign: "left", display: "flex", gap: 10, alignItems: "center", background: rgba("#e8590c", T.isDark ? .18 : .1), border: `1px solid ${rgba("#e8590c", .45)}`, color: T.text, borderRadius: 12, padding: "11px 14px", cursor: "pointer", fontSize: 13.5 }}>
@@ -468,7 +509,7 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
         )}
 
         {current === "tickets" && (
-          <Tickets {...ctx} isAdmin={isAdmin} user={user} tickets={isAdmin ? tickets : myTickets} filter={ticketFilter} setFilter={setTicketFilter}
+          <Tickets {...ctx} isAdmin={isAdmin} user={user} tickets={visibleTickets} toApprove={toApprove} filter={ticketFilter} setFilter={setTicketFilter}
             onOpen={id => setOpenTicketId(id)} onNew={() => setTicketModal({ category: cfg.ticketCategories[0] || "", priority: "normal" })} />
         )}
 
@@ -498,7 +539,7 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
       {itemModal && <ItemModal {...ctx} value={itemModal} cfg={cfg} onClose={() => setItemModal(null)} onSave={saveItem} onDelete={deleteItem} />}
       {ticketModal && <NewTicketModal {...ctx} value={ticketModal} cfg={cfg} assets={assets} onClose={() => setTicketModal(null)} onSave={createTicket} />}
       {openTicket && (
-        <TicketDetail {...ctx} t={openTicket} isAdmin={isAdmin} user={user} admins={members.filter(m => accessOf(m).etude === "admin").map(m => m.username)}
+        <TicketDetail {...ctx} t={openTicket} isAdmin={isAdmin} user={user} onDecide={decideTicket} admins={members.filter(m => accessOf(m).etude === "admin").map(m => m.username)}
           asset={assets.find(a => a.id === openTicket.assetId)} onClose={() => setOpenTicketId(null)} onUpdate={updateTicket} onComment={addComment} onDelete={deleteTicket} />
       )}
       {assetModal && <AssetModal {...ctx} value={assetModal} cfg={cfg} memberNames={memberNames} onClose={() => setAssetModal(null)} onSave={saveAsset} onDelete={deleteAsset} />}
@@ -832,8 +873,9 @@ function TicketRow({ T, t, onOpen, showRequester }) {
   );
 }
 
-function Tickets({ T, btn, primary, muted, isAdmin, tickets, filter, setFilter, onOpen, onNew }) {
+function Tickets({ T, btn, primary, muted, isAdmin, user, tickets, toApprove, filter, setFilter, onOpen, onNew }) {
   const filters = [
+    ...(toApprove.length ? [{ id: "toapprove", label: "À approuver par moi", test: t => canApprove(t, user) }] : []),
     { id: "open", label: "Ouvertes", test: t => OPEN.includes(t.status) },
     ...TICKET_STATUSES.map(s => ({ id: s.id, label: s.label, test: t => t.status === s.id })),
     { id: "all", label: "Toutes", test: () => true },
@@ -843,7 +885,7 @@ function Tickets({ T, btn, primary, muted, isAdmin, tickets, filter, setFilter, 
   return (
     <>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <h1 style={{ fontFamily: "'Jost',sans-serif", fontWeight: 500, fontSize: 22, margin: 0, flex: 1 }}>{isAdmin ? "Demandes" : "Mes demandes"}</h1>
+        <h1 style={{ fontFamily: "'Jost',sans-serif", fontWeight: 500, fontSize: 22, margin: 0, flex: 1 }}>{isAdmin || toApprove.length ? "Demandes" : "Mes demandes"}</h1>
         <button style={primary} onClick={onNew}>+ Nouvelle demande</button>
       </div>
       <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
@@ -859,7 +901,7 @@ function Tickets({ T, btn, primary, muted, isAdmin, tickets, filter, setFilter, 
         <div style={{ ...muted, textAlign: "center", padding: 24, fontSize: 13 }}>Aucune demande dans ce statut.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {shown.map(t => <TicketRow key={t.id} T={T} t={t} onOpen={onOpen} showRequester={isAdmin} />)}
+          {shown.map(t => <TicketRow key={t.id} T={T} t={t} onOpen={onOpen} showRequester={isAdmin || t.requester !== user} />)}
         </div>
       )}
     </>
@@ -896,7 +938,37 @@ function NewTicketModal({ T, btn, primary, inp, lbl, isMobile, value, cfg, asset
   );
 }
 
-function TicketDetail({ T, btn, danger, inp, lbl, muted, isMobile, t, isAdmin, user, admins, asset, onClose, onUpdate, onComment, onDelete }) {
+// Encadré d'approbation dans la fiche d'une demande
+function ApprovalBox({ T, btn, inp, t, user, onDecide }) {
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const a = t.approval || {};
+  const color = a.state === "approved" ? T.green : a.state === "rejected" ? T.red : "#b7791f";
+  const decide = async ok => { setBusy(true); await onDecide(t, ok, note); setBusy(false); setNote(""); };
+  return (
+    <div style={{ border: `1px solid ${rgba(color, .5)}`, background: rgba(color, T.isDark ? .14 : .07), borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ fontWeight: 700, fontSize: 13.5, color, display: "flex", alignItems: "center", gap: 6 }}><Icon name="check" size={16} />
+        {a.state === "approved" ? (a.auto ? "Approuvée automatiquement" : "Approuvée") : a.state === "rejected" ? "Refusée" : "En attente d'approbation"}
+      </div>
+      {a.state === "pending" && <div style={{ fontSize: 13, color: T.textSub }}>Approbateur{(a.approvers || []).length > 1 ? "s" : ""} : <strong style={{ color: T.text }}>{(a.approvers || []).join(", ") || "—"}</strong>. Un seul accord suffit.</div>}
+      {a.state !== "pending" && !a.auto && (
+        <div style={{ fontSize: 13, color: T.textSub }}>Par <strong style={{ color: T.text }}>{a.by}</strong> le {fmtDateTime(a.at)}{a.comment ? <> : « {a.comment} »</> : ""}</div>
+      )}
+      {canApprove(t, user) && (
+        <>
+          <textarea id="ap-note" rows={2} style={{ ...inp, resize: "vertical" }} value={note} onChange={e => setNote(e.target.value)} placeholder="Commentaire (obligatoire pour un refus)" />
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button disabled={busy} onClick={() => decide(true)} style={{ ...btn, background: T.green, borderColor: T.green, color: "#fff" }}>Approuver</button>
+            <button disabled={busy || !note.trim()} onClick={() => decide(false)} title={note.trim() ? "" : "Indique le motif du refus"}
+              style={{ ...btn, borderColor: T.red, color: T.red, opacity: note.trim() ? 1 : .5 }}>Refuser</button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function TicketDetail({ T, btn, danger, inp, lbl, muted, isMobile, t, isAdmin, user, admins, asset, onClose, onUpdate, onComment, onDelete, onDecide }) {
   const [txt, setTxt] = useState("");
   const st = byId(TICKET_STATUSES, t.status), pr = byId(PRIORITIES, t.priority);
   const canClose = !isAdmin && t.requester === user && OPEN.includes(t.status);
@@ -904,7 +976,7 @@ function TicketDetail({ T, btn, danger, inp, lbl, muted, isMobile, t, isAdmin, u
     <Sheet T={T} isMobile={isMobile} wide title={`${ticketNo(t.number)} · ${t.title}`} onClose={onClose}
       footer={<>
         {isAdmin && <Confirm label="Supprimer" onConfirm={() => onDelete(t)} style={danger} confirmStyle={{ ...danger, background: T.red, color: "#fff" }} />}
-        {canClose && <button style={btn} onClick={() => onUpdate(t, { status: "closed" }, "Demande fermée par le demandeur")}>Fermer ma demande</button>}
+        {canClose && <button style={btn} onClick={() => onUpdate(t, { status: "closed" }, t.status === "approval" ? "Demande annulée par le demandeur" : "Demande fermée par le demandeur")}>{t.status === "approval" ? "Annuler ma demande" : "Fermer ma demande"}</button>}
         <span style={{ flex: 1 }} />
         <button style={btn} onClick={onClose}>Fermer</button>
       </>}>
@@ -916,11 +988,14 @@ function TicketDetail({ T, btn, danger, inp, lbl, muted, isMobile, t, isAdmin, u
       {asset && <div style={{ fontSize: 13, color: T.textSub, display: "flex", alignItems: "center", gap: 6 }}><Icon name="laptop" size={15} />{asset.tag} · {[asset.type, asset.brand, asset.model].filter(Boolean).join(" ")}</div>}
       {t.description && <div style={{ whiteSpace: "pre-wrap", fontSize: 14, lineHeight: 1.5, background: T.bgHover, borderRadius: 10, padding: 12 }}>{t.description}</div>}
 
+      {t.approval?.required && <ApprovalBox T={T} btn={btn} inp={inp} t={t} user={user} onDecide={onDecide} />}
+
       {isAdmin && (
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr", gap: 10 }}>
           <label style={lbl}>Statut
-            <select id="td-status" style={inp} value={t.status} onChange={e => onUpdate(t, { status: e.target.value }, `Statut : ${byId(TICKET_STATUSES, e.target.value).label}`)}>
-              {TICKET_STATUSES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+            <select id="td-status" style={inp} value={t.status} disabled={t.status === "approval"} title={t.status === "approval" ? "En attente de la décision d'un approbateur" : undefined}
+              onChange={e => onUpdate(t, { status: e.target.value }, `Statut : ${byId(TICKET_STATUSES, e.target.value).label}`)}>
+              {TICKET_STATUSES.filter(s => !APPROVAL_ONLY.includes(s.id) || s.id === t.status).map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
             </select>
           </label>
           <label style={lbl}>Priorité
@@ -1084,6 +1159,7 @@ function Settings({ T, card, h2, btn, inp, lbl, muted, isMobile, cfg, saveCfg, m
         <button style={btn} disabled={name.trim() === (cfg.brandName || "") && subtitle.trim() === (cfg.brandSubtitle || "")}
           onClick={() => saveCfg({ brandName: name.trim(), brandSubtitle: subtitle.trim() })}>Enregistrer</button>
       </section>
+      <ApprovalSettings T={T} card={card} h2={h2} btn={btn} inp={inp} muted={muted} isMobile={isMobile} cfg={cfg} saveCfg={saveCfg} members={members} />
       <AlertSettings T={T} card={card} h2={h2} btn={btn} inp={inp} muted={muted} isMobile={isMobile} cfg={cfg} saveCfg={saveCfg} showToast={showToast} />
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14, alignItems: "start" }}>
         {LIST_FIELDS.map(f => (
