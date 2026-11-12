@@ -8,6 +8,7 @@ import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
 import Etude from "./Etude.jsx";
 import { BrandLogo, Icon } from "./brand.jsx";
 import { accessOf, ETUDE_ROLES } from "./access.js";
+import { takePendingFromHash, clearPendingScan } from "./codes.js";
 
 // ── Firebase (valeurs dans .env / variables d'environnement Vercel) ───────────
 const firebaseConfig = {
@@ -1344,7 +1345,15 @@ export default function App() {
   const [now, setNow] = useState(Date.now());
   const [space, setSpace] = useState(null); // application choisie pour cette connexion (redemandée à chaque login)
   const [brand, setBrand] = useState({}); // config/etude : brandName, brandSubtitle
-  const [etudeLow, setEtudeLow] = useState(0); // articles sous le seuil, pas encore commandés (badge Administration)
+  const [etudeLow, setEtudeLow] = useState(0);
+  // QR code d'article scanné avec l'appareil photo : lien « /#scan/CODE » → ouvre le scanner de l'Administration
+  const [pendingScan, setPendingScan] = useState(()=>takePendingFromHash());
+  const [scanNonce, setScanNonce] = useState(0);
+  useEffect(()=>{
+    const onHash=()=>{ const p=takePendingFromHash(); if(p){ setPendingScan(p); setSpace("etude"); setScanNonce(n=>n+1); } };
+    window.addEventListener("hashchange", onHash);
+    return ()=>window.removeEventListener("hashchange", onHash);
+  },[]); // articles sous le seuil, pas encore commandés (badge Administration)
   const detailTimers = useRef({});
   const toastTimer = useRef(null);
   const ordersRef = useRef({});
@@ -1435,7 +1444,7 @@ export default function App() {
     </div>
   );
 
-  if(!user) return <LoginScreen onLogin={u=>{ setSpace(null); setUser(u); }} T={T} isDark={isDark} toggleTheme={toggleTheme} brandName={brandName} brandSubtitle={brand.brandSubtitle||""} lunchName={appConfig.title||"Lunch"}
+  if(!user) return <LoginScreen onLogin={u=>{ setSpace(pendingScan ? "etude" : null); setUser(u); }} T={T} isDark={isDark} toggleTheme={toggleTheme} brandName={brandName} brandSubtitle={brand.brandSubtitle||""} lunchName={appConfig.title||"Lunch"}
     members={members} membersLoaded={membersLoaded} appConfig={appConfig}/>;
 
   // ── Espaces : Administration (Étude) / Lunch (droits par membre, voir access.js) ──
@@ -1471,7 +1480,7 @@ export default function App() {
   if(hasEtude && (!myAccess.lunch || space==="etude")) return (
     <>
       <style>{CSS(T)}</style>
-      <Etude db={db} T={T} user={user} members={members} role={myAccess.etude} canLunch={myAccess.lunch} lunchName={lunchName} brandName={brandName} onSwitch={goSpace}
+      <Etude key={"etude-"+scanNonce} pendingScan={pendingScan} onPendingDone={()=>{ clearPendingScan(); setPendingScan(""); }} db={db} T={T} user={user} members={members} role={myAccess.etude} canLunch={myAccess.lunch} lunchName={lunchName} brandName={brandName} onSwitch={goSpace}
         isDark={isDark} toggleTheme={toggleTheme} isMobile={isMobile} onLogout={()=>setUser(null)}/>
     </>
   );

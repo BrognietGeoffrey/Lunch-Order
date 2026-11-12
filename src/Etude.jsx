@@ -6,10 +6,14 @@ import {
 import Planning from "./Planning.jsx";
 import { accessOf } from "./access.js";
 import { BrandLogo, Icon } from "./brand.jsx";
+import { ScanTab, Thumb } from "./Scanner.jsx";
+import { LabelsTab, LabelModal, LabelPrintSheet } from "./Labels.jsx";
+import { normCode, parseScan, findByCode } from "./codes.js";
 
 // ── Espace Étude : stock, demandes, matériel, planning ────────────────────────
 // Firestore :
-//   stock_items/{id}  { name, category, unit, qty, threshold, location, supplier, note, orderedAt, updatedAt }
+//   stock_items/{id}  { name, category, unit, qty, threshold, location, supplier, note, orderedAt, updatedAt,
+//                       codes[], codeFormat, scanQty, image, imageKind }   → scanner et étiquettes (Scanner.jsx, Labels.jsx)
 //   stock_moves/{id}  { itemId, itemName, delta, qtyAfter, reason, by, ts }
 //   tickets/{id}      { number, title, description, category, priority, status, requester, assignee, assetId, comments[], createdAt, updatedAt }
 //   assets/{id}       { tag, type, brand, model, serial, assignedTo, location, status, purchaseDate, warrantyEnd, note, updatedAt }
@@ -58,6 +62,7 @@ const LIST_FIELDS = [
 ];
 
 const nowTs = () => new Date().getTime(); // horodatage des écritures
+const buzz = p => { try { navigator.vibrate?.(p); } catch { /* vibreur indisponible */ } };
 const byId = (list, id) => list.find(x => x.id === id) || list[0];
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 const isLow = it => num(it.qty) <= num(it.threshold);
@@ -72,7 +77,7 @@ const stockState = it => {
   return { label: "OK", color: "#2f9e44" };
 };
 
-export default function Etude({ db, T, user, members, role, canLunch, lunchName = "Lunch", brandName = "Gestion Étude", onSwitch, isDark, toggleTheme, onLogout, isMobile }) {
+export default function Etude({ db, T, user, members, role, canLunch, lunchName = "Lunch", brandName = "Gestion Étude", onSwitch, isDark, toggleTheme, onLogout, isMobile, pendingScan = "", onPendingDone }) {
   const isAdmin = role === "admin";
   const [tab, setTab] = useState(() => { try { return localStorage.getItem("etude_tab") || "home"; } catch { return "home"; } });
   const [items, setItems] = useState([]);
@@ -90,13 +95,29 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
   const [assetModal, setAssetModal] = useState(null);
   const [showMoves, setShowMoves] = useState(false);
   const toastTimer = useRef(null);
+  const [scanLog, setScanLog] = useState([]);
+  const [labelModal, setLabelModal] = useState(null); // { itemId?, codes?, mode? }
+  const [printLabels, setPrintLabels] = useState(null); // { ids, size, copies }
+  const [moreOpen, setMoreOpen] = useState(false);
+  const itemsRef = useRef([]);
+  const lastScan = useRef({ code: "", t: 0 });
+  const lastSeen = useRef({ code: "", t: 0 });
+  const scanSeq = useRef(0);
+  const pendingRef = useRef(pendingScan);
+  const handleRef = useRef(null);
+  const doneRef = useRef(onPendingDone);
 
   const cfg = { ...STARTER_CFG, ...(cfgDoc || {}) };
   const cfgRef = doc(db, "config", "etude");
 
   useEffect(() => {
     const unsubs = [
-      onSnapshot(collection(db, "stock_items"), s => { const a = []; s.forEach(x => a.push({ id: x.id, ...x.data() })); a.sort((x, y) => (x.name || "").localeCompare(y.name || "", "fr")); setItems(a); }),
+      onSnapshot(collection(db, "stock_items"), s => {
+        const a = []; s.forEach(x => a.push({ id: x.id, ...x.data() })); a.sort((x, y) => (x.name || "").localeCompare(y.name || "", "fr"));
+        itemsRef.current = a; setItems(a);
+        // QR code scanné avec l'appareil photo du téléphone : on traite le code une fois le stock chargé
+        if (pendingRef.current) { const c = pendingRef.current; pendingRef.current = ""; setTab("scan"); setTimeout(() => { handleRef.current?.(c); doneRef.current?.(); }, 0); }
+      }),
       onSnapshot(query(collection(db, "stock_moves"), orderBy("ts", "desc"), limit(150)), s => { const a = []; s.forEach(x => a.push({ id: x.id, ...x.data() })); setMoves(a); }),
       onSnapshot(collection(db, "tickets"), s => { const a = []; s.forEach(x => a.push({ id: x.id, ...x.data() })); a.sort((x, y) => (y.createdAt || 0) - (x.createdAt || 0)); setTickets(a); }),
       onSnapshot(collection(db, "assets"), s => { const a = []; s.forEach(x => a.push({ id: x.id, ...x.data() })); a.sort((x, y) => (x.tag || "").localeCompare(y.tag || "", "fr", { numeric: true })); setAssets(a); }),
@@ -172,6 +193,73 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
     catch { showToast("Copie impossible sur cet appareil", "error"); }
   };
 
+  // ── Scanner ──
+  // source "camera" : la caméra relit le code à chaque image ; on ne compte à nouveau le même code
+  // que s'il a quitté le champ de la caméra (non vu depuis 1,5 s). Saisie / douchette : chaque validation compte.
+  const handleCode = async (raw, source = "manual") => {
+    const code = parseScan(raw);
+    if (!code) return;
+    const t = nowTs();
+    if (source === "camera") {
+      const seen = lastSeen.current;
+      lastSeen.current = { code, t };
+      if (seen.code === code && t - seen.t < 1500) return;
+      if (lastScan.current.code === code && t - lastScan.current.t < 2500) return;
+    }
+    lastScan.current = { code, t };
+    const entry = { id: t + "-" + (++scanSeq.current), code, ts: t };
+    const it = findByCode(itemsRef.current, code);
+    if (!it) { setScanLog(l => [{ ...entry, status: "unknown" }, ...l].slice(0, 40)); buzz([80, 60, 80]); return; }
+    const before = num(it.qty);
+    if (before <= 0) { setScanLog(l => [{ ...entry, status: "empty", itemId: it.id, name: it.name, image: it.image }, ...l].slice(0, 40)); buzz([80, 60, 80]); return; }
+    const take = Math.min(Math.max(1, num(it.scanQty) || 1), before);
+    setScanLog(l => [{ ...entry, status: "ok", itemId: it.id, name: it.name, image: it.image, unit: it.unit, take, after: before - take, threshold: num(it.threshold) }, ...l].slice(0, 40));
+    buzz(60);
+    await changeQty(it, -take, "Scan");
+  };
+  useEffect(() => { handleRef.current = handleCode; doneRef.current = onPendingDone; });
+  const undoScan = async e => {
+    const it = itemsRef.current.find(x => x.id === e.itemId);
+    if (!it || e.undone) return;
+    setScanLog(l => l.map(x => x.id === e.id ? { ...x, undone: true } : x));
+    await changeQty(it, e.take, "Annulation scan");
+  };
+
+  // ── Étiquettes ──
+  const generateImage = async (name, category) => {
+    const r = await fetch("/api/item-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, category }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.svg) throw new Error(j.error || "La génération a échoué. Réessaie dans un instant.");
+    return j.svg;
+  };
+  const saveLabel = async v => {
+    const codes = v.codes.map(normCode).filter(Boolean);
+    const data = { codes, codeFormat: v.codeFormat === "barcode" ? "barcode" : "qr", scanQty: Math.max(1, num(v.scanQty) || 1), image: v.image || "", imageKind: v.imageKind || "", updatedAt: nowTs() };
+    try {
+      if (v.mode === "new") {
+        const qty = Math.max(0, num(v.qty));
+        const r = await addDoc(collection(db, "stock_items"), {
+          name: v.name.trim(), category: (v.category || "").trim(), unit: (v.unit || "").trim(), qty, threshold: Math.max(0, num(v.threshold)),
+          location: "", supplier: "", note: "", orderedAt: null, alertSentAt: null, createdAt: nowTs(), ...data,
+        });
+        if (qty) await addDoc(collection(db, "stock_moves"), { itemId: r.id, itemName: v.name.trim(), delta: qty, qtyAfter: qty, reason: "Stock initial", by: user, ts: nowTs() });
+      } else {
+        if (!v.itemId) return;
+        await updateDoc(doc(db, "stock_items", v.itemId), data);
+      }
+      setLabelModal(null);
+      showToast("Étiquette enregistrée");
+    } catch (e) { fail(e); }
+  };
+  const startPrint = (ids, size, copies) => setPrintLabels({ ids, size, copies });
+  useEffect(() => {
+    if (!printLabels) return;
+    const done = () => setPrintLabels(null);
+    window.addEventListener("afterprint", done);
+    const t = setTimeout(() => window.print(), 700); // laisse le temps aux QR codes d'être générés
+    return () => { clearTimeout(t); window.removeEventListener("afterprint", done); };
+  }, [printLabels]);
+
   // ── Demandes ──
   const createTicket = async v => {
     try {
@@ -235,11 +323,15 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
   const TABS = [
     { id: "home", icon: "home", label: "Accueil" },
     { id: "stock", icon: "box", label: "Stock", badge: lowToOrder.length },
+    { id: "scan", icon: "scan", label: "Scanner" },
     { id: "tickets", icon: "ticket", label: "Demandes", badge: isAdmin ? newTickets.length : 0 },
     { id: "assets", icon: "laptop", label: "Matériel" },
     { id: "planning", icon: "calendar", label: "Planning" },
-    ...(isAdmin ? [{ id: "settings", icon: "settings", label: "Réglages" }] : []),
+    ...(isAdmin ? [{ id: "labels", icon: "tag", label: "Étiquettes" }, { id: "settings", icon: "settings", label: "Réglages" }] : []),
   ];
+  // Mobile : 4 onglets principaux + « Plus »
+  const MOBILE_MAIN = ["home", "stock", "scan", "tickets"];
+  const mobileMore = TABS.filter(t => !MOBILE_MAIN.includes(t.id));
   const current = TABS.some(t => t.id === tab) ? tab : "home";
   const openTicket = tickets.find(t => t.id === openTicketId);
 
@@ -249,7 +341,7 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
   );
 
   return (
-    <div className="etude-root" style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'DM Sans',sans-serif", paddingBottom: isMobile ? "calc(78px + env(safe-area-inset-bottom, 0px))" : 40 }}>
+    <div className={"etude-root" + (printLabels ? " lb-printing" : "")} style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'DM Sans',sans-serif", paddingBottom: isMobile ? "calc(78px + env(safe-area-inset-bottom, 0px))" : 40 }}>
       {/* En-tête */}
       <header className="no-print" style={{ position: "sticky", top: 0, zIndex: 20, background: T.sidebar, color: "#fff", padding: "calc(10px + env(safe-area-inset-top, 0px)) 16px 0" }}>
         <div style={{ maxWidth: 1280, margin: "0 auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", paddingBottom: isMobile ? 10 : 0 }}>
@@ -278,17 +370,35 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
         )}
       </header>
 
-      {/* Barre d'onglets mobile */}
+      {/* Barre d'onglets mobile : Accueil, Stock, Scanner, Demandes, Plus */}
       {isMobile && (
-        <nav className="no-print" style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 20, background: T.bgCard, borderTop: `1px solid ${T.border}`, display: "grid", gridTemplateColumns: `repeat(${TABS.length},1fr)`, paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-          {TABS.map(t => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              style={{ background: "transparent", border: "none", padding: "9px 0 8px", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", color: current === t.id ? T.accent : T.textFaint }}>
-              <span style={{ position: "relative", lineHeight: 1 }}><Icon name={t.icon} size={21} stroke={current === t.id ? 1.9 : 1.5} />{badge(t.badge)}</span>
-              <span style={{ fontSize: 10, fontWeight: current === t.id ? 700 : 500 }}>{t.label}</span>
-            </button>
-          ))}
+        <nav className="no-print" style={{ position: "fixed", left: 0, right: 0, bottom: 0, zIndex: 20, background: T.bgCard, borderTop: `1px solid ${T.border}`, display: "grid", gridTemplateColumns: "repeat(5,1fr)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+          {[...TABS.filter(t => MOBILE_MAIN.includes(t.id)), { id: "__more", icon: "more", label: "Plus" }].map(t => {
+            const on = t.id === "__more" ? mobileMore.some(x => x.id === current) : current === t.id;
+            const scan = t.id === "scan";
+            return (
+              <button key={t.id} onClick={() => { if (t.id === "__more") setMoreOpen(o => !o); else { setTab(t.id); setMoreOpen(false); } }}
+                aria-label={t.label} style={{ background: "transparent", border: "none", padding: "8px 0 8px", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, cursor: "pointer", color: on ? T.accent : T.textFaint }}>
+                <span style={{ position: "relative", lineHeight: 1, ...(scan ? { background: T.text, color: T.bg, borderRadius: 12, padding: "5px 12px", marginTop: -2 } : {}) }}>
+                  <Icon name={t.icon} size={scan ? 20 : 21} stroke={on || scan ? 1.9 : 1.5} />{badge(t.badge)}
+                </span>
+                <span style={{ fontSize: 10, fontWeight: on ? 700 : 500, color: scan && !on ? T.text : undefined }}>{t.label}</span>
+              </button>
+            );
+          })}
         </nav>
+      )}
+      {isMobile && moreOpen && (
+        <div className="no-print" onClick={() => setMoreOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 19, background: "rgba(0,0,0,.35)" }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: "absolute", right: 10, bottom: "calc(70px + env(safe-area-inset-bottom, 0px))", background: T.bgCard, border: `1px solid ${T.border}`, borderRadius: 14, boxShadow: T.shadowHover, padding: 6, minWidth: 200 }}>
+            {mobileMore.map(t => (
+              <button key={t.id} onClick={() => { setTab(t.id); setMoreOpen(false); }}
+                style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", background: current === t.id ? T.bgHover : "transparent", border: "none", borderRadius: 10, padding: "11px 12px", fontSize: 14.5, color: T.text, cursor: "pointer", textAlign: "left" }}>
+                <Icon name={t.icon} size={19} />{t.label}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       <main style={{ maxWidth: 1280, margin: "0 auto", padding: current === "planning" ? 0 : "18px 16px 0", display: "flex", flexDirection: "column", gap: 16 }}>
@@ -332,9 +442,19 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
           <Planning db={db} T={T} user={user} isDark={isDark} toggleTheme={toggleTheme} onLogout={onLogout} isMobile={isMobile} embedded />
         )}
 
+        {current === "scan" && (
+          <ScanTab {...ctx} isAdmin={isAdmin} log={scanLog} onCode={handleCode} onUndo={undoScan} onAssociate={code => setLabelModal({ mode: "existing", codes: [code] })} />
+        )}
+
+        {current === "labels" && isAdmin && (
+          <LabelsTab {...ctx} items={items} onNew={() => setLabelModal({ mode: "new" })} onEdit={it => setLabelModal({ itemId: it.id })} onPrint={startPrint} />
+        )}
+
         {current === "settings" && isAdmin && <Settings {...ctx} cfg={cfg} saveCfg={saveCfg} members={members} showToast={showToast} />}
       </main>
 
+      {labelModal && <LabelModal {...ctx} Sheet={Sheet} value={labelModal} items={items} cfg={cfg} onClose={() => setLabelModal(null)} onSave={saveLabel} onGenerateImage={generateImage} />}
+      {printLabels && <LabelPrintSheet items={printLabels.ids.map(id => items.find(x => x.id === id)).filter(Boolean)} size={printLabels.size} copies={printLabels.copies} />}
       {itemModal && <ItemModal {...ctx} value={itemModal} cfg={cfg} onClose={() => setItemModal(null)} onSave={saveItem} onDelete={deleteItem} />}
       {ticketModal && <NewTicketModal {...ctx} value={ticketModal} cfg={cfg} assets={assets} onClose={() => setTicketModal(null)} onSave={createTicket} />}
       {openTicket && (
@@ -525,9 +645,10 @@ function Stock({ T, card, h2, btn, primary, inp, muted, isMobile, isAdmin, items
             const pct = Math.min(100, num(it.threshold) > 0 ? (num(it.qty) / (num(it.threshold) * 3)) * 100 : 100);
             return (
               <div key={it.id} style={{ ...card, padding: 12, display: "flex", flexDirection: "column", gap: 8, borderColor: st.label === "OK" ? T.borderLight : rgba(st.color, .45) }}>
-                <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  {it.image && <Thumb T={T} src={it.image} size={40} radius={8} />}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>{it.name}</div>
+                    <div style={{ fontWeight: 700, fontSize: 15, display: "flex", alignItems: "center", gap: 6 }}>{it.name}{(it.codes || []).length > 0 && <span title="Article scannable" style={{ color: T.textFaint, display: "flex" }}><Icon name="scan" size={14} /></span>}</div>
                     <div style={muted}>{[it.category, it.location, it.supplier].filter(Boolean).join(" · ") || "—"}</div>
                   </div>
                   <Pill color={st.color}>{st.label}</Pill>

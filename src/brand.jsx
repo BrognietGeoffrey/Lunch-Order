@@ -39,6 +39,14 @@ const P = {
   wallet: "M3 7h16v13H3zM3 7l12-3v3M15 13.5h4",
   chat: "M4 5h16v11H9l-5 4V5Z",
   clock: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 7v5l3 2",
+  scan: "M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4M7 12h10",
+  tag: "M3 12V3h9l9 9-9 9-9-9ZM7.5 7.5h.01",
+  camera: "M3 7h4l2-3h6l2 3h4v13H3zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z",
+  sparkle: "M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3ZM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z",
+  printer: "M6 9V3h12v6M6 17H3v-8h18v8h-3M6 14h12v7H6z",
+  image: "M3 4h18v16H3zM3 16l5-5 4 4 3-3 6 6M15.5 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z",
+  more: "M5 12h.01M12 12h.01M19 12h.01",
+  undo: "M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3",
 };
 
 export function Icon({ name, size = 18, stroke = 1.6, style, title }) {
