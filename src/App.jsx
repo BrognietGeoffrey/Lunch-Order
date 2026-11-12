@@ -163,6 +163,17 @@ function formatSel(sel, label, settings, mapItem=x=>x){
   }
 }
 
+// Texte court de la sauce choisie, pour l'aperçu « Durum poulet · sauce mayo »
+function sauceShort(sel, settings){
+  const st=listSettings(settings); const items=sel.items||[];
+  switch(sel.mode){
+    case "none":   return (st.noneLabel || "sans sauce").toLowerCase();
+    case "all":    return "toutes les sauces";
+    case "allBut": return items.length ? `toutes les sauces sauf ${items.join(", ")}` : "toutes les sauces";
+    default:       return items.length ? `sauce ${items.map(x=>x.toLowerCase()).join(" + ")}` : "";
+  }
+}
+
 // ── Suppléments : prix ────────────────────────────────────────────────────────
 function extraOptPrice(ex, opt) {
   const p = ex?.prices?.[opt];
@@ -583,6 +594,17 @@ function OrderForm({ T, name, order, r, ctx, sauces, crudites, boissons, lists, 
               value={order.detail} onPick={v=>patch({detail:v})} onType={patchDetail}
               placeholder="— Choisis ton plat —"/>
           )}
+          {(order.snackType || isOther) && (
+            <ListPicker T={T} title="🫙 Sauce" options={sauces} sel={readSel(order,"sauces")} settings={lists.sauces}
+              accent="#9b7fa6" onChange={s=>patch(writeSel(order,"sauces",s))} onAddOption={addSauce}/>
+          )}
+          {(order.detail||"").trim() && (
+            <div style={{background:T.bgHover,border:`1px solid ${T.borderLight}`,borderRadius:10,padding:"10px 12px",fontSize:14,color:T.text}}>
+              <span style={{fontSize:11,fontWeight:600,letterSpacing:"0.08em",textTransform:"uppercase",color:T.textFaint,display:"block",marginBottom:2}}>Ta commande</span>
+              <strong style={{fontWeight:600}}>{[order.snackType, order.detail].filter(Boolean).join(" ")}</strong>
+              {sauceShort(readSel(order,"sauces"), lists.sauces) && <span style={{color:T.textSub}}> · {sauceShort(readSel(order,"sauces"), lists.sauces)}</span>}
+            </div>
+          )}
         </div>
       );
     } else {
@@ -626,8 +648,6 @@ function OrderForm({ T, name, order, r, ctx, sauces, crudites, boissons, lists, 
             )}
           </div>
         )}
-        <ListPicker T={T} title="🫙 Sauces" options={sauces} sel={readSel(order,"sauces")} settings={lists.sauces}
-          accent="#9b7fa6" onChange={s=>patch(writeSel(order,"sauces",s))} onAddOption={addSauce}/>
         <ListPicker T={T} title="🥗 Crudités" options={crudites} sel={readSel(order,"crudites")} settings={lists.crudites}
           accent="#5a8f7b" onChange={s=>patch(writeSel(order,"crudites",s))}/>
       </div>
