@@ -9,6 +9,7 @@ import Etude from "./Etude.jsx";
 import { BrandLogo, Icon } from "./brand.jsx";
 import { accessOf, ETUDE_ROLES } from "./access.js";
 import { takePendingFromHash, clearPendingScan } from "./codes.js";
+import { isLow as stockIsLow } from "./stockRules.js";
 
 // ── Firebase (valeurs dans .env / variables d'environnement Vercel) ───────────
 const firebaseConfig = {
@@ -1420,7 +1421,7 @@ export default function App() {
       }),
       onSnapshot(collection(db,"profiles"), snap=>{ const d={}; snap.forEach(s=>{d[s.id]=s.data();}); setProfiles(d); }),
       onSnapshot(doc(db,"config","etude"), s=>setBrand(s.exists()?s.data():{}), ()=>{}),
-      onSnapshot(collection(db,"stock_items"), snap=>{ let n=0; snap.forEach(s=>{ const d=s.data(); if(Number(d.qty||0)<=Number(d.threshold||0) && !d.orderedAt) n++; }); setEtudeLow(n); }, ()=>setEtudeLow(0)),
+      onSnapshot(collection(db,"stock_items"), snap=>{ let n=0; snap.forEach(s=>{ const d=s.data(); if(stockIsLow(d) && !d.orderedAt) n++; }); setEtudeLow(n); }, ()=>setEtudeLow(0)),
       onSnapshot(collection(db,"feedback"), snap=>{ const arr=[]; snap.forEach(s=>arr.push({id:s.id,...s.data()})); arr.sort((a,b)=>b.ts-a.ts); setFeedback(arr); }),
     ];
     return ()=>unsubs.forEach(u=>u());

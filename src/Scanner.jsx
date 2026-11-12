@@ -70,13 +70,13 @@ export function ScanTab({ T, card, btn, primary, inp, muted, isMobile, isAdmin, 
   const last = log[0];
   const submit = () => { if (manual.trim()) { onCode(manual); setManual(""); } };
 
-  const tone = e => e.undone ? T.border : e.status === "ok" ? T.green : e.status === "empty" ? T.orange : T.red;
+  const tone = e => e.undone ? T.border : e.status === "ok" ? T.green : ["empty", "flagged"].includes(e.status) ? T.orange : e.status === "already" ? T.textFaint : T.red;
 
   return (
     <>
       <div>
         <h1 style={{ fontFamily: "'Jost',sans-serif", fontWeight: 500, fontSize: 22, margin: 0 }}>Scanner</h1>
-        <div style={muted}>Chaque scan retire l'article du stock. Une erreur ? Touche « Annuler ».</div>
+        <div style={muted}>Chaque scan retire l'article du stock, ou le signale « à commander » s'il est suivi à vue. Une erreur ? Touche « Annuler ».</div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0,1.1fr) minmax(0,1fr)", gap: 14, alignItems: "start" }}>
         <section style={{ ...card, display: "flex", flexDirection: "column", gap: 12 }}>
@@ -105,8 +105,8 @@ export function ScanTab({ T, card, btn, primary, inp, muted, isMobile, isAdmin, 
                     <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {e.status === "unknown" ? <>Code inconnu <span style={{ fontFamily: "ui-monospace,Menlo,monospace", color: T.textSub }}>{e.code}</span></> : e.name}
                     </span>
-                    <span style={{ color: T.textSub, fontVariantNumeric: "tabular-nums" }}>{e.status === "ok" ? (e.undone ? "annulé" : `−${e.take}`) : e.status === "empty" ? "stock à 0" : ""}</span>
-                    {e.status === "ok" && !e.undone && <button aria-label={`Annuler le scan de ${e.name}`} onClick={() => onUndo(e)} style={{ background: "transparent", border: "none", color: T.textFaint, cursor: "pointer", padding: 2, display: "flex" }}><Icon name="undo" size={15} /></button>}
+                    <span style={{ color: T.textSub, fontVariantNumeric: "tabular-nums" }}>{e.status === "ok" ? (e.undone ? "annulé" : `−${e.take}`) : e.status === "empty" ? "stock à 0" : e.status === "flagged" ? (e.undone ? "annulé" : "signalé") : e.status === "already" ? "déjà signalé" : ""}</span>
+                    {["ok", "flagged"].includes(e.status) && !e.undone && <button aria-label={`Annuler le scan de ${e.name}`} onClick={() => onUndo(e)} style={{ background: "transparent", border: "none", color: T.textFaint, cursor: "pointer", padding: 2, display: "flex" }}><Icon name="undo" size={15} /></button>}
                   </div>
                 ))}
               </div>
@@ -130,6 +130,30 @@ function ScanResult({ T, btn, primary, isAdmin, e, onUndo, onAssociate }) {
         {!e.undone && e.after <= e.threshold && <div style={{ fontSize: 12, color: T.orange, fontWeight: 600, marginTop: 2 }}>Sous le seuil : à commander</div>}
       </div>
       {!e.undone && <button style={{ ...btn, padding: "7px 11px", display: "inline-flex", alignItems: "center", gap: 6 }} onClick={() => onUndo(e)}><Icon name="undo" size={15} />Annuler</button>}
+    </div>
+  );
+  if (e.status === "flagged") return (
+    <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+      <Thumb T={T} src={e.image} size={56} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: 16 }}>{e.name}</div>
+        <div style={{ fontSize: 13.5, color: e.undone ? T.textSub : T.orange, fontWeight: e.undone ? 400 : 600 }}>
+          {e.undone ? "Annulé : l'article est de nouveau OK" : "Signalé : stock bas. Les admins sont prévenus par mail."}
+        </div>
+      </div>
+      {!e.undone && <button style={{ ...btn, padding: "7px 11px", display: "inline-flex", alignItems: "center", gap: 6 }} onClick={() => onUndo(e)}><Icon name="undo" size={15} />Annuler</button>}
+    </div>
+  );
+  if (e.status === "already") return (
+    <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+      <Thumb T={T} src={e.image} size={56} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: 16 }}>{e.name}</div>
+        <div style={{ fontSize: 13.5, color: T.textSub }}>
+          Déjà signalé{e.lowBy ? ` par ${e.lowBy}` : ""}{e.lowAt ? ` le ${new Date(e.lowAt).toLocaleString("fr-BE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : ""}.
+          {e.orderedAt ? " La commande est passée." : " Rien de plus à faire."}
+        </div>
+      </div>
     </div>
   );
   if (e.status === "empty") return (

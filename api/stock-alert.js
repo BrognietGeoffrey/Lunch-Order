@@ -35,7 +35,9 @@ async function firebase() {
 }
 
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
-const isLow = it => num(it.qty) <= num(it.threshold);
+// Même règle que src/stockRules.js : « seuil visuel » = article signalé (lowFlag), sinon quantité ≤ seuil
+const isVisual = it => it?.trackMode === "visual";
+const isLow = it => isVisual(it) ? !!it.lowFlag : num(it.qty) <= num(it.threshold);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 async function sendMail(to, subject, html, text) {
@@ -51,8 +53,8 @@ function itemsTable(items) {
   const rows = items.map(it => `
     <tr>
       <td style="padding:8px 10px;border-top:1px solid #e4e6ea"><strong>${esc(it.name)}</strong>${it.category ? `<br><span style="color:#6b6b6b;font-size:12px">${esc(it.category)}</span>` : ""}</td>
-      <td style="padding:8px 10px;border-top:1px solid #e4e6ea;text-align:right;color:${num(it.qty) <= 0 ? "#c92a2a" : "#e8590c"};font-weight:700">${num(it.qty)} ${esc(it.unit || "")}</td>
-      <td style="padding:8px 10px;border-top:1px solid #e4e6ea;text-align:right;color:#6b6b6b">${num(it.threshold)}</td>
+      <td style="padding:8px 10px;border-top:1px solid #e4e6ea;text-align:right;color:${!isVisual(it) && num(it.qty) <= 0 ? "#c92a2a" : "#e8590c"};font-weight:700">${isVisual(it) ? "bas" : `${num(it.qty)} ${esc(it.unit || "")}`}</td>
+      <td style="padding:8px 10px;border-top:1px solid #e4e6ea;text-align:right;color:#6b6b6b">${isVisual(it) ? "visuel" : num(it.threshold)}</td>
       <td style="padding:8px 10px;border-top:1px solid #e4e6ea;color:#3a3a3a">${esc(it.supplier || "—")}</td>
       <td style="padding:8px 10px;border-top:1px solid #e4e6ea;color:${it.orderedAt ? "#1c7ed6" : "#e8590c"};font-size:12px;font-weight:600">${it.orderedAt ? "Commandé" : "À commander"}</td>
     </tr>`).join("");
@@ -60,7 +62,7 @@ function itemsTable(items) {
     <tr style="color:#6b6b6b;font-size:12px;text-align:left"><th style="padding:6px 10px">Article</th><th style="padding:6px 10px;text-align:right">En stock</th><th style="padding:6px 10px;text-align:right">Seuil</th><th style="padding:6px 10px">Fournisseur</th><th style="padding:6px 10px">État</th></tr>
     ${rows}</table>`;
 }
-const textList = items => items.map(it => `- ${it.name} : ${num(it.qty)} ${it.unit || ""} (seuil ${num(it.threshold)})${it.supplier ? " · " + it.supplier : ""}${it.orderedAt ? " · déjà commandé" : ""}`).join("\n");
+const textList = items => items.map(it => `- ${it.name} : ${isVisual(it) ? `stock bas (signalé${it.lowBy ? " par " + it.lowBy : ""})` : `${num(it.qty)} ${it.unit || ""} (seuil ${num(it.threshold)})`}${it.supplier ? " · " + it.supplier : ""}${it.orderedAt ? " · déjà commandé" : ""}`).join("\n");
 
 function layout(title, intro, body) {
   const link = env.APP_URL ? `<p style="margin:20px 0 0"><a href="${esc(env.APP_URL)}" style="background:#3b5bdb;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600">Ouvrir l'espace Étude</a></p>` : "";
@@ -115,10 +117,18 @@ export default async function handler(req, res) {
       const it = { id: s.id, ...s.data() };
       if (!isLow(it)) return res.status(200).json({ skipped: "au-dessus du seuil" });
       if (it.alertSentAt) return res.status(200).json({ skipped: "déjà signalé" });
-      const out = num(it.qty) <= 0;
-      await sendMail(to, `${space} · ${out ? "Rupture" : "Stock bas"} : ${it.name}`,
-        layout(`${out ? "Rupture de stock" : "Stock bas"} : ${it.name}`, `Il reste <strong>${num(it.qty)} ${esc(it.unit || "")}</strong> pour un seuil d'alerte de ${num(it.threshold)}. Pense à commander.`, itemsTable([it])),
-        `${it.name} : ${num(it.qty)} ${it.unit || ""} restant(s), seuil ${num(it.threshold)}.${it.supplier ? " Fournisseur : " + it.supplier : ""}`);
+      const sup = it.supplier ? " Fournisseur : " + it.supplier : "";
+      if (isVisual(it)) {
+        const who = it.lowBy ? ` par ${it.lowBy}` : "";
+        await sendMail(to, `${space} · Stock bas : ${it.name}`,
+          layout(`Stock bas : ${it.name}`, `Signalé à vue${esc(who)} : il en reste peu. Pense à commander.`, itemsTable([it])),
+          `${it.name} : stock bas, signalé à vue${who}.${sup}`);
+      } else {
+        const out = num(it.qty) <= 0;
+        await sendMail(to, `${space} · ${out ? "Rupture" : "Stock bas"} : ${it.name}`,
+          layout(`${out ? "Rupture de stock" : "Stock bas"} : ${it.name}`, `Il reste <strong>${num(it.qty)} ${esc(it.unit || "")}</strong> pour un seuil d'alerte de ${num(it.threshold)}. Pense à commander.`, itemsTable([it])),
+          `${it.name} : ${num(it.qty)} ${it.unit || ""} restant(s), seuil ${num(it.threshold)}.${sup}`);
+      }
       await updateDoc(ref, { alertSentAt: Date.now() });
       return res.status(200).json({ sent: to.length });
     }

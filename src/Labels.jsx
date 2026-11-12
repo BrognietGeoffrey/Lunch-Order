@@ -55,7 +55,7 @@ export function LabelCard({ item, big }) {
       <div style={{ display: "flex", justifyContent: "center" }}><CodeGraphic code={code} format={format} size={qrSize} /></div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 6, fontSize: big ? 11.5 : 9.5, color: "#444" }}>
         <span style={{ fontFamily: "ui-monospace,Menlo,monospace", letterSpacing: "0.08em", color: "#111" }}>{code}</span>
-        <span>Scanner = −{Math.max(1, Number(item.scanQty) || 1)} {item.unit || ""}</span>
+        <span>{item.trackMode === "visual" ? "Scanner = stock bas" : `Scanner = −${Math.max(1, Number(item.scanQty) || 1)} ${item.unit || ""}`}</span>
       </div>
     </div>
   );
@@ -128,7 +128,7 @@ export function LabelsTab({ T, card, btn, primary, inp, muted, isMobile, items, 
                     <div style={{ fontSize: 12, color: T.textSub, display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                       <span style={{ fontFamily: "ui-monospace,Menlo,monospace" }}>{codes[0]}</span>
                       {codes.length > 1 && <span>+{codes.length - 1}</span>}
-                      <span style={{ color: T.textFaint }}>· {it.codeFormat === "barcode" ? "Code-barres" : "QR code"} · −{Math.max(1, Number(it.scanQty) || 1)} par scan</span>
+                      <span style={{ color: T.textFaint }}>· {it.codeFormat === "barcode" ? "Code-barres" : "QR code"} · {it.trackMode === "visual" ? "seuil visuel" : `−${Math.max(1, Number(it.scanQty) || 1)} par scan`}</span>
                     </div>
                   ) : <div style={{ fontSize: 12, color: T.orange }}>Pas encore de code</div>}
                 </div>
@@ -143,7 +143,7 @@ export function LabelsTab({ T, card, btn, primary, inp, muted, isMobile, items, 
 }
 
 // ── Fenêtre de création / modification d'une étiquette ────────────────────────
-export function LabelModal({ T, btn, primary, inp, lbl, muted, isMobile, Sheet, value, items, cfg, onClose, onSave, onGenerateImage }) {
+export function LabelModal({ T, btn, primary, inp, lbl, muted, isMobile, Sheet, TrackModeField, value, items, cfg, onClose, onSave, onGenerateImage }) {
   const [v, setV] = useState(() => {
     const it = value.itemId ? items.find(x => x.id === value.itemId) : null;
     return {
@@ -151,6 +151,7 @@ export function LabelModal({ T, btn, primary, inp, lbl, muted, isMobile, Sheet, 
       name: "", category: cfg.stockCategories[0] || "", unit: cfg.units[0] || "", qty: 0, threshold: 2,
       codes: [...(it?.codes || []), ...(value.codes || [])].map(normCode).filter((c, i, a) => c && a.indexOf(c) === i),
       codeFormat: it?.codeFormat || "qr", scanQty: it?.scanQty || 1, image: it?.image || "", imageKind: it?.imageKind || "",
+      trackMode: it?.trackMode || "count",
     };
   });
   const [typed, setTyped] = useState("");
@@ -164,7 +165,7 @@ export function LabelModal({ T, btn, primary, inp, lbl, muted, isMobile, Sheet, 
   const pickItem = id => {
     const it = items.find(x => x.id === id);
     setV(o => ({ ...o, itemId: id, codes: [...(it?.codes || []), ...o.codes.filter(c => !(items.find(x => x.id === o.itemId)?.codes || []).includes(c))].filter((c, i, a) => a.indexOf(c) === i),
-      codeFormat: it?.codeFormat || o.codeFormat, scanQty: it?.scanQty || 1, image: it?.image || "", imageKind: it?.imageKind || "" }));
+      codeFormat: it?.codeFormat || o.codeFormat, scanQty: it?.scanQty || 1, image: it?.image || "", imageKind: it?.imageKind || "", trackMode: it?.trackMode || "count" }));
   };
   const owner = c => items.find(x => x.id !== v.itemId && (x.codes || []).map(normCode).includes(c));
   const addCode = raw => {
@@ -191,7 +192,7 @@ export function LabelModal({ T, btn, primary, inp, lbl, muted, isMobile, Sheet, 
     setBusy("");
   };
   const ok = name && v.codes.length > 0 && !busy;
-  const preview = { ...(item || {}), name, category: v.mode === "new" ? v.category : item?.category, unit: v.mode === "new" ? v.unit : item?.unit, codes: v.codes, codeFormat: v.codeFormat, scanQty: v.scanQty, image: v.image };
+  const preview = { ...(item || {}), trackMode: v.trackMode, name, category: v.mode === "new" ? v.category : item?.category, unit: v.mode === "new" ? v.unit : item?.unit, codes: v.codes, codeFormat: v.codeFormat, scanQty: v.scanQty, image: v.image };
   const seg = (on) => ({ ...btn, padding: "7px 12px", fontSize: 13, background: on ? T.text : T.bgCard, borderColor: on ? T.text : T.border, color: on ? T.bg : T.text, display: "inline-flex", alignItems: "center", gap: 6 });
   const grid = { display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr 1fr", gap: 10 };
   const section = { fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textFaint, marginTop: 4 };
@@ -224,11 +225,13 @@ export function LabelModal({ T, btn, primary, inp, lbl, muted, isMobile, Sheet, 
           <div style={grid}>
             <label style={lbl}>Catégorie<ChoiceInput id="lb-cat" style={inp} value={v.category} options={cfg.stockCategories} onChange={x => set({ category: x })} placeholder="Nouvelle catégorie" /></label>
             <label style={lbl}>Unité<ChoiceInput id="lb-unit" style={inp} value={v.unit} options={cfg.units} onChange={x => set({ unit: x })} placeholder="Nouvelle unité" /></label>
-            <label style={lbl}>En stock<input id="lb-qty" type="number" min="0" inputMode="numeric" style={inp} value={v.qty} onChange={e => set({ qty: e.target.value })} /></label>
-            <label style={lbl}>Seuil d'alerte<input id="lb-thr" type="number" min="0" inputMode="numeric" style={inp} value={v.threshold} onChange={e => set({ threshold: e.target.value })} /></label>
+            {v.trackMode !== "visual" && <label style={lbl}>En stock<input id="lb-qty" type="number" min="0" inputMode="numeric" style={inp} value={v.qty} onChange={e => set({ qty: e.target.value })} /></label>}
+            {v.trackMode !== "visual" && <label style={lbl}>Seuil d'alerte<input id="lb-thr" type="number" min="0" inputMode="numeric" style={inp} value={v.threshold} onChange={e => set({ threshold: e.target.value })} /></label>}
           </div>
         </>
       )}
+
+      {(v.mode === "new" || item) && <TrackModeField T={T} btn={btn} lbl={lbl} value={v.trackMode} onChange={x => set({ trackMode: x })} />}
 
       <div style={section}>2 · Code</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -256,9 +259,11 @@ export function LabelModal({ T, btn, primary, inp, lbl, muted, isMobile, Sheet, 
             <button style={seg(v.codeFormat === "barcode")} onClick={() => set({ codeFormat: "barcode" })}>Code-barres</button>
           </div>
         </div>
-        <label style={{ ...lbl, width: 170 }}>Retirer à chaque scan
-          <input id="lb-scanqty" type="number" min="1" inputMode="numeric" style={inp} value={v.scanQty} onChange={e => set({ scanQty: e.target.value })} />
-        </label>
+        {v.trackMode !== "visual" && (
+          <label style={{ ...lbl, width: 170 }}>Retirer à chaque scan
+            <input id="lb-scanqty" type="number" min="1" inputMode="numeric" style={inp} value={v.scanQty} onChange={e => set({ scanQty: e.target.value })} />
+          </label>
+        )}
       </div>
       <div style={{ ...muted, fontSize: 12 }}>{v.codeFormat === "qr" ? "Le QR code se lit avec le scanner de l'app ou directement avec l'appareil photo du téléphone (il ouvre l'app sur le scanner)." : "Le code-barres se lit avec le scanner de l'app ou une douchette USB."}</div>
 

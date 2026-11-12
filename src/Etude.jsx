@@ -10,11 +10,13 @@ import { ChoiceInput } from "./fields.jsx";
 import { ScanTab, Thumb } from "./Scanner.jsx";
 import { LabelsTab, LabelModal, LabelPrintSheet } from "./Labels.jsx";
 import { normCode, parseScan, findByCode } from "./codes.js";
+import { num, isLow, isVisual } from "./stockRules.js";
 
 // ── Espace Étude : stock, demandes, matériel, planning ────────────────────────
 // Firestore :
 //   stock_items/{id}  { name, category, unit, qty, threshold, location, supplier, note, orderedAt, updatedAt,
 //                       codes[], codeFormat, scanQty, image, imageKind }   → scanner et étiquettes (Scanner.jsx, Labels.jsx)
+//                       trackMode "count"|"visual", lowFlag, lowAt, lowBy  → seuil visuel (voir stockRules.js)
 //   stock_moves/{id}  { itemId, itemName, delta, qtyAfter, reason, by, ts }
 //   tickets/{id}      { number, title, description, category, priority, status, requester, assignee, assetId, comments[], createdAt, updatedAt }
 //   assets/{id}       { tag, type, brand, model, serial, assignedTo, location, status, purchaseDate, warrantyEnd, note, updatedAt }
@@ -65,15 +67,13 @@ const LIST_FIELDS = [
 const nowTs = () => new Date().getTime(); // horodatage des écritures
 const buzz = p => { try { navigator.vibrate?.(p); } catch { /* vibreur indisponible */ } };
 const byId = (list, id) => list.find(x => x.id === id) || list[0];
-const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
-const isLow = it => num(it.qty) <= num(it.threshold);
 const rgba = (hex, a) => { const m = /^#?([0-9a-f]{6})$/i.exec(hex || ""); if (!m) return `rgba(134,142,150,${a})`; const n = parseInt(m[1], 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
 const fmtDate = ts => ts ? new Date(ts).toLocaleDateString("fr-BE", { day: "numeric", month: "short", year: "numeric" }) : "—";
 const fmtDateTime = ts => ts ? new Date(ts).toLocaleString("fr-BE", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
 const ticketNo = n => "DEM-" + String(n || 0).padStart(4, "0");
 const daysUntil = d => { if (!d) return null; const t = new Date(d + "T00:00:00").getTime(); return Math.ceil((t - nowTs()) / 86400000); };
 const stockState = it => {
-  if (num(it.qty) <= 0) return { label: "Rupture", color: "#c92a2a" };
+  if (!isVisual(it) && num(it.qty) <= 0) return { label: "Rupture", color: "#c92a2a" };
   if (isLow(it)) return it.orderedAt ? { label: "Commandé", color: "#1c7ed6" } : { label: "À commander", color: "#e8590c" };
   return { label: "OK", color: "#2f9e44" };
 };
@@ -163,6 +163,24 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
       }
     } catch (e) { fail(e); }
   };
+  // Seuil visuel : signaler « stock bas » (scan ou bouton) / remettre à OK au réassort
+  const flagLow = async (it, reason = "Signalé stock bas") => {
+    if (it.lowFlag) return false;
+    try {
+      await updateDoc(doc(db, "stock_items", it.id), { lowFlag: true, lowAt: nowTs(), lowBy: user, updatedAt: nowTs() });
+      await addDoc(collection(db, "stock_moves"), { itemId: it.id, itemName: it.name, delta: 0, qtyAfter: "bas", reason, by: user, ts: nowTs() });
+      if (!reason.startsWith("Scan")) showToast(`⚠️ ${it.name} signalé : stock bas. Les admins sont prévenus.`, "warn"); // au scan, le résultat s'affiche déjà
+      notifyLow(it.id);
+      return true;
+    } catch (e) { fail(e); return false; }
+  };
+  const clearLow = async (it, reason = "Réapprovisionné") => {
+    try {
+      await updateDoc(doc(db, "stock_items", it.id), { lowFlag: false, lowAt: null, lowBy: null, orderedAt: null, orderedBy: null, alertSentAt: null, updatedAt: nowTs() });
+      await addDoc(collection(db, "stock_moves"), { itemId: it.id, itemName: it.name, delta: 0, qtyAfter: "OK", reason, by: user, ts: nowTs() });
+      if (reason === "Réapprovisionné") showToast(`${it.name} : stock de nouveau OK`);
+    } catch (e) { fail(e); }
+  };
   // Ajoute aux listes des Réglages les valeurs saisies via « Autre… » (catégorie, unité, emplacement, type)
   const remember = vals => {
     const patch = {};
@@ -175,18 +193,21 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
       name: v.name.trim(), category: (v.category || "").trim(), unit: (v.unit || "").trim(),
       threshold: Math.max(0, num(v.threshold)), location: (v.location || "").trim(),
       supplier: (v.supplier || "").trim(), note: (v.note || "").trim(), updatedAt: nowTs(),
+      trackMode: v.trackMode === "visual" ? "visual" : "count",
     };
     const qty = Math.max(0, num(v.qty));
     try {
-      if (v.id) {
+      if (v.id && data.trackMode === "visual") {
+        await updateDoc(doc(db, "stock_items", v.id), data);
+      } else if (v.id) {
         const old = items.find(x => x.id === v.id) || {};
         const delta = qty - num(old.qty);
         await updateDoc(doc(db, "stock_items", v.id), { ...data, qty, ...(qty > data.threshold ? { orderedAt: null, alertSentAt: null } : {}) });
         if (delta) await addDoc(collection(db, "stock_moves"), { itemId: v.id, itemName: data.name, delta, qtyAfter: qty, reason: "Ajustement", by: user, ts: nowTs() });
         if (num(old.qty) > num(old.threshold) && qty <= data.threshold) notifyLow(v.id);
       } else {
-        const r = await addDoc(collection(db, "stock_items"), { ...data, qty, orderedAt: null, alertSentAt: null, createdAt: nowTs() });
-        if (qty) await addDoc(collection(db, "stock_moves"), { itemId: r.id, itemName: data.name, delta: qty, qtyAfter: qty, reason: "Stock initial", by: user, ts: nowTs() });
+        const r = await addDoc(collection(db, "stock_items"), { ...data, qty: data.trackMode === "visual" ? 0 : qty, lowFlag: false, orderedAt: null, alertSentAt: null, createdAt: nowTs() });
+        if (qty && data.trackMode !== "visual") await addDoc(collection(db, "stock_moves"), { itemId: r.id, itemName: data.name, delta: qty, qtyAfter: qty, reason: "Stock initial", by: user, ts: nowTs() });
       }
       setItemModal(null);
       showToast(v.id ? "Article enregistré" : "Article ajouté");
@@ -195,7 +216,7 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
   const deleteItem = async it => { try { await deleteDoc(doc(db, "stock_items", it.id)); setItemModal(null); showToast("Article supprimé"); } catch (e) { fail(e); } };
   const markOrdered = async (it, on = true) => { try { await updateDoc(doc(db, "stock_items", it.id), { orderedAt: on ? nowTs() : null, orderedBy: on ? user : null }); } catch (e) { fail(e); } };
   const copyOrderList = async () => {
-    const lines = low.map(it => `- ${it.name} : ${num(it.qty)} ${it.unit || ""} en stock (seuil ${num(it.threshold)})${it.supplier ? " · " + it.supplier : ""}`);
+    const lines = low.map(it => `- ${it.name} : ${isVisual(it) ? "stock bas (signalé)" : `${num(it.qty)} ${it.unit || ""} en stock (seuil ${num(it.threshold)})`}${it.supplier ? " · " + it.supplier : ""}`);
     const text = `À commander (${fmtDate(nowTs())})\n${lines.join("\n")}`;
     try { await navigator.clipboard.writeText(text); showToast("Liste copiée, tu peux la coller dans un mail"); }
     catch { showToast("Copie impossible sur cet appareil", "error"); }
@@ -218,6 +239,13 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
     const entry = { id: t + "-" + (++scanSeq.current), code, ts: t };
     const it = findByCode(itemsRef.current, code);
     if (!it) { setScanLog(l => [{ ...entry, status: "unknown" }, ...l].slice(0, 40)); buzz([80, 60, 80]); return; }
+    if (isVisual(it)) {
+      const base = { ...entry, itemId: it.id, name: it.name, image: it.image };
+      if (it.lowFlag) { setScanLog(l => [{ ...base, status: "already", lowAt: it.lowAt, lowBy: it.lowBy, orderedAt: it.orderedAt }, ...l].slice(0, 40)); buzz(60); return; }
+      setScanLog(l => [{ ...base, status: "flagged" }, ...l].slice(0, 40)); buzz(60);
+      await flagLow(it, "Scan : stock bas");
+      return;
+    }
     const before = num(it.qty);
     if (before <= 0) { setScanLog(l => [{ ...entry, status: "empty", itemId: it.id, name: it.name, image: it.image }, ...l].slice(0, 40)); buzz([80, 60, 80]); return; }
     const take = Math.min(Math.max(1, num(it.scanQty) || 1), before);
@@ -230,7 +258,8 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
     const it = itemsRef.current.find(x => x.id === e.itemId);
     if (!it || e.undone) return;
     setScanLog(l => l.map(x => x.id === e.id ? { ...x, undone: true } : x));
-    await changeQty(it, e.take, "Annulation scan");
+    if (e.status === "flagged") await clearLow(it, "Annulation scan");
+    else await changeQty(it, e.take, "Annulation scan");
   };
 
   // ── Étiquettes ──
@@ -243,13 +272,13 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
   const saveLabel = async v => {
     if (v.mode === "new") remember({ stockCategories: v.category, units: v.unit });
     const codes = v.codes.map(normCode).filter(Boolean);
-    const data = { codes, codeFormat: v.codeFormat === "barcode" ? "barcode" : "qr", scanQty: Math.max(1, num(v.scanQty) || 1), image: v.image || "", imageKind: v.imageKind || "", updatedAt: nowTs() };
+    const data = { codes, codeFormat: v.codeFormat === "barcode" ? "barcode" : "qr", scanQty: Math.max(1, num(v.scanQty) || 1), image: v.image || "", imageKind: v.imageKind || "", trackMode: v.trackMode === "visual" ? "visual" : "count", updatedAt: nowTs() };
     try {
       if (v.mode === "new") {
-        const qty = Math.max(0, num(v.qty));
+        const qty = data.trackMode === "visual" ? 0 : Math.max(0, num(v.qty));
         const r = await addDoc(collection(db, "stock_items"), {
           name: v.name.trim(), category: (v.category || "").trim(), unit: (v.unit || "").trim(), qty, threshold: Math.max(0, num(v.threshold)),
-          location: "", supplier: "", note: "", orderedAt: null, alertSentAt: null, createdAt: nowTs(), ...data,
+          location: "", supplier: "", note: "", lowFlag: false, orderedAt: null, alertSentAt: null, createdAt: nowTs(), ...data,
         });
         if (qty) await addDoc(collection(db, "stock_moves"), { itemId: r.id, itemName: v.name.trim(), delta: qty, qtyAfter: qty, reason: "Stock initial", by: user, ts: nowTs() });
       } else {
@@ -428,12 +457,12 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
         {current === "home" && (
           <Home {...ctx} isAdmin={isAdmin} noMail={!cfg.alertEmails.length} user={user} low={low} openTickets={openTickets} myTickets={myTickets} assets={assets} myAssets={myAssets}
             warrantySoon={warrantySoon} tickets={tickets} go={setTab} onTicket={id => setOpenTicketId(id)} onNewTicket={() => setTicketModal({ category: cfg.ticketCategories[0] || "", priority: "normal" })}
-            markOrdered={markOrdered} copyOrderList={copyOrderList} />
+            markOrdered={markOrdered} clearLow={clearLow} copyOrderList={copyOrderList} />
         )}
 
         {current === "stock" && (
-          <Stock {...ctx} isAdmin={isAdmin} items={items} cfg={cfg} filter={stockFilter} setFilter={setStockFilter} changeQty={changeQty}
-            onEdit={it => setItemModal({ ...it })} onNew={() => setItemModal({ unit: cfg.units[0] || "", category: cfg.stockCategories[0] || "", qty: 0, threshold: 2 })}
+          <Stock {...ctx} isAdmin={isAdmin} items={items} cfg={cfg} filter={stockFilter} setFilter={setStockFilter} changeQty={changeQty} flagLow={flagLow} clearLow={clearLow}
+            onEdit={it => setItemModal({ ...it })} onNew={() => setItemModal({ unit: cfg.units[0] || "", category: cfg.stockCategories[0] || "", qty: 0, threshold: 2, trackMode: "count" })}
             markOrdered={markOrdered} copyOrderList={copyOrderList} lowCount={low.length} moves={moves} showMoves={showMoves} setShowMoves={setShowMoves} />
         )}
 
@@ -463,7 +492,7 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
         {current === "settings" && isAdmin && <Settings {...ctx} cfg={cfg} saveCfg={saveCfg} members={members} showToast={showToast} />}
       </main>
 
-      {labelModal && <LabelModal {...ctx} Sheet={Sheet} value={labelModal} items={items} cfg={cfg} onClose={() => setLabelModal(null)} onSave={saveLabel} onGenerateImage={generateImage} />}
+      {labelModal && <LabelModal {...ctx} Sheet={Sheet} TrackModeField={TrackModeField} value={labelModal} items={items} cfg={cfg} onClose={() => setLabelModal(null)} onSave={saveLabel} onGenerateImage={generateImage} />}
       {printLabels && <LabelPrintSheet items={printLabels.ids.map(id => items.find(x => x.id === id)).filter(Boolean)} size={printLabels.size} copies={printLabels.copies} />}
       {itemModal && <ItemModal {...ctx} value={itemModal} cfg={cfg} onClose={() => setItemModal(null)} onSave={saveItem} onDelete={deleteItem} />}
       {ticketModal && <NewTicketModal {...ctx} value={ticketModal} cfg={cfg} assets={assets} onClose={() => setTicketModal(null)} onSave={createTicket} />}
@@ -528,7 +557,7 @@ function Empty({ T, icon, title, text, action }) {
 }
 
 // ── Accueil ───────────────────────────────────────────────────────────────────
-function Home({ T, card, h2, btn, primary, muted, isMobile, isAdmin, noMail, user, low, openTickets, myTickets, assets, myAssets, warrantySoon, tickets, go, onTicket, onNewTicket, markOrdered, copyOrderList }) {
+function Home({ T, card, h2, btn, primary, muted, isMobile, isAdmin, noMail, user, low, openTickets, myTickets, assets, myAssets, warrantySoon, tickets, go, onTicket, onNewTicket, markOrdered, clearLow, copyOrderList }) {
   const tiles = [
     { label: "À commander", value: low.filter(i => !i.orderedAt).length, sub: low.filter(i => i.orderedAt).length ? `${low.filter(i => i.orderedAt).length} déjà commandé(s)` : "sous le seuil", color: "#e8590c", to: "stock" },
     isAdmin
@@ -575,11 +604,12 @@ function Home({ T, card, h2, btn, primary, muted, isMobile, isAdmin, noMail, use
                   <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10, background: T.bgHover, flexWrap: "wrap" }}>
                     <div style={{ flex: 1, minWidth: 120 }}>
                       <div style={{ fontWeight: 600, fontSize: 14 }}>{it.name}</div>
-                      <div style={muted}>{num(it.qty)} {it.unit} · seuil {num(it.threshold)}{it.supplier ? ` · ${it.supplier}` : ""}</div>
+                      <div style={muted}>{isVisual(it) ? `Signalé${it.lowBy ? ` par ${it.lowBy}` : ""} le ${fmtDate(it.lowAt)}` : `${num(it.qty)} ${it.unit} · seuil ${num(it.threshold)}`}{it.supplier ? ` · ${it.supplier}` : ""}</div>
                     </div>
                     <Pill color={st.color}>{st.label}</Pill>
                     {isAdmin && (it.orderedAt
-                      ? <button style={{ ...btn, padding: "5px 9px", fontSize: 11.5 }} onClick={() => markOrdered(it, false)}>Annuler</button>
+                      ? (isVisual(it) ? <button style={{ ...btn, padding: "5px 9px", fontSize: 11.5 }} onClick={() => clearLow(it)}>Réapprovisionné</button>
+                        : <button style={{ ...btn, padding: "5px 9px", fontSize: 11.5 }} onClick={() => markOrdered(it, false)}>Annuler</button>)
                       : <button style={{ ...btn, padding: "5px 9px", fontSize: 11.5 }} onClick={() => markOrdered(it, true)}>Marquer commandé</button>)}
                   </div>
                 );
@@ -620,7 +650,7 @@ function Home({ T, card, h2, btn, primary, muted, isMobile, isAdmin, noMail, use
 }
 
 // ── Stock ─────────────────────────────────────────────────────────────────────
-function Stock({ T, card, h2, btn, primary, inp, muted, isMobile, isAdmin, items, cfg, filter, setFilter, changeQty, onEdit, onNew, markOrdered, copyOrderList, lowCount, moves, showMoves, setShowMoves }) {
+function Stock({ T, card, h2, btn, primary, inp, muted, isMobile, isAdmin, items, cfg, filter, setFilter, changeQty, flagLow, clearLow, onEdit, onNew, markOrdered, copyOrderList, lowCount, moves, showMoves, setShowMoves }) {
   const q = filter.q.trim().toLowerCase();
   const shown = items.filter(it =>
     (!filter.cat || it.category === filter.cat) &&
@@ -664,6 +694,16 @@ function Stock({ T, card, h2, btn, primary, inp, muted, isMobile, isAdmin, items
                   <Pill color={st.color}>{st.label}</Pill>
                   {isAdmin && <button onClick={() => onEdit(it)} aria-label="Modifier" style={{ background: "transparent", border: "none", cursor: "pointer", padding: 4, color: T.textFaint, display: "flex" }}><Icon name="pencil" size={16} /></button>}
                 </div>
+                {isVisual(it) ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, color: T.textSub, background: T.bgTag, borderRadius: 999, padding: "3px 9px" }}><Icon name="alert" size={13} />Seuil visuel</span>
+                    <span style={{ flex: 1, minWidth: 140, fontSize: 12.5, color: it.lowFlag ? T.text : T.textFaint }}>
+                      {it.lowFlag ? <>Signalé le {fmtDateTime(it.lowAt)}{it.lowBy ? ` par ${it.lowBy}` : ""}</> : "Pas de comptage : signale quand il en reste peu."}
+                    </span>
+                    {!it.lowFlag && <button style={{ ...btn, padding: "6px 10px", fontSize: 12.5, borderColor: T.orange, color: T.orange }} onClick={() => flagLow(it)}>Signaler stock bas</button>}
+                    {it.lowFlag && isAdmin && <button style={{ ...btn, padding: "6px 10px", fontSize: 12.5 }} onClick={() => clearLow(it)}><Icon name="check" size={13} /> Réapprovisionné</button>}
+                  </div>
+                ) : (
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <button style={{ ...qtyBtn, opacity: num(it.qty) <= 0 ? .4 : 1 }} disabled={num(it.qty) <= 0} aria-label={`Retirer un ${it.unit || "article"}`} onClick={() => changeQty(it, -1, "Sortie")}>−</button>
                   <div style={{ minWidth: 70, textAlign: "center" }}>
@@ -678,6 +718,7 @@ function Stock({ T, card, h2, btn, primary, inp, muted, isMobile, isAdmin, items
                     <div style={{ ...muted, marginTop: 3 }}>Seuil d'alerte : {num(it.threshold)}</div>
                   </div>
                 </div>
+                )}
                 {isAdmin && isLow(it) && (
                   <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                     {it.orderedAt
@@ -735,11 +776,16 @@ function ItemModal({ T, btn, primary, danger, inp, lbl, isMobile, value, cfg, on
         <button style={{ ...primary, opacity: ok ? 1 : .5 }} disabled={!ok} onClick={() => onSave(v)}>Enregistrer</button>
       </>}>
       <label style={lbl}>Nom *<input id="it-name" style={inp} value={v.name || ""} onChange={e => set("name", e.target.value)} placeholder="Ex. Papier A4 80 g" autoFocus /></label>
-      <div style={grid}>
-        <label style={lbl}>Quantité en stock<input id="it-qty" type="number" inputMode="numeric" min="0" style={inp} value={v.qty ?? 0} onChange={e => set("qty", e.target.value)} /></label>
-        <label style={lbl}>Seuil d'alerte<input id="it-thr" type="number" inputMode="numeric" min="0" style={inp} value={v.threshold ?? 0} onChange={e => set("threshold", e.target.value)} /></label>
-      </div>
-      <div style={{ fontSize: 12, color: T.textFaint, marginTop: -4 }}>L'alerte « à commander » s'affiche quand la quantité est égale ou inférieure au seuil.</div>
+      <TrackModeField T={T} btn={btn} lbl={lbl} value={v.trackMode} onChange={x => set("trackMode", x)} />
+      {v.trackMode !== "visual" && (
+        <>
+          <div style={grid}>
+            <label style={lbl}>Quantité en stock<input id="it-qty" type="number" inputMode="numeric" min="0" style={inp} value={v.qty ?? 0} onChange={e => set("qty", e.target.value)} /></label>
+            <label style={lbl}>Seuil d'alerte<input id="it-thr" type="number" inputMode="numeric" min="0" style={inp} value={v.threshold ?? 0} onChange={e => set("threshold", e.target.value)} /></label>
+          </div>
+          <div style={{ fontSize: 12, color: T.textFaint, marginTop: -4 }}>L'alerte « à commander » s'affiche quand la quantité est égale ou inférieure au seuil.</div>
+        </>
+      )}
       <div style={grid}>
         <label style={lbl}>Catégorie<ChoiceInput id="it-cat" style={inp} value={v.category || ""} options={cfg.stockCategories} onChange={x => set("category", x)} placeholder="Nouvelle catégorie" /></label>
         <label style={lbl}>Unité<ChoiceInput id="it-unit" style={inp} value={v.unit || ""} options={cfg.units} onChange={x => set("unit", x)} placeholder="Nouvelle unité" /></label>
@@ -748,6 +794,24 @@ function ItemModal({ T, btn, primary, danger, inp, lbl, isMobile, value, cfg, on
       </div>
       <label style={lbl}>Note<textarea id="it-note" rows={2} style={{ ...inp, resize: "vertical" }} value={v.note || ""} onChange={e => set("note", e.target.value)} placeholder="Référence, lien de commande…" /></label>
     </Sheet>
+  );
+}
+
+// Choix du mode de suivi d'un article (aussi utilisé par Labels.jsx via la prop TrackModeField)
+export function TrackModeField({ T, btn, lbl, value, onChange }) {
+  const visual = value === "visual";
+  const seg = on => ({ ...btn, padding: "7px 12px", fontSize: 13, background: on ? T.text : T.bgCard, borderColor: on ? T.text : T.border, color: on ? T.bg : T.text });
+  return (
+    <div style={{ ...lbl, gap: 6 }}>Suivi du stock
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <button type="button" style={seg(!visual)} onClick={() => onChange("count")}>Compter les unités</button>
+        <button type="button" style={seg(visual)} onClick={() => onChange("visual")}>Seuil visuel</button>
+      </div>
+      <span style={{ fontSize: 12, fontWeight: 400, color: T.textFaint }}>
+        {visual ? "Pas de comptage (ex. une pile de fardes). Quand le stock paraît bas, on scanne l'étiquette ou on touche « Signaler » : l'alerte et le mail partent tout seuls."
+          : "Chaque scan retire des unités ; l'alerte part quand la quantité atteint le seuil."}
+      </span>
+    </div>
   );
 }
 
