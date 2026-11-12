@@ -6,6 +6,7 @@ import {
 import Planning from "./Planning.jsx";
 import { accessOf } from "./access.js";
 import { BrandLogo, Icon } from "./brand.jsx";
+import { ChoiceInput } from "./fields.jsx";
 import { ScanTab, Thumb } from "./Scanner.jsx";
 import { LabelsTab, LabelModal, LabelPrintSheet } from "./Labels.jsx";
 import { normCode, parseScan, findByCode } from "./codes.js";
@@ -162,7 +163,14 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
       }
     } catch (e) { fail(e); }
   };
+  // Ajoute aux listes des Réglages les valeurs saisies via « Autre… » (catégorie, unité, emplacement, type)
+  const remember = vals => {
+    const patch = {};
+    Object.entries(vals).forEach(([key, val]) => { const x = (val || "").trim(); if (x && !(cfg[key] || []).includes(x)) patch[key] = arrayUnion(x); });
+    if (Object.keys(patch).length) setDoc(cfgRef, patch, { merge: true }).catch(() => {});
+  };
   const saveItem = async v => {
+    remember({ stockCategories: v.category, units: v.unit, locations: v.location });
     const data = {
       name: v.name.trim(), category: (v.category || "").trim(), unit: (v.unit || "").trim(),
       threshold: Math.max(0, num(v.threshold)), location: (v.location || "").trim(),
@@ -233,6 +241,7 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
     return j.svg;
   };
   const saveLabel = async v => {
+    if (v.mode === "new") remember({ stockCategories: v.category, units: v.unit });
     const codes = v.codes.map(normCode).filter(Boolean);
     const data = { codes, codeFormat: v.codeFormat === "barcode" ? "barcode" : "qr", scanQty: Math.max(1, num(v.scanQty) || 1), image: v.image || "", imageKind: v.imageKind || "", updatedAt: nowTs() };
     try {
@@ -292,6 +301,7 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
 
   // ── Matériel ──
   const saveAsset = async v => {
+    remember({ assetTypes: v.type, locations: v.location });
     const data = {
       tag: (v.tag || "").trim(), type: (v.type || "").trim(), brand: (v.brand || "").trim(), model: (v.model || "").trim(),
       serial: (v.serial || "").trim(), assignedTo: v.assignedTo || "", location: (v.location || "").trim(), status: v.status || "in_use",
@@ -731,15 +741,12 @@ function ItemModal({ T, btn, primary, danger, inp, lbl, isMobile, value, cfg, on
       </div>
       <div style={{ fontSize: 12, color: T.textFaint, marginTop: -4 }}>L'alerte « à commander » s'affiche quand la quantité est égale ou inférieure au seuil.</div>
       <div style={grid}>
-        <label style={lbl}>Catégorie<input id="it-cat" list="dl-cat" style={inp} value={v.category || ""} onChange={e => set("category", e.target.value)} /></label>
-        <label style={lbl}>Unité<input id="it-unit" list="dl-unit" style={inp} value={v.unit || ""} onChange={e => set("unit", e.target.value)} /></label>
-        <label style={lbl}>Emplacement<input id="it-loc" list="dl-loc" style={inp} value={v.location || ""} onChange={e => set("location", e.target.value)} /></label>
+        <label style={lbl}>Catégorie<ChoiceInput id="it-cat" style={inp} value={v.category || ""} options={cfg.stockCategories} onChange={x => set("category", x)} placeholder="Nouvelle catégorie" /></label>
+        <label style={lbl}>Unité<ChoiceInput id="it-unit" style={inp} value={v.unit || ""} options={cfg.units} onChange={x => set("unit", x)} placeholder="Nouvelle unité" /></label>
+        <label style={lbl}>Emplacement<ChoiceInput id="it-loc" style={inp} value={v.location || ""} options={cfg.locations} onChange={x => set("location", x)} placeholder="Nouvel emplacement" /></label>
         <label style={lbl}>Fournisseur<input id="it-sup" style={inp} value={v.supplier || ""} onChange={e => set("supplier", e.target.value)} placeholder="Ex. Lyreco" /></label>
       </div>
       <label style={lbl}>Note<textarea id="it-note" rows={2} style={{ ...inp, resize: "vertical" }} value={v.note || ""} onChange={e => set("note", e.target.value)} placeholder="Référence, lien de commande…" /></label>
-      <datalist id="dl-cat">{cfg.stockCategories.map(x => <option key={x} value={x} />)}</datalist>
-      <datalist id="dl-unit">{cfg.units.map(x => <option key={x} value={x} />)}</datalist>
-      <datalist id="dl-loc">{cfg.locations.map(x => <option key={x} value={x} />)}</datalist>
     </Sheet>
   );
 }
@@ -965,7 +972,7 @@ function AssetModal({ T, btn, primary, danger, inp, lbl, isMobile, value, cfg, m
       </>}>
       <div style={grid}>
         <label style={lbl}>N° d'inventaire<input id="as-tag" style={inp} value={v.tag || ""} onChange={e => set("tag", e.target.value)} placeholder="Ex. PC-012" autoFocus /></label>
-        <label style={lbl}>Type<input id="as-type-in" list="dl-atype" style={inp} value={v.type || ""} onChange={e => set("type", e.target.value)} /></label>
+        <label style={lbl}>Type<ChoiceInput id="as-type-in" style={inp} value={v.type || ""} options={cfg.assetTypes} onChange={x => set("type", x)} placeholder="Nouveau type" /></label>
         <label style={lbl}>État
           <select id="as-status-in" style={inp} value={v.status || "in_use"} onChange={e => set("status", e.target.value)}>
             {ASSET_STATUSES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
@@ -981,14 +988,12 @@ function AssetModal({ T, btn, primary, danger, inp, lbl, isMobile, value, cfg, m
             {memberNames.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
         </label>
-        <label style={lbl}>Emplacement<input id="as-loc" list="dl-aloc" style={inp} value={v.location || ""} onChange={e => set("location", e.target.value)} /></label>
+        <label style={lbl}>Emplacement<ChoiceInput id="as-loc" style={inp} value={v.location || ""} options={cfg.locations} onChange={x => set("location", x)} placeholder="Nouvel emplacement" /></label>
         <span />
         <label style={lbl}>Date d'achat<input id="as-buy" type="date" style={inp} value={v.purchaseDate || ""} onChange={e => set("purchaseDate", e.target.value)} /></label>
         <label style={lbl}>Fin de garantie<input id="as-war" type="date" style={inp} value={v.warrantyEnd || ""} onChange={e => set("warrantyEnd", e.target.value)} /></label>
       </div>
       <label style={lbl}>Note<textarea id="as-note" rows={2} style={{ ...inp, resize: "vertical" }} value={v.note || ""} onChange={e => set("note", e.target.value)} placeholder="Licence, accessoires, historique…" /></label>
-      <datalist id="dl-atype">{cfg.assetTypes.map(x => <option key={x} value={x} />)}</datalist>
-      <datalist id="dl-aloc">{cfg.locations.map(x => <option key={x} value={x} />)}</datalist>
     </Sheet>
   );
 }

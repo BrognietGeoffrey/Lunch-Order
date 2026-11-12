@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import QRCode from "qrcode";
 import JsBarcode from "jsbarcode";
 import { Icon } from "./brand.jsx";
+import { ChoiceInput } from "./fields.jsx";
 import { CameraScanner, Thumb } from "./Scanner.jsx";
 import { normCode, genCode, scanUrl, parseScan, compressImage, svgToDataUrl } from "./codes.js";
 
@@ -221,13 +222,11 @@ export function LabelModal({ T, btn, primary, inp, lbl, muted, isMobile, Sheet, 
         <>
           <label style={lbl}>Nom *<input id="lb-name" style={inp} value={v.name} onChange={e => set({ name: e.target.value })} placeholder="Ex. Toner HP 59A" /></label>
           <div style={grid}>
-            <label style={lbl}>Catégorie<input id="lb-cat" list="lb-dl-cat" style={inp} value={v.category} onChange={e => set({ category: e.target.value })} /></label>
-            <label style={lbl}>Unité<input id="lb-unit" list="lb-dl-unit" style={inp} value={v.unit} onChange={e => set({ unit: e.target.value })} /></label>
+            <label style={lbl}>Catégorie<ChoiceInput id="lb-cat" style={inp} value={v.category} options={cfg.stockCategories} onChange={x => set({ category: x })} placeholder="Nouvelle catégorie" /></label>
+            <label style={lbl}>Unité<ChoiceInput id="lb-unit" style={inp} value={v.unit} options={cfg.units} onChange={x => set({ unit: x })} placeholder="Nouvelle unité" /></label>
             <label style={lbl}>En stock<input id="lb-qty" type="number" min="0" inputMode="numeric" style={inp} value={v.qty} onChange={e => set({ qty: e.target.value })} /></label>
             <label style={lbl}>Seuil d'alerte<input id="lb-thr" type="number" min="0" inputMode="numeric" style={inp} value={v.threshold} onChange={e => set({ threshold: e.target.value })} /></label>
           </div>
-          <datalist id="lb-dl-cat">{cfg.stockCategories.map(x => <option key={x} value={x} />)}</datalist>
-          <datalist id="lb-dl-unit">{cfg.units.map(x => <option key={x} value={x} />)}</datalist>
         </>
       )}
 
