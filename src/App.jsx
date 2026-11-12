@@ -196,16 +196,17 @@ function formatOrderFull(o, ctx={}) {
     if (txt) lines.push({ emoji:"➕", text: txt });
   });
   if (r?.kind==="snack") {
+    // Plat et sauce sur une seule ligne : « Durum poulet sauce mayo »
     const firstPart = [o.snackType, o.detail].filter(Boolean).join(" ");
-    if (firstPart) lines.push({ emoji:r.emoji||"🥙", text: firstPart });
+    const sauce = sauceShort(readSel(o,"sauces"), ctx.listCfg?.sauces);
+    if (firstPart) lines.push({ emoji:r.emoji||"🥙", text: [firstPart, sauce].filter(Boolean).join(" ") });
+    else if (sauce) lines.push({ emoji:"🫙", text: sauce.charAt(0).toUpperCase()+sauce.slice(1) });
     pushExtras();
     if (o.frites)     lines.push({ emoji:"🍟", text: o.frites });
     if (o.friteSup)   lines.push({ emoji:"🍟", text: "Frite sup. "+o.friteSup });
     if (o.sauceFrite) lines.push({ emoji:"🥣", text: "Sauce frite : "+o.sauceFrite });
     const cru = formatSel(readSel(o,"crudites"), "Crudités", ctx.listCfg?.crudites);
     if (cru) lines.push({ emoji:"🥗", text: cru });
-    const sau = formatSel(readSel(o,"sauces"), "Sauces", ctx.listCfg?.sauces);
-    if (sau) lines.push({ emoji:"🫙", text: sau });
     if (o.boisson)    lines.push({ emoji:"🥤", text: o.boisson });
   } else if (r?.kind==="glace") {
     if (o.boules)  lines.push({ emoji:r.emoji||"🍦", text: o.boules });
@@ -260,7 +261,9 @@ function orderPricedLines(order, ctx={}){
   } else {
     const idx=buildPriceIndex(r);
     const main=lookup(idx, mainCandidates(order, r));
-    const mainLabel=[order.snackType,order.detail].filter(Boolean).join(" ").trim()||"Plat à choisir";
+    const dish=[order.snackType,order.detail].filter(Boolean).join(" ").trim();
+    const sauce=r?.kind==="snack" && dish ? sauceShort(readSel(order,"sauces"), ctx.listCfg?.sauces) : "";
+    const mainLabel=[dish, sauce].filter(Boolean).join(" ")||"Plat à choisir";
     lines.push({ label:mainLabel, price:main?main.price:null });
     lines.push(...extraPricedLines(order, ctx.extras));
     if(order.friteSup){
@@ -602,7 +605,7 @@ function OrderForm({ T, name, order, r, ctx, sauces, crudites, boissons, lists, 
             <div style={{background:T.bgHover,border:`1px solid ${T.borderLight}`,borderRadius:10,padding:"10px 12px",fontSize:14,color:T.text}}>
               <span style={{fontSize:11,fontWeight:600,letterSpacing:"0.08em",textTransform:"uppercase",color:T.textFaint,display:"block",marginBottom:2}}>Ta commande</span>
               <strong style={{fontWeight:600}}>{[order.snackType, order.detail].filter(Boolean).join(" ")}</strong>
-              {sauceShort(readSel(order,"sauces"), lists.sauces) && <span style={{color:T.textSub}}> · {sauceShort(readSel(order,"sauces"), lists.sauces)}</span>}
+              {sauceShort(readSel(order,"sauces"), lists.sauces) && <span style={{color:T.textSub}}> {sauceShort(readSel(order,"sauces"), lists.sauces)}</span>}
             </div>
           )}
         </div>
