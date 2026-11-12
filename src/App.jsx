@@ -4,12 +4,14 @@ import {
   getFirestore, doc, setDoc, deleteDoc, onSnapshot, collection, addDoc,
   query, where, writeBatch,
 } from "firebase/firestore";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
+import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken, signOut, setPersistence, inMemoryPersistence } from "firebase/auth";
 import Etude from "./Etude.jsx";
 import { BrandLogo, Icon } from "./brand.jsx";
 import { accessOf, ETUDE_ROLES } from "./access.js";
 import { takePendingFromHash, clearPendingScan } from "./codes.js";
 import { isLow as stockIsLow } from "./stockRules.js";
+import { authApi, secureUnavailable } from "./authClient.js";
+import { ForcedSetup, AccountModal, SecretForm } from "./Account.jsx";
 
 // ── Firebase (valeurs dans .env / variables d'environnement Vercel) ───────────
 const firebaseConfig = {
@@ -804,16 +806,47 @@ function LoginScreen({ onLogin, T, isDark, toggleTheme, members, membersLoaded, 
   const [username, setUsername] = useState("");
   const [code, setCode]         = useState("");
   const [error, setError]       = useState("");
+  const [byEmail, setByEmail]   = useState(false);   // se connecter avec son email au lieu du nom
+  const [email, setEmail]       = useState("");
+  const [busy, setBusy]         = useState(false);
+  const [view, setView]         = useState("login"); // login | forgot | reset
+  const [info, setInfo]         = useState("");
+  const [resetCode, setResetCode] = useState("");
   const [shake, setShake]       = useState(false);
   const [isMobile, setIsMobile] = useState(()=>window.innerWidth<640);
   useEffect(()=>{ const h=()=>setIsMobile(window.innerWidth<640); window.addEventListener("resize",h); return ()=>window.removeEventListener("resize",h); },[]);
 
   const hint  = appConfig.loginHint || "";
 
-  const attempt = () => {
-    const u = members.find(m=>m.username.toLowerCase()===username.toLowerCase()&&String(m.code)===code.trim());
-    if (u) onLogin(u.username);
-    else { setError("Nom ou code invalide."); setShake(true); setTimeout(()=>setShake(false),600); }
+  const ident = byEmail ? email.trim() : username;
+  const bad = msg => { setError(msg); setShake(true); setTimeout(()=>setShake(false),600); };
+  // Connexion : vérifiée par le serveur (/api/auth) ; tant qu'il n'est pas configuré, ancienne vérification locale
+  const attempt = async () => {
+    if (!ident || !code) { bad(byEmail ? "Indique ton email et ton code." : "Choisis ton nom et indique ton code."); return; }
+    setBusy(true); setError("");
+    try {
+      const r = await authApi("login", { id: ident, secret: code });
+      await signInWithCustomToken(auth, r.token);
+      onLogin(r.username, { mustChange: r.mustChange, email: r.email });
+    } catch (e) {
+      if (secureUnavailable(e)) {
+        const u = members.find(m=>m.username.toLowerCase()===String(username).toLowerCase()&&m.code!=null&&String(m.code)===code.trim());
+        if (u) onLogin(u.username, { legacy:true }); else bad("Nom ou code invalide.");
+      } else bad(e.message);
+    }
+    setBusy(false);
+  };
+  const askReset = async () => {
+    if (!ident) { setError(byEmail ? "Indique ton email." : "Choisis ton nom."); return; }
+    setBusy(true); setError(""); setInfo("");
+    try { const r = await authApi("forgot", { id: ident }); setInfo(r.message); setView("reset"); }
+    catch (e) { setError(secureUnavailable(e) ? "La réinitialisation par email n'est pas encore activée. Demande à un administrateur." : e.message); }
+    setBusy(false);
+  };
+  const doReset = async (secret) => {
+    const r = await authApi("reset", { id: ident, code: resetCode, secret });
+    await signInWithCustomToken(auth, r.token);
+    onLogin(r.username, { mustChange: false, email: r.email });
   };
 
   if (!membersLoaded) return (
@@ -835,27 +868,54 @@ function LoginScreen({ onLogin, T, isDark, toggleTheme, members, membersLoaded, 
 
   const labelS = {display:"block",fontSize:11,fontWeight:600,color:T.textSub,marginBottom:6,letterSpacing:"0.12em",textTransform:"uppercase"};
   const fieldS = {width:"100%",background:T.bgInput,border:`1px solid ${T.border}`,borderRadius:8,color:T.text,padding:"12px 14px",fontSize:15};
+  const linkS  = {display:"block",marginTop:8,background:"transparent",border:"none",color:T.textSub,fontSize:12.5,cursor:"pointer",textDecoration:"underline",padding:0};
   const wordmark = (onDark) => (
     <div style={{fontFamily:"'Jost',sans-serif",fontWeight:500,fontSize:13,letterSpacing:"0.32em",textTransform:"uppercase",color:onDark?"rgba(255,255,255,0.86)":T.text}}>{brandName}</div>
   );
   const form = (
     <>
-      <div style={{marginBottom:16}}>
-        <label htmlFor="login-name" style={labelS}>Nom</label>
-        <select id="login-name" style={{...fieldS,cursor:"pointer"}} value={username} onChange={e=>setUsername(e.target.value)}>
-          <option value="">Sélectionne ton nom</option>
-          {members.map(u=><option key={u.username} value={u.username}>{u.username}</option>)}
-        </select>
-      </div>
-      <div style={{marginBottom:22}}>
-        <label htmlFor="login-code" style={labelS}>Code</label>
-        <input id="login-code" style={fieldS} type="password" inputMode="numeric" value={code} placeholder="••••"
-          onChange={e=>setCode(e.target.value)} onKeyDown={e=>e.key==="Enter"&&attempt()}/>
-      </div>
-      {error && <p role="alert" style={{color:T.red,fontSize:13,marginBottom:14}}>{error}</p>}
-      <button style={{width:"100%",background:T.text,color:T.bg,border:"none",borderRadius:8,padding:"13px",fontSize:14.5,fontWeight:600,letterSpacing:"0.04em",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}
-        onClick={attempt}>Se connecter <Icon name="arrow" size={17}/></button>
-      {hint && <p style={{color:T.textFaint,fontSize:11.5,marginTop:14,textAlign:"center"}}>{hint}</p>}
+      {view !== "reset" && (
+        <div style={{marginBottom:16}}>
+          {byEmail ? (<>
+            <label htmlFor="login-email" style={labelS}>Email</label>
+            <input id="login-email" style={fieldS} type="email" inputMode="email" autoComplete="username" value={email} placeholder="prenom.nom@etude.be" onChange={e=>setEmail(e.target.value)}/>
+          </>) : (<>
+            <label htmlFor="login-name" style={labelS}>Nom</label>
+            <select id="login-name" style={{...fieldS,cursor:"pointer"}} value={username} onChange={e=>setUsername(e.target.value)}>
+              <option value="">Sélectionne ton nom</option>
+              {members.map(u=><option key={u.username} value={u.username}>{u.username}</option>)}
+            </select>
+          </>)}
+          <button type="button" onClick={()=>{ setByEmail(v=>!v); setError(""); }} style={linkS}>{byEmail ? "Choisir mon nom dans la liste" : "Se connecter avec mon email"}</button>
+        </div>
+      )}
+      {view === "login" && (<>
+        <div style={{marginBottom:22}}>
+          <label htmlFor="login-code" style={labelS}>Code ou mot de passe</label>
+          <input id="login-code" style={fieldS} type="password" autoComplete="current-password" value={code} placeholder="••••••"
+            onChange={e=>setCode(e.target.value)} onKeyDown={e=>e.key==="Enter"&&attempt()}/>
+          <button type="button" onClick={()=>{ setView("forgot"); setError(""); setInfo(""); }} style={linkS}>Code oublié ?</button>
+        </div>
+        {error && <p role="alert" style={{color:T.red,fontSize:13,marginBottom:14}}>{error}</p>}
+        <button disabled={busy} style={{width:"100%",background:T.text,color:T.bg,border:"none",borderRadius:8,padding:"13px",fontSize:14.5,fontWeight:600,letterSpacing:"0.04em",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8,opacity:busy?.6:1}}
+          onClick={attempt}>{busy ? "Connexion…" : <>Se connecter <Icon name="arrow" size={17}/></>}</button>
+        {hint && <p style={{color:T.textFaint,fontSize:11.5,marginTop:14,textAlign:"center"}}>{hint}</p>}
+      </>)}
+      {view === "forgot" && (<>
+        <p style={{fontSize:13.5,color:T.textSub,lineHeight:1.5,margin:"0 0 16px"}}>Si ton email de travail est lié à ton compte, tu vas recevoir un code pour choisir un nouveau mot de passe ou code PIN.</p>
+        {error && <p role="alert" style={{color:T.red,fontSize:13,marginBottom:14}}>{error}</p>}
+        <button disabled={busy} onClick={askReset} style={{width:"100%",background:T.text,color:T.bg,border:"none",borderRadius:8,padding:"13px",fontSize:14.5,fontWeight:600,cursor:"pointer",opacity:busy?.6:1}}>{busy ? "Envoi…" : "Recevoir un code par mail"}</button>
+        <button type="button" onClick={()=>{ setView("login"); setError(""); }} style={{...linkS,marginTop:14}}>← Retour à la connexion</button>
+      </>)}
+      {view === "reset" && (<>
+        <p style={{fontSize:13.5,color:T.textSub,lineHeight:1.5,margin:"0 0 14px"}}>{info}</p>
+        <div style={{marginBottom:14}}>
+          <label htmlFor="reset-code" style={labelS}>Code reçu par mail</label>
+          <input id="reset-code" style={{...fieldS,letterSpacing:"0.3em",fontSize:18,fontWeight:600}} inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={resetCode} placeholder="000000" onChange={e=>setResetCode(e.target.value.replace(/\D/g,""))}/>
+        </div>
+        <SecretForm T={T} username={byEmail ? "" : username} idPrefix="rs" autoFocus={false} submitLabel="Valider et me connecter" onSubmit={doReset}/>
+        <button type="button" onClick={()=>{ setView("login"); setError(""); setResetCode(""); }} style={{...linkS,marginTop:14}}>← Retour à la connexion</button>
+      </>)}
     </>
   );
   const modules = (onDark) => (
@@ -1309,6 +1369,8 @@ export default function App() {
   const [newExtraPrice, setNewExtraPrice]   = useState({});
   const [newMemberName, setNewMemberName]   = useState("");
   const [newMemberCode, setNewMemberCode]   = useState("");
+  const [tempFor, setTempFor] = useState(null);   // membre dont on pose un code temporaire
+  const [tempVal, setTempVal] = useState("");
   const [editingMember, setEditingMember]   = useState(null);
   const [newSauce, setNewSauce]     = useState("");
   const [newCrudite, setNewCrudite] = useState("");
@@ -1344,7 +1406,10 @@ export default function App() {
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [feedback, setFeedback] = useState([]);
   const [now, setNow] = useState(Date.now());
-  const [space, setSpace] = useState(null); // application choisie pour cette connexion (redemandée à chaque login)
+  const [space, setSpace] = useState(null);
+  const [account, setAccount] = useState(null);       // { mustChange, email } (connexion sécurisée) ou { legacy:true }
+  const [accountOpen, setAccountOpen] = useState(false);
+  const logout = () => { setUser(null); setAccount(null); setAccountOpen(false); if(auth.currentUser && !auth.currentUser.isAnonymous) signOut(auth).catch(()=>{}); }; // application choisie pour cette connexion (redemandée à chaque login)
   const [brand, setBrand] = useState({}); // config/etude : brandName, brandSubtitle
   const [etudeLow, setEtudeLow] = useState(0);
   // QR code d'article scanné avec l'appareil photo : lien « /#scan/CODE » → ouvre le scanner de l'Administration
@@ -1377,11 +1442,16 @@ export default function App() {
   useEffect(()=>{ document.title = brandName; },[brandName]);
 
   useEffect(()=>{
-    const unsub = onAuthStateChanged(auth, u=>{
-      if(u){ setAuthReady(true); setAuthError(null); }
-      else signInAnonymously(auth).catch(e=>{ console.error("Auth anonyme échouée:", e); setAuthError(e.code || e.message || "erreur inconnue"); });
+    // Session gardée en mémoire seulement : chaque ouverture de l'app redemande la connexion
+    let unsub=()=>{}, alive=true;
+    setPersistence(auth, inMemoryPersistence).catch(()=>{}).finally(()=>{
+      if(!alive) return;
+      unsub = onAuthStateChanged(auth, u=>{
+        if(u){ setAuthReady(true); setAuthError(null); }
+        else signInAnonymously(auth).catch(e=>{ console.error("Auth anonyme échouée:", e); setAuthError(e.code || e.message || "erreur inconnue"); });
+      });
     });
-    return unsub;
+    return ()=>{ alive=false; unsub(); };
   },[]);
 
   useEffect(()=>{
@@ -1391,10 +1461,16 @@ export default function App() {
       setter(Array.isArray(d.list)?d.list:[]);
       if(settingsSetter) settingsSetter(d.settings||{});
     });
-    const unsubs=[
-      onSnapshot(collection(db,"orders"), s=>{const d={};s.forEach(x=>{d[x.id]=x.data();});setOrders(d);setStatus("live");}, ()=>setStatus("error")),
+    // Avant connexion : seulement ce qu'il faut pour l'écran de connexion (les règles Firestore n'ouvrent le reste qu'aux membres connectés)
+    const base=[
       onSnapshot(doc(db,"config","members"), s=>{ setMembers(s.exists()&&Array.isArray(s.data().list)?s.data().list:[]); setMembersLoaded(true); }, ()=>setMembersLoaded(true)),
-      onSnapshot(doc(db,"config","app"), s=>setAppConfig(s.exists()?s.data():{})),
+      onSnapshot(doc(db,"config","app"), s=>setAppConfig(s.exists()?s.data():{}), ()=>{}),
+      onSnapshot(doc(db,"config","etude"), s=>setBrand(s.exists()?s.data():{}), ()=>{}),
+    ];
+    if(!user) return ()=>base.forEach(u=>u());
+    const unsubs=[
+      ...base,
+      onSnapshot(collection(db,"orders"), s=>{const d={};s.forEach(x=>{d[x.id]=x.data();});setOrders(d);setStatus("live");}, ()=>setStatus("error")),
       listDoc("restaurants", setRestaurants),
       listDoc("quotes",      setQuotes),
       listDoc("sauces",      setSauces, setSaucesSettings),
@@ -1420,7 +1496,6 @@ export default function App() {
         setUnreadActivity(acts.filter(a=>a.ts>lastSeen&&a.author!==user).length);
       }),
       onSnapshot(collection(db,"profiles"), snap=>{ const d={}; snap.forEach(s=>{d[s.id]=s.data();}); setProfiles(d); }),
-      onSnapshot(doc(db,"config","etude"), s=>setBrand(s.exists()?s.data():{}), ()=>{}),
       onSnapshot(collection(db,"stock_items"), snap=>{ let n=0; snap.forEach(s=>{ const d=s.data(); if(stockIsLow(d) && !d.orderedAt) n++; }); setEtudeLow(n); }, ()=>setEtudeLow(0)),
       onSnapshot(collection(db,"feedback"), snap=>{ const arr=[]; snap.forEach(s=>arr.push({id:s.id,...s.data()})); arr.sort((a,b)=>b.ts-a.ts); setFeedback(arr); }),
     ];
@@ -1445,8 +1520,15 @@ export default function App() {
     </div>
   );
 
-  if(!user) return <LoginScreen onLogin={u=>{ setSpace(pendingScan ? "etude" : null); setUser(u); }} T={T} isDark={isDark} toggleTheme={toggleTheme} brandName={brandName} brandSubtitle={brand.brandSubtitle||""} lunchName={appConfig.title||"Lunch"}
+  if(!user) return <LoginScreen onLogin={(u,acc)=>{ setSpace(pendingScan ? "etude" : null); setAccount(acc||null); setUser(u); }} T={T} isDark={isDark} toggleTheme={toggleTheme} brandName={brandName} brandSubtitle={brand.brandSubtitle||""} lunchName={appConfig.title||"Lunch"}
     members={members} membersLoaded={membersLoaded} appConfig={appConfig}/>;
+
+  // ── Sécurité : nouveau code obligatoire (puis proposition de lier l'email) ──
+  if(account?.mustChange) return (
+    <><style>{CSS(T)}</style>
+    <ForcedSetup T={T} auth={auth} account={account} username={user} isDark={isDark} onDone={acc=>setAccount(acc)} onLogout={logout}/></>
+  );
+  const accountModal = accountOpen && <AccountModal T={T} auth={auth} account={account} username={user} isMobile={isMobile} onClose={()=>setAccountOpen(false)} onAccountChange={setAccount}/>;
 
   // ── Espaces : Administration (Étude) / Lunch (droits par membre, voir access.js) ──
   const myAccess = accessOf(members.find(m=>m.username===user));
@@ -1474,15 +1556,16 @@ export default function App() {
     <div style={{background:T.bgCard,border:`1px solid ${T.borderLight}`,borderRadius:14,padding:24,boxShadow:T.shadow}}>
       <div style={{fontFamily:"'Jost',sans-serif",fontSize:20,fontWeight:500,color:T.text,marginBottom:6}}>Aucun accès pour {user}</div>
       <div style={{fontSize:14,color:T.textSub,marginBottom:18}}>Ton compte n'a accès à aucune application. Demande à un administrateur de t'ouvrir un accès.</div>
-      <button onClick={()=>setUser(null)} style={{background:T.text,color:T.bg,border:"none",borderRadius:8,padding:"10px 20px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Retour</button>
+      <button onClick={logout} style={{background:T.text,color:T.bg,border:"none",borderRadius:8,padding:"10px 20px",fontSize:14,fontWeight:600,cursor:"pointer"}}>Retour</button>
     </div>
   );
 
   if(hasEtude && (!myAccess.lunch || space==="etude")) return (
     <>
       <style>{CSS(T)}</style>
-      <Etude key={"etude-"+scanNonce} pendingScan={pendingScan} onPendingDone={()=>{ clearPendingScan(); setPendingScan(""); }} db={db} T={T} user={user} members={members} role={myAccess.etude} canLunch={myAccess.lunch} lunchName={lunchName} brandName={brandName} onSwitch={goSpace}
-        isDark={isDark} toggleTheme={toggleTheme} isMobile={isMobile} onLogout={()=>setUser(null)}/>
+      {accountModal}
+      <Etude key={"etude-"+scanNonce} onAccount={()=>setAccountOpen(true)} pendingScan={pendingScan} onPendingDone={()=>{ clearPendingScan(); setPendingScan(""); }} db={db} T={T} user={user} members={members} role={myAccess.etude} canLunch={myAccess.lunch} lunchName={lunchName} brandName={brandName} onSwitch={goSpace}
+        isDark={isDark} toggleTheme={toggleTheme} isMobile={isMobile} onLogout={logout}/>
     </>
   );
 
@@ -1503,7 +1586,7 @@ export default function App() {
           <span style={{fontSize:13.5,color:T.textSub,lineHeight:1.5}}>Commandes du midi, menus, paiements et messages.</span>
         </button>
       </div>
-      <button onClick={()=>setUser(null)} style={{marginTop:18,background:"transparent",border:"none",color:T.textFaint,fontSize:13,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6}}><Icon name="logout" size={15}/>Déconnexion</button>
+      <button onClick={logout} style={{marginTop:18,background:"transparent",border:"none",color:T.textFaint,fontSize:13,cursor:"pointer",display:"inline-flex",alignItems:"center",gap:6}}><Icon name="logout" size={15}/>Déconnexion</button>
     </>
   );
 
@@ -1604,13 +1687,30 @@ export default function App() {
   };
 
   // ── Membres ──
-  const addMember=async()=>{const n=newMemberName.trim(),c=newMemberCode.trim();if(!n||!c||members.find(m=>m.username===n))return;await pm([...members,{username:n,code:c}]);setNewMemberName("");setNewMemberCode("");};
+  // Code temporaire : chiffré par le serveur, la personne devra le changer à sa première connexion.
+  // Tant que la connexion sécurisée n'est pas configurée, repli sur l'ancien code en clair.
+  const setTempCode=async(n,c,list=members)=>{
+    try { await authApi("adminTemp",{target:n,temp:c},auth); return true; }
+    catch(e){
+      if(secureUnavailable(e)){ await pm(list.map(m=>m.username===n?{...m,code:c}:m)); return true; }
+      alert(e.message); return false;
+    }
+  };
+  const addMember=async()=>{
+    const n=newMemberName.trim(),c=newMemberCode.trim();
+    if(!n||!c||members.find(m=>m.username===n))return;
+    if(c.length<6){ alert("Le code temporaire doit faire au moins 6 caractères."); return; }
+    const next=[...members,{username:n}];
+    await pm(next);
+    if(await setTempCode(n,c,next)){ setNewMemberName(""); setNewMemberCode(""); }
+  };
   const removeMember=async n=>{
     const m=members.find(x=>x.username===n);
     if(m?.isAdmin && adminCount<=1){ alert("Impossible de supprimer le dernier administrateur."); return; }
     if(!window.confirm(`Supprimer ${n} de l'équipe ?`)) return;
     await pm(members.filter(x=>x.username!==n));
     await deleteDoc(doc(db,"orders",n));
+    authApi("adminDelete",{target:n},auth).catch(()=>{});
   };
   const toggleMemberAdmin=async n=>{
     const m=members.find(x=>x.username===n);
@@ -1624,7 +1724,15 @@ export default function App() {
     if(n===user && patch.lunch===false){ alert("Tu ne peux pas retirer ton propre accès à Lunch."); return; }
     await pm(members.map(x=>x.username===n?{...x,...accessOf(x),...patch,planningOnly:false}:x));
   };
-  const saveMemberEdit=async()=>{ if(!editingMember)return; const {_orig,...clean}=editingMember; await pm(members.map(m=>m.username===_orig?clean:m)); setEditingMember(null); };
+  const saveMemberEdit=async()=>{
+    if(!editingMember)return; const {_orig,...clean}=editingMember;
+    clean.username=(clean.username||"").trim(); if(!clean.username) return;
+    if(clean.username!==_orig){
+      if(members.some(m=>m.username===clean.username)){ alert("Ce nom existe déjà."); return; }
+      try { await authApi("adminRename",{from:_orig,to:clean.username},auth); } catch(e){ if(!secureUnavailable(e)){ alert(e.message); return; } }
+    }
+    await pm(members.map(m=>m.username===_orig?clean:m)); setEditingMember(null);
+  };
 
   // ── Listes & suppléments ──
   const addSauceOpt  =async v=>{ if(v && !sauces.includes(v)) await ps([...sauces,v]); };
@@ -2051,7 +2159,7 @@ export default function App() {
             </div>
             {hasEtude && <button onClick={()=>goSpace("etude")} title={etudeLow?`Administration : ${etudeLow} article(s) à commander`:"Aller à l'Administration"} style={{position:"relative",background:"rgba(255,252,245,0.12)",border:"none",borderRadius:7,padding:"6px 8px",fontSize:9.5,fontWeight:600,cursor:"pointer",color:"#fff",display:"flex",flexDirection:"column",alignItems:"center",gap:3}}><Icon name="building" size={16}/>Admin.{etudeLow>0 && <span style={{position:"absolute",top:-6,right:-6,minWidth:16,height:16,borderRadius:8,background:T.orange,color:"#fff",fontSize:9.5,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px"}}>{etudeLow}</span>}</button>}
             <button onClick={toggleTheme} aria-label="Changer de thème" style={{background:"rgba(255,252,245,0.12)",border:"none",borderRadius:7,padding:"5px 8px",cursor:"pointer",color:"#fff",display:"flex"}}><Icon name={isDark?"sun":"moon"} size={15}/></button>
-            <button onClick={()=>setUser(null)} style={{background:"rgba(255,252,245,0.12)",border:"none",borderRadius:7,padding:"3px 6px",fontSize:9.5,cursor:"pointer",color:"rgba(255,252,245,0.75)"}}>Quitter</button>
+            <button onClick={logout} style={{background:"rgba(255,252,245,0.12)",border:"none",borderRadius:7,padding:"3px 6px",fontSize:9.5,cursor:"pointer",color:"rgba(255,252,245,0.75)"}}>Quitter</button>
           </div>
         </aside>
       )}
@@ -2068,7 +2176,7 @@ export default function App() {
             <div style={{display:"flex",gap:6}}>
               {hasEtude && <button onClick={()=>goSpace("etude")} aria-label={etudeLow?`Administration, ${etudeLow} article(s) à commander`:"Administration"} style={{position:"relative",background:T.bgTag,border:`1px solid ${T.border}`,borderRadius:8,padding:"5px 9px",fontSize:12,fontWeight:600,cursor:"pointer",color:T.text,display:"flex",alignItems:"center",gap:5}}><Icon name="building" size={15}/>Admin{etudeLow>0 && <span style={{position:"absolute",top:-7,right:-7,minWidth:17,height:17,borderRadius:9,background:T.orange,color:"#fff",fontSize:10,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",padding:"0 4px"}}>{etudeLow}</span>}</button>}
               <button onClick={toggleTheme} aria-label="Changer de thème" style={{background:T.bgTag,border:`1px solid ${T.border}`,borderRadius:8,padding:"5px 8px",cursor:"pointer",color:T.text,display:"flex",alignItems:"center"}}><Icon name={isDark?"sun":"moon"} size={16}/></button>
-              <button onClick={()=>setUser(null)} style={{background:T.bgTag,border:`1px solid ${T.border}`,borderRadius:8,padding:"5px 10px",fontSize:11.5,cursor:"pointer",color:T.textSub}}>Déconnexion</button>
+              <button onClick={logout} style={{background:T.bgTag,border:`1px solid ${T.border}`,borderRadius:8,padding:"5px 10px",fontSize:11.5,cursor:"pointer",color:T.textSub}}>Déconnexion</button>
             </div>
           </header>
         )}
@@ -2656,6 +2764,16 @@ export default function App() {
           {tab==="profile" && (
             <div style={{animation:"slideIn 0.25s ease",maxWidth:560,margin:"0 auto"}}>
               <h1 style={{...h1,marginBottom:20}}>👤 Mon profil</h1>
+              {accountModal}
+              <div style={{...card,marginBottom:16,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                <div style={{flex:1,minWidth:200}}>
+                  <h2 style={{...h2,marginBottom:4}}>🔒 Sécurité du compte</h2>
+                  <p style={{fontSize:13,color:T.textSub,margin:0}}>
+                    {account?.legacy ? "La connexion sécurisée n'est pas encore activée." : account?.email ? <>Email lié : <strong style={{color:T.text}}>{account.email}</strong></> : "Aucun email lié : lie ton email de travail pour pouvoir récupérer ton accès."}
+                  </p>
+                </div>
+                <button style={{background:T.text,color:T.bg,border:"none",borderRadius:9,padding:"9px 14px",fontSize:13,fontWeight:600,cursor:"pointer"}} onClick={()=>setAccountOpen(true)}>Mon compte</button>
+              </div>
               {!isAdmin && (
                 <div style={{...card,marginBottom:16}}>
                   <h2 style={{...h2,marginBottom:10}}>⭐ Mes favoris</h2>
@@ -2728,10 +2846,10 @@ export default function App() {
               {/* Membres */}
               <div style={card}>
                 <h2 style={h2}>👥 Membres</h2>
-                <p style={helpS}>👑 = administrateur Lunch (ne commande pas, gère la configuration). 🍽️ = accès à Lunch (barré = pas d'accès, ne commande pas). 🏢 = accès à l'espace Étude (stock, demandes, matériel, planning). La suppression d'un membre se fait uniquement ici.</p>
+                <p style={helpS}>👑 = administrateur Lunch (ne commande pas, gère la configuration). 🍽️ = accès à Lunch (barré = pas d'accès, ne commande pas). 🏢 = accès à l'espace Étude (stock, demandes, matériel, planning). 🔑 = poser un code temporaire (oubli, nouveau membre) : la personne choisit ensuite son propre code. Les codes ne sont jamais affichés. La suppression d'un membre se fait uniquement ici.</p>
                 <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
                   <input style={{...inp,flex:2,minWidth:140}} value={newMemberName} onChange={e=>setNewMemberName(e.target.value)} placeholder="Nom…"/>
-                  <input style={{...inp,flex:1,minWidth:100}} value={newMemberCode} onChange={e=>setNewMemberCode(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addMember()} placeholder="Code…"/>
+                  <input style={{...inp,flex:1,minWidth:150}} value={newMemberCode} onChange={e=>setNewMemberCode(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addMember()} placeholder="Code temporaire (6+)" aria-label="Code temporaire"/>
                   <button style={addBtn} onClick={addMember}>+ Ajouter</button>
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:6}}>
@@ -2740,7 +2858,6 @@ export default function App() {
                       {editingMember?._orig===m.username ? (
                         <>
                           <input style={{...inp,flex:2,padding:"5px 10px",fontSize:13}} value={editingMember.username} onChange={e=>setEditingMember({...editingMember,username:e.target.value})}/>
-                          <input style={{...inp,flex:1,padding:"5px 10px",fontSize:13}} value={editingMember.code} onChange={e=>setEditingMember({...editingMember,code:e.target.value})}/>
                           <button style={{...addBtn,padding:"5px 12px",fontSize:12,background:T.green}} onClick={saveMemberEdit}>✓</button>
                           <button className="btn-ghost" style={{background:"transparent",border:`1px solid ${T.border}`,color:T.textSub,borderRadius:7,padding:"5px 10px",fontSize:12,cursor:"pointer"}} onClick={()=>setEditingMember(null)}>✕</button>
                         </>
@@ -2748,7 +2865,12 @@ export default function App() {
                         <>
                           <Avatar name={m.username} size={28} profile={profiles[m.username]}/>
                           <span style={{flex:1,fontSize:13.5,fontWeight:500,color:T.text}}>{m.isAdmin?"👑 ":""}{m.username}</span>
-                          <Tag T={T}>{m.code}</Tag>
+                          <span title={m.hasEmail?`Email lié : ${m.emailHint||""}`:"Aucun email lié"} style={{fontSize:11,fontWeight:600,borderRadius:999,padding:"3px 8px",
+                            background:m.secured===true?"rgba(43,122,72,.12)":T.bgTag,color:m.secured===true?T.green:T.textSub}}>
+                            {m.secured===true?"🔒 Code perso":m.secured==="temp"?"Code temporaire":m.code!=null?"Ancien code":"Pas de code"}{m.hasEmail?" · ✉️":""}
+                          </span>
+                          <button className="btn-ghost" title="Poser un code temporaire (en cas d'oubli)" onClick={()=>{ setTempFor(tempFor===m.username?null:m.username); setTempVal(""); }}
+                            style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer"}}>🔑</button>
                           <button className="btn-ghost" title={m.isAdmin?"Retirer les droits admin":"Rendre admin"} onClick={()=>toggleMemberAdmin(m.username)}
                             style={{background:"transparent",border:`1px solid ${T.border}`,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer",opacity:m.isAdmin?1:0.45}}>👑</button>
                           <button className="btn-ghost" title={accessOf(m).lunch?"Accès Lunch : oui (toucher pour retirer)":"Accès Lunch : non (toucher pour donner)"} onClick={()=>setMemberAccess(m.username,{lunch:!accessOf(m).lunch})}
@@ -2759,6 +2881,15 @@ export default function App() {
                           </select>
                           <button className="btn-ghost" aria-label="Modifier" style={{background:"transparent",border:`1px solid ${T.border}`,color:T.textSub,borderRadius:7,padding:"4px 8px",fontSize:11,cursor:"pointer"}} onClick={()=>setEditingMember({...m,_orig:m.username})}>✏️</button>
                           <button aria-label="Supprimer" style={{background:"none",border:"none",color:T.red,cursor:"pointer",fontSize:14,padding:4}} onClick={()=>removeMember(m.username)}>✕</button>
+                          {tempFor===m.username && (
+                            <div style={{width:"100%",display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",paddingTop:6}}>
+                              <input autoFocus style={{...inp,flex:1,minWidth:150,padding:"6px 10px",fontSize:13}} value={tempVal} onChange={e=>setTempVal(e.target.value)} placeholder="Code temporaire (6 caractères min.)" aria-label={`Code temporaire pour ${m.username}`}
+                                onKeyDown={async e=>{ if(e.key==="Enter" && tempVal.trim().length>=6 && await setTempCode(m.username,tempVal.trim())){ setTempFor(null); setTempVal(""); showToast(`Code temporaire posé pour ${m.username}`); } }}/>
+                              <button style={{...addBtn,padding:"6px 12px",fontSize:12,opacity:tempVal.trim().length>=6?1:.5}} disabled={tempVal.trim().length<6}
+                                onClick={async()=>{ if(await setTempCode(m.username,tempVal.trim())){ setTempFor(null); setTempVal(""); showToast(`Code temporaire posé pour ${m.username}`); } }}>Valider</button>
+                              <span style={{fontSize:11.5,color:T.textFaint,width:"100%"}}>{m.username} devra choisir son propre code à la prochaine connexion. Le blocage après trop d'essais est aussi levé.</span>
+                            </div>
+                          )}
                         </>
                       )}
                     </div>

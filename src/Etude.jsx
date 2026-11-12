@@ -85,7 +85,7 @@ const stockState = it => {
   return { label: "OK", color: "#2f9e44" };
 };
 
-export default function Etude({ db, T, user, members, role, canLunch, lunchName = "Lunch", brandName = "Gestion Étude", onSwitch, isDark, toggleTheme, onLogout, isMobile, pendingScan = "", onPendingDone }) {
+export default function Etude({ db, T, user, members, role, canLunch, lunchName = "Lunch", brandName = "Gestion Étude", onSwitch, isDark, toggleTheme, onLogout, isMobile, pendingScan = "", onPendingDone, onAccount }) {
   const isAdmin = role === "admin";
   const [tab, setTab] = useState(() => { try { return localStorage.getItem("etude_tab") || "home"; } catch { return "home"; } });
   const [items, setItems] = useState([]);
@@ -346,6 +346,7 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
         comments: arrayUnion({ author: user, ts: nowTs(), system: true, text: (ok ? "Approuvée" : "Refusée") + (c ? ` : ${c}` : "") }),
       });
       showToast(ok ? `${ticketNo(t.number)} approuvée` : `${ticketNo(t.number)} refusée`);
+      fetch("/api/ticket-notify", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticketId: t.id, event: "decision" }) }).catch(() => {});
     } catch (e) { fail(e); }
   };
   const updateTicket = async (t, patch, note) => {
@@ -425,7 +426,8 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
           </div>
           {canLunch && <button onClick={() => onSwitch("lunch")} style={hdrBtn}><Icon name="utensils" size={16} />{!isMobile && lunchName}</button>}
           <button onClick={toggleTheme} aria-label="Changer de thème" style={hdrBtn}><Icon name={isDark ? "sun" : "moon"} size={16} /></button>
-          <button onClick={onLogout} aria-label="Déconnexion" title={`Déconnexion (${user})`} style={hdrBtn}><Icon name="logout" size={16} />{!isMobile && user}</button>
+          {onAccount && <button onClick={onAccount} aria-label="Mon compte" title="Mon compte : code et email" style={hdrBtn}><Icon name="user" size={16} />{!isMobile && user}</button>}
+          <button onClick={onLogout} aria-label="Déconnexion" title={`Déconnexion (${user})`} style={hdrBtn}><Icon name="logout" size={16} />{!isMobile && !onAccount && user}</button>
         </div>
         {!isMobile && (
           <nav style={{ maxWidth: 1280, margin: "0 auto", display: "flex", gap: 2, marginTop: 8, overflowX: "auto" }}>

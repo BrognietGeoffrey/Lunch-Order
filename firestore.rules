@@ -1,0 +1,28 @@
+rules_version = '2';
+// Règles Firestore de Gestion Étude — à coller dans Firebase → Firestore Database → Règles → Publier,
+// UNIQUEMENT après avoir configuré FIREBASE_SERVICE_ACCOUNT dans Vercel et vérifié que la connexion sécurisée fonctionne.
+//
+// - Avant connexion, l'app (session anonyme) ne lit que la configuration nécessaire à l'écran de connexion.
+// - Les données ne sont accessibles qu'aux membres connectés (jeton signé par /api/auth, avec le nom du membre).
+// - Les codes chiffrés (member_secrets) ne sont jamais accessibles depuis l'app : seul le serveur (Firebase Admin) y accède.
+// - La liste des membres (droits) n'est modifiable que par un administrateur Lunch.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isMember() { return signedIn() && request.auth.token.member is string; }
+    function isAdmin()  { return isMember() && request.auth.token.admin == true; }
+
+    match /member_secrets/{id} {
+      allow read, write: if false;
+    }
+
+    match /config/{id} {
+      allow read: if signedIn();
+      allow write: if id == "members" ? isAdmin() : isMember();
+    }
+
+    match /{coll}/{docId=**} {
+      allow read, write: if isMember() && coll != "member_secrets" && coll != "config";
+    }
+  }
+}

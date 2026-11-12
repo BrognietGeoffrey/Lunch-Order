@@ -13,26 +13,11 @@
 //   APP_URL         (optionnel)    lien vers l'app dans le mail
 //   VITE_FIREBASE_* (déjà présentes)
 
-import { initializeApp, getApps } from "firebase/app";
-import { getFirestore, doc, getDoc, getDocs, collection, updateDoc, setDoc } from "firebase/firestore";
-import { getAuth, signInAnonymously } from "firebase/auth";
 import { recipientsOf, localNow, dueForDigest } from "../src/alertRules.js";
+import { getDb } from "./_lib/db.js";
+import { sendMail } from "./_lib/mail.js";
 
 const env = process.env;
-
-async function firebase() {
-  const app = getApps()[0] || initializeApp({
-    apiKey: env.VITE_FIREBASE_API_KEY,
-    authDomain: env.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-    appId: env.VITE_FIREBASE_APP_ID,
-  });
-  const auth = getAuth(app);
-  if (!auth.currentUser) await signInAnonymously(auth);
-  return getFirestore(app);
-}
 
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 // Même règle que src/stockRules.js : « seuil visuel » = article signalé (lowFlag), sinon quantité ≤ seuil
@@ -42,14 +27,6 @@ const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "
 
 // Un mail par destinataire : les adresses des autres n'apparaissent pas
 async function sendEach(list, subject, html, text) { for (const e of list) await sendMail([e], subject, html, text); }
-async function sendMail(to, subject, html, text) {
-  const r = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: env.ALERT_FROM || "Étude <onboarding@resend.dev>", to, subject, html, text }),
-  });
-  if (!r.ok) throw new Error(`Envoi refusé par Resend (${r.status}) : ${await r.text()}`);
-}
 
 function itemsTable(items) {
   const rows = items.map(it => `
@@ -76,12 +53,10 @@ function layout(title, intro, body) {
 export default async function handler(req, res) {
   if (!env.RESEND_API_KEY) return res.status(500).json({ error: "RESEND_API_KEY n'est pas configurée dans Vercel." });
   try {
-    const db = await firebase();
-    const cfgSnap = await getDoc(doc(db, "config", "etude"));
-    const cfg = cfgSnap.exists() ? cfgSnap.data() : {};
+    const db = await getDb();
+    const cfg = (await db.get("config/etude")) || {};
     const recipients = recipientsOf(cfg);
     const space = cfg.brandName || "Gestion Étude";
-    const cfgRef = doc(db, "config", "etude");
 
     // ── Récapitulatif planifié ──
     // Appelé par Vercel Cron (1×/jour) et/ou un déclencheur horaire externe : chaque passage envoie le récap
@@ -91,10 +66,9 @@ export default async function handler(req, res) {
       const now = localNow();
       const sentLog = cfg.digestSent || {};
       const due = recipients.filter(r => dueForDigest(r, now, sentLog[r.email]));
-      await setDoc(cfgRef, { digestLastRun: Date.now() }, { merge: true });
+      await db.merge("config/etude", { digestLastRun: Date.now() });
       if (!due.length) return res.status(200).json({ skipped: "personne à cette heure", now });
-      const snap = await getDocs(collection(db, "stock_items"));
-      const low = []; snap.forEach(d => { const it = { id: d.id, ...d.data() }; if (isLow(it)) low.push(it); });
+      const low = (await db.list("stock_items")).filter(isLow);
       if (low.length) {
         low.sort((a, b) => (a.orderedAt ? 1 : 0) - (b.orderedAt ? 1 : 0) || (a.name || "").localeCompare(b.name || "", "fr"));
         const todo = low.filter(i => !i.orderedAt).length;
@@ -104,7 +78,7 @@ export default async function handler(req, res) {
         for (const r of due) await sendMail([r.email], subject, html, text); // un mail par personne : les adresses ne se voient pas
       }
       // noté comme traité pour aujourd'hui, même s'il n'y avait rien à commander
-      await setDoc(cfgRef, { digestSent: Object.fromEntries(due.map(r => [r.email, now.date])) }, { merge: true });
+      await db.merge("config/etude", { digestSent: Object.fromEntries(due.map(r => [r.email, now.date])) });
       return res.status(200).json({ sent: low.length ? due.length : 0, checked: due.map(r => r.email), now });
     }
 
@@ -123,10 +97,10 @@ export default async function handler(req, res) {
     if (type === "item" && typeof itemId === "string") {
       const to = recipients.filter(r => r.instant).map(r => r.email);
       if (!to.length) return res.status(200).json({ skipped: "aucun destinataire pour le mail immédiat" });
-      const ref = doc(db, "stock_items", itemId);
-      const s = await getDoc(ref);
-      if (!s.exists()) return res.status(404).json({ error: "Article introuvable" });
-      const it = { id: s.id, ...s.data() };
+      if (!/^[A-Za-z0-9_-]{1,64}$/.test(itemId)) return res.status(400).json({ error: "Requête invalide" });
+      const data = await db.get(`stock_items/${itemId}`);
+      if (!data) return res.status(404).json({ error: "Article introuvable" });
+      const it = { id: itemId, ...data };
       if (!isLow(it)) return res.status(200).json({ skipped: "au-dessus du seuil" });
       if (it.alertSentAt) return res.status(200).json({ skipped: "déjà signalé" });
       const sup = it.supplier ? " Fournisseur : " + it.supplier : "";
@@ -141,7 +115,7 @@ export default async function handler(req, res) {
           layout(`${out ? "Rupture de stock" : "Stock bas"} : ${it.name}`, `Il reste <strong>${num(it.qty)} ${esc(it.unit || "")}</strong> pour un seuil d'alerte de ${num(it.threshold)}. Pense à commander.`, itemsTable([it])),
           `${it.name} : ${num(it.qty)} ${it.unit || ""} restant(s), seuil ${num(it.threshold)}.${sup}`);
       }
-      await updateDoc(ref, { alertSentAt: Date.now() });
+      await db.update(`stock_items/${itemId}`, { alertSentAt: Date.now() });
       return res.status(200).json({ sent: to.length });
     }
 
