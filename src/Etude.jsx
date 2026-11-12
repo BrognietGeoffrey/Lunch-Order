@@ -11,6 +11,8 @@ import { ScanTab, Thumb } from "./Scanner.jsx";
 import { LabelsTab, LabelModal, LabelPrintSheet } from "./Labels.jsx";
 import { normCode, parseScan, findByCode } from "./codes.js";
 import { num, isLow, isVisual } from "./stockRules.js";
+import { recipientsOf } from "./alertRules.js";
+import { AlertSettings } from "./AlertSettings.jsx";
 
 // ── Espace Étude : stock, demandes, matériel, planning ────────────────────────
 // Firestore :
@@ -21,7 +23,7 @@ import { num, isLow, isVisual } from "./stockRules.js";
 //   tickets/{id}      { number, title, description, category, priority, status, requester, assignee, assetId, comments[], createdAt, updatedAt }
 //   assets/{id}       { tag, type, brand, model, serial, assignedTo, location, status, purchaseDate, warrantyEnd, note, updatedAt }
 //   config/etude      { title, stockCategories[], units[], locations[], ticketCategories[], assetTypes[], ticketSeq,
-//                       alertEmails[], alertInstant, alertDigest }   → alertes mail via /api/stock-alert
+//                       alertRecipients[{email,instant,digest,days,hour}], digestSent, digestLastRun } → alertes mail (alertRules.js)
 
 // Étapes de traitement (structure du workflow, pas des données métier)
 const TICKET_STATUSES = [
@@ -53,7 +55,6 @@ const STARTER_CFG = {
   assetTypes: ["PC portable", "PC fixe", "Écran", "Imprimante", "Téléphone", "Autre"],
   alertEmails: [],
 };
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // Demande au serveur d'envoyer l'alerte mail (il vérifie lui-même le seuil et n'envoie qu'une fois)
 const notifyLow = itemId => fetch("/api/stock-alert", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "item", itemId }) }).catch(() => {});
 const LIST_FIELDS = [
@@ -455,7 +456,7 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
         )}
 
         {current === "home" && (
-          <Home {...ctx} isAdmin={isAdmin} noMail={!cfg.alertEmails.length} user={user} low={low} openTickets={openTickets} myTickets={myTickets} assets={assets} myAssets={myAssets}
+          <Home {...ctx} isAdmin={isAdmin} noMail={!recipientsOf(cfg).length} user={user} low={low} openTickets={openTickets} myTickets={myTickets} assets={assets} myAssets={myAssets}
             warrantySoon={warrantySoon} tickets={tickets} go={setTab} onTicket={id => setOpenTicketId(id)} onNewTicket={() => setTicketModal({ category: cfg.ticketCategories[0] || "", priority: "normal" })}
             markOrdered={markOrdered} clearLow={clearLow} copyOrderList={copyOrderList} />
         )}
@@ -1063,31 +1064,8 @@ function AssetModal({ T, btn, primary, danger, inp, lbl, isMobile, value, cfg, m
 }
 
 // ── Réglages ──────────────────────────────────────────────────────────────────
-function Toggle({ T, muted, id, on, label, sub, onChange }) {
-  return (
-    <label htmlFor={id} style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: "pointer", fontSize: 13.5 }}>
-      <input type="checkbox" id={id} checked={on} onChange={e => onChange(e.target.checked)} style={{ width: 18, height: 18, marginTop: 1, accentColor: T.accent, flexShrink: 0 }} />
-      <span><span style={{ fontWeight: 600 }}>{label}</span><br /><span style={muted}>{sub}</span></span>
-    </label>
-  );
-}
-
 function Settings({ T, card, h2, btn, inp, lbl, muted, isMobile, cfg, saveCfg, members, showToast }) {
   const [drafts, setDrafts] = useState({});
-  const [mail, setMail] = useState("");
-  const [testing, setTesting] = useState(false);
-  const mailOk = EMAIL_RE.test(mail.trim());
-  const addMail = () => { const v = mail.trim().toLowerCase(); if (!EMAIL_RE.test(v) || cfg.alertEmails.includes(v)) return; saveCfg({ alertEmails: [...cfg.alertEmails, v] }); setMail(""); };
-  const sendTest = async () => {
-    setTesting(true);
-    try {
-      const r = await fetch("/api/stock-alert", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "test" }) });
-      const j = await r.json().catch(() => ({}));
-      if (r.ok) showToast(`Mail de test envoyé à ${j.sent} adresse${j.sent > 1 ? "s" : ""}`);
-      else showToast(j.error || `Échec de l'envoi (${r.status})`, "error");
-    } catch { showToast("Le serveur ne répond pas. Réessaie une fois l'app déployée.", "error"); }
-    setTesting(false);
-  };
   const [name, setName] = useState(cfg.brandName || "");
   const [subtitle, setSubtitle] = useState(cfg.brandSubtitle || "");
   const add = key => { const v = (drafts[key] || "").trim(); if (!v || cfg[key].includes(v)) return; saveCfg({ [key]: [...cfg[key], v] }); setDrafts(d => ({ ...d, [key]: "" })); };
@@ -1106,29 +1084,7 @@ function Settings({ T, card, h2, btn, inp, lbl, muted, isMobile, cfg, saveCfg, m
         <button style={btn} disabled={name.trim() === (cfg.brandName || "") && subtitle.trim() === (cfg.brandSubtitle || "")}
           onClick={() => saveCfg({ brandName: name.trim(), brandSubtitle: subtitle.trim() })}>Enregistrer</button>
       </section>
-      <section style={card}>
-        <h2 style={{ ...h2, marginBottom: 4, display: "flex", alignItems: "center", gap: 8 }}><Icon name="mail" />Alertes par mail</h2>
-        <p style={{ ...muted, margin: "0 0 12px" }}>Ces adresses reçoivent un mail quand un article du stock atteint son seuil d'alerte.</p>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-          {cfg.alertEmails.length === 0 && <span style={{ ...muted, color: T.orange }}>Aucune adresse : aucun mail ne part pour l'instant.</span>}
-          {cfg.alertEmails.map(v => (
-            <span key={v} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: T.bgTag, borderRadius: 999, padding: "4px 6px 4px 11px", fontSize: 13 }}>
-              {v}<button onClick={() => saveCfg({ alertEmails: cfg.alertEmails.filter(x => x !== v) })} aria-label={`Retirer ${v}`} style={{ background: "transparent", border: "none", color: T.textFaint, cursor: "pointer", fontSize: 12, padding: "0 4px" }}>✕</button>
-            </span>
-          ))}
-        </div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-          <input id="cfg-mail" type="email" inputMode="email" autoComplete="email" style={{ ...inp, flex: 1 }} value={mail} onChange={e => setMail(e.target.value)} onKeyDown={e => e.key === "Enter" && addMail()} placeholder="adresse@exemple.be" />
-          <button style={{ ...btn, opacity: mailOk ? 1 : .5 }} disabled={!mailOk} onClick={addMail}>Ajouter</button>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
-          <Toggle T={T} muted={muted} id="cfg-instant" on={cfg.alertInstant !== false} onChange={v => saveCfg({ alertInstant: v })}
-            label="Mail immédiat" sub="Dès qu'un article passe sous son seuil. Un seul mail par article, jusqu'à ce que le stock remonte." />
-          <Toggle T={T} muted={muted} id="cfg-digest" on={cfg.alertDigest !== false} onChange={v => saveCfg({ alertDigest: v })}
-            label="Récapitulatif du matin" sub="Du lundi au vendredi, vers 7 h, s'il reste des articles sous le seuil (y compris ceux déjà commandés)." />
-        </div>
-        <button style={{ ...btn, opacity: cfg.alertEmails.length && !testing ? 1 : .5 }} disabled={!cfg.alertEmails.length || testing} onClick={sendTest}>{testing ? "Envoi…" : "Envoyer un mail de test"}</button>
-      </section>
+      <AlertSettings T={T} card={card} h2={h2} btn={btn} inp={inp} muted={muted} isMobile={isMobile} cfg={cfg} saveCfg={saveCfg} showToast={showToast} />
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14, alignItems: "start" }}>
         {LIST_FIELDS.map(f => (
           <section key={f.key} style={card}>

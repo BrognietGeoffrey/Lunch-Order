@@ -14,11 +14,11 @@
 //   VITE_FIREBASE_* (déjà présentes)
 
 import { initializeApp, getApps } from "firebase/app";
-import { getFirestore, doc, getDoc, getDocs, collection, updateDoc } from "firebase/firestore";
+import { getFirestore, doc, getDoc, getDocs, collection, updateDoc, setDoc } from "firebase/firestore";
 import { getAuth, signInAnonymously } from "firebase/auth";
+import { recipientsOf, localNow, dueForDigest } from "../src/alertRules.js";
 
 const env = process.env;
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 async function firebase() {
   const app = getApps()[0] || initializeApp({
@@ -40,6 +40,8 @@ const isVisual = it => it?.trackMode === "visual";
 const isLow = it => isVisual(it) ? !!it.lowFlag : num(it.qty) <= num(it.threshold);
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
+// Un mail par destinataire : les adresses des autres n'apparaissent pas
+async function sendEach(list, subject, html, text) { for (const e of list) await sendMail([e], subject, html, text); }
 async function sendMail(to, subject, html, text) {
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -68,7 +70,7 @@ function layout(title, intro, body) {
   const link = env.APP_URL ? `<p style="margin:20px 0 0"><a href="${esc(env.APP_URL)}" style="background:#3b5bdb;color:#fff;text-decoration:none;padding:10px 16px;border-radius:8px;font-weight:600">Ouvrir l'espace Étude</a></p>` : "";
   return `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#0a0a0a;max-width:640px">
     <h2 style="margin:0 0 6px">${esc(title)}</h2><p style="margin:0 0 16px;color:#3a3a3a">${intro}</p>${body}${link}
-    <p style="margin:24px 0 0;color:#6b6b6b;font-size:12px">Alerte automatique envoyée par l'espace Étude. Destinataires et options : Étude → Réglages → Alertes par mail.</p></div>`;
+    <p style="margin:24px 0 0;color:#6b6b6b;font-size:12px">Alerte automatique envoyée par Gestion Étude. Destinataires, jours et heures : Administration → Réglages → Alertes par mail.</p></div>`;
 }
 
 export default async function handler(req, res) {
@@ -77,40 +79,50 @@ export default async function handler(req, res) {
     const db = await firebase();
     const cfgSnap = await getDoc(doc(db, "config", "etude"));
     const cfg = cfgSnap.exists() ? cfgSnap.data() : {};
-    const to = (cfg.alertEmails || []).filter(e => EMAIL_RE.test(e));
-    const space = cfg.title || "Étude";
+    const recipients = recipientsOf(cfg);
+    const space = cfg.brandName || "Gestion Étude";
+    const cfgRef = doc(db, "config", "etude");
 
-    // ── Récapitulatif planifié (Vercel Cron) ──
+    // ── Récapitulatif planifié ──
+    // Appelé par Vercel Cron (1×/jour) et/ou un déclencheur horaire externe : chaque passage envoie le récap
+    // aux destinataires dont le jour et l'heure choisis sont atteints et qui ne l'ont pas encore reçu aujourd'hui.
     if (req.method === "GET") {
       if (!env.CRON_SECRET || req.headers.authorization !== `Bearer ${env.CRON_SECRET}`) return res.status(401).json({ error: "Non autorisé" });
-      if (cfg.alertDigest === false) return res.status(200).json({ skipped: "récap désactivé" });
-      if (!to.length) return res.status(200).json({ skipped: "aucun destinataire" });
+      const now = localNow();
+      const sentLog = cfg.digestSent || {};
+      const due = recipients.filter(r => dueForDigest(r, now, sentLog[r.email]));
+      await setDoc(cfgRef, { digestLastRun: Date.now() }, { merge: true });
+      if (!due.length) return res.status(200).json({ skipped: "personne à cette heure", now });
       const snap = await getDocs(collection(db, "stock_items"));
       const low = []; snap.forEach(d => { const it = { id: d.id, ...d.data() }; if (isLow(it)) low.push(it); });
-      if (!low.length) return res.status(200).json({ skipped: "rien à commander" });
-      low.sort((a, b) => (a.orderedAt ? 1 : 0) - (b.orderedAt ? 1 : 0) || (a.name || "").localeCompare(b.name || "", "fr"));
-      const todo = low.filter(i => !i.orderedAt).length;
-      const subject = `${space} · ${todo ? `${todo} article${todo > 1 ? "s" : ""} à commander` : "articles en attente de livraison"}`;
-      await sendMail(to, subject,
-        layout("Récapitulatif du stock", `${low.length} article${low.length > 1 ? "s sont" : " est"} au niveau du seuil d'alerte ou en dessous.`, itemsTable(low)),
-        `Récapitulatif du stock (${space})\n\n${textList(low)}`);
-      return res.status(200).json({ sent: low.length });
+      if (low.length) {
+        low.sort((a, b) => (a.orderedAt ? 1 : 0) - (b.orderedAt ? 1 : 0) || (a.name || "").localeCompare(b.name || "", "fr"));
+        const todo = low.filter(i => !i.orderedAt).length;
+        const subject = `${space} · ${todo ? `${todo} article${todo > 1 ? "s" : ""} à commander` : "articles en attente de livraison"}`;
+        const html = layout("Récapitulatif du stock", `${low.length} article${low.length > 1 ? "s sont" : " est"} au niveau du seuil d'alerte ou en dessous.`, itemsTable(low));
+        const text = `Récapitulatif du stock (${space})\n\n${textList(low)}`;
+        for (const r of due) await sendMail([r.email], subject, html, text); // un mail par personne : les adresses ne se voient pas
+      }
+      // noté comme traité pour aujourd'hui, même s'il n'y avait rien à commander
+      await setDoc(cfgRef, { digestSent: Object.fromEntries(due.map(r => [r.email, now.date])) }, { merge: true });
+      return res.status(200).json({ sent: low.length ? due.length : 0, checked: due.map(r => r.email), now });
     }
 
     if (req.method !== "POST") return res.status(405).json({ error: "Méthode non autorisée" });
-    const { type, itemId } = req.body || {};
+    const { type, itemId, email } = req.body || {};
 
     // ── Mail de test ──
     if (type === "test") {
-      if (!to.length) return res.status(400).json({ error: "Ajoute au moins une adresse mail valide." });
-      await sendMail(to, `${space} · mail de test`, layout("Les alertes mail fonctionnent", "Tu recevras un mail ici quand un article du stock atteint son seuil d'alerte.", ""), "Les alertes mail de l'espace Étude fonctionnent.");
-      return res.status(200).json({ sent: to.length });
+      const targets = email ? recipients.filter(r => r.email === String(email).trim().toLowerCase()) : recipients;
+      if (!targets.length) return res.status(400).json({ error: email ? "Cette adresse n'est pas dans la liste des destinataires. Enregistre-la d'abord." : "Ajoute au moins une adresse mail valide." });
+      for (const r of targets) await sendMail([r.email], `${space} · mail de test`, layout("Les alertes mail fonctionnent", "Tu recevras un mail ici selon les réglages choisis dans Administration → Réglages → Alertes par mail.", ""), "Les alertes mail de Gestion Étude fonctionnent.");
+      return res.status(200).json({ sent: targets.length });
     }
 
     // ── Alerte immédiate pour un article ──
     if (type === "item" && typeof itemId === "string") {
-      if (cfg.alertInstant === false) return res.status(200).json({ skipped: "alerte immédiate désactivée" });
-      if (!to.length) return res.status(200).json({ skipped: "aucun destinataire" });
+      const to = recipients.filter(r => r.instant).map(r => r.email);
+      if (!to.length) return res.status(200).json({ skipped: "aucun destinataire pour le mail immédiat" });
       const ref = doc(db, "stock_items", itemId);
       const s = await getDoc(ref);
       if (!s.exists()) return res.status(404).json({ error: "Article introuvable" });
@@ -120,12 +132,12 @@ export default async function handler(req, res) {
       const sup = it.supplier ? " Fournisseur : " + it.supplier : "";
       if (isVisual(it)) {
         const who = it.lowBy ? ` par ${it.lowBy}` : "";
-        await sendMail(to, `${space} · Stock bas : ${it.name}`,
+        await sendEach(to, `${space} · Stock bas : ${it.name}`,
           layout(`Stock bas : ${it.name}`, `Signalé à vue${esc(who)} : il en reste peu. Pense à commander.`, itemsTable([it])),
           `${it.name} : stock bas, signalé à vue${who}.${sup}`);
       } else {
         const out = num(it.qty) <= 0;
-        await sendMail(to, `${space} · ${out ? "Rupture" : "Stock bas"} : ${it.name}`,
+        await sendEach(to, `${space} · ${out ? "Rupture" : "Stock bas"} : ${it.name}`,
           layout(`${out ? "Rupture de stock" : "Stock bas"} : ${it.name}`, `Il reste <strong>${num(it.qty)} ${esc(it.unit || "")}</strong> pour un seuil d'alerte de ${num(it.threshold)}. Pense à commander.`, itemsTable([it])),
           `${it.name} : ${num(it.qty)} ${it.unit || ""} restant(s), seuil ${num(it.threshold)}.${sup}`);
       }
