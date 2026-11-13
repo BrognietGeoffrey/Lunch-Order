@@ -102,6 +102,7 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
   const [stockFilter, setStockFilter] = useState({ q: "", cat: "", low: false });
   const [itFilter, setItFilter] = useState({ q: "", cat: "", low: false });
   const [assetView, setAssetView] = useState("park"); // park | stock (stock informatique)
+  const [focusItem, setFocusItem] = useState(null); // article mis en évidence après un clic depuis l'Accueil
   const [ticketFilter, setTicketFilter] = useState("open");
   const [assetFilter, setAssetFilter] = useState({ q: "", type: "", status: "" });
   const [itemModal, setItemModal] = useState(null);   // {…item} ou {} pour nouveau
@@ -165,6 +166,13 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
   const itCats = [...new Set([...cfg.stockCategories.filter(c => isITItem({ category: c }, cfg)), ...itItems.map(i => i.category).filter(Boolean)])];
   const supplyCats = [...new Set([...cfg.stockCategories.filter(c => !isITItem({ category: c }, cfg)), ...supplyItems.map(i => i.category).filter(Boolean)])];
   const itemIdsIT = new Set(itItems.map(i => i.id));
+  // Ouvre l'article dans son onglet (Stock ou Matériel → Stock informatique) et le met en évidence
+  const openItem = it => {
+    const reset = { q: "", cat: "", low: false };
+    if (isITItem(it, cfg)) { setItFilter(reset); setAssetView("stock"); setTab("assets"); }
+    else { setStockFilter(reset); setTab("stock"); }
+    setFocusItem(it.id);
+  };
   const openLow = () => {
     if (toOrderSupply.length || !toOrderIT.length) { setStockFilter({ q: "", cat: "", low: true }); setTab("stock"); }
     else { setItFilter({ q: "", cat: "", low: true }); setAssetView("stock"); setTab("assets"); }
@@ -532,7 +540,7 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
         )}
 
         {current === "home" && (
-          <Home {...ctx} isAdmin={isAdmin} noMail={!recipientsOf(cfg).length} user={user} low={low} openTickets={openTickets} myTickets={myTickets} assets={assets} myAssets={myAssets}
+          <Home {...ctx} isAdmin={isAdmin} noMail={!recipientsOf(cfg).length} user={user} low={low} openTickets={openTickets} myTickets={myTickets} assets={assets} myAssets={myAssets} onItem={openItem}
             warrantySoon={warrantySoon} tickets={tickets} go={t => t === "stock" ? openLow() : (t === "assets" && setAssetView("park"), setTab(t))} onTicket={id => setOpenTicketId(id)} onNewTicket={() => setTicketModal({ category: cfg.ticketCategories[0] || "", priority: "normal" })}
             markOrdered={markOrdered} clearLow={clearLow} copyOrderList={copyOrderList} />
         )}
@@ -540,7 +548,7 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
         {current === "stock" && (
           <Stock {...ctx} isAdmin={isAdmin} items={supplyItems} cats={supplyCats} cfg={cfg} filter={stockFilter} setFilter={setStockFilter} changeQty={changeQty} flagLow={flagLow} clearLow={clearLow}
             onEdit={it => setItemModal({ ...it })} onNew={() => setItemModal({ unit: cfg.units[0] || "", category: supplyCats[0] || "", qty: 0, threshold: 2, trackMode: "count" })}
-            markOrdered={markOrdered} copyOrderList={copyOrderList} lowCount={lowSupply.length} moves={moves.filter(m => !itemIdsIT.has(m.itemId))} showMoves={showMoves} setShowMoves={setShowMoves}
+            markOrdered={markOrdered} copyOrderList={copyOrderList} lowCount={lowSupply.length} moves={moves.filter(m => !itemIdsIT.has(m.itemId))} showMoves={showMoves} setShowMoves={setShowMoves} focusId={focusItem} onFocusDone={() => setFocusItem(null)}
             otherLow={toOrderIT.length} onOther={() => { setItFilter({ q: "", cat: "", low: true }); setAssetView("stock"); setTab("assets"); }} otherLabel="en informatique (Matériel)" />
         )}
 
@@ -567,7 +575,7 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
             ) : (
               <Stock {...ctx} isAdmin={isAdmin} items={itItems} cats={itCats} cfg={cfg} filter={itFilter} setFilter={setItFilter} changeQty={changeQty} flagLow={flagLow} clearLow={clearLow}
                 onEdit={it => setItemModal({ ...it })} onNew={() => setItemModal({ unit: cfg.units[0] || "", category: itCats[0] || "Informatique", qty: 0, threshold: 2, trackMode: "count" })}
-                markOrdered={markOrdered} copyOrderList={copyOrderList} lowCount={lowIT.length} moves={moves.filter(m => itemIdsIT.has(m.itemId))} showMoves={showMoves} setShowMoves={setShowMoves}
+                markOrdered={markOrdered} copyOrderList={copyOrderList} lowCount={lowIT.length} moves={moves.filter(m => itemIdsIT.has(m.itemId))} showMoves={showMoves} setShowMoves={setShowMoves} focusId={focusItem} onFocusDone={() => setFocusItem(null)}
                 otherLow={toOrderSupply.length} onOther={() => { setStockFilter({ q: "", cat: "", low: true }); setTab("stock"); }} otherLabel="en fournitures (Stock)"
                 emptyTitle="Aucun article informatique" emptyText={`Les articles des catégories ${(cfg.itCategories || []).join(", ") || "Informatique"} (toners, câbles, souris…) s'affichent ici, avec les mêmes alertes que le stock.`} />
             )}
@@ -655,7 +663,7 @@ function Empty({ T, icon, title, text, action }) {
 }
 
 // ── Accueil ───────────────────────────────────────────────────────────────────
-function Home({ T, card, h2, btn, primary, muted, isMobile, isAdmin, noMail, user, low, openTickets, myTickets, assets, myAssets, warrantySoon, tickets, go, onTicket, onNewTicket, markOrdered, clearLow, copyOrderList }) {
+function Home({ T, card, h2, btn, primary, muted, isMobile, isAdmin, noMail, user, low, onItem, openTickets, myTickets, assets, myAssets, warrantySoon, tickets, go, onTicket, onNewTicket, markOrdered, clearLow, copyOrderList }) {
   const tiles = [
     { label: "À commander", value: low.filter(i => !i.orderedAt).length, sub: low.filter(i => i.orderedAt).length ? `${low.filter(i => i.orderedAt).length} déjà commandé(s)` : "sous le seuil", color: "#e8590c", to: "stock" },
     isAdmin
@@ -700,10 +708,11 @@ function Home({ T, card, h2, btn, primary, muted, isMobile, isAdmin, noMail, use
                 const st = stockState(it);
                 return (
                   <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 10, background: T.bgHover, flexWrap: "wrap" }}>
-                    <div style={{ flex: 1, minWidth: 120 }}>
-                      <div style={{ fontWeight: 600, fontSize: 14 }}>{it.name}</div>
+                    <button onClick={() => onItem(it)} aria-label={`Voir ${it.name} dans le stock`}
+                      style={{ flex: 1, minWidth: 120, textAlign: "left", background: "transparent", border: "none", padding: 0, cursor: "pointer", color: T.text, font: "inherit" }}>
+                      <div style={{ fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>{it.name}<span style={{ color: T.accent, fontSize: 13 }}>→</span></div>
                       <div style={muted}>{isVisual(it) ? `Signalé${it.lowBy ? ` par ${it.lowBy}` : ""} le ${fmtDate(it.lowAt)}` : `${num(it.qty)} ${it.unit} · seuil ${num(it.threshold)}`}{it.supplier ? ` · ${it.supplier}` : ""}</div>
-                    </div>
+                    </button>
                     <Pill color={st.color}>{st.label}</Pill>
                     {isAdmin && (it.orderedAt
                       ? (isVisual(it) ? <button style={{ ...btn, padding: "5px 9px", fontSize: 11.5 }} onClick={() => clearLow(it)}>Réapprovisionné</button>
@@ -748,7 +757,14 @@ function Home({ T, card, h2, btn, primary, muted, isMobile, isAdmin, noMail, use
 }
 
 // ── Stock ─────────────────────────────────────────────────────────────────────
-function Stock({ T, card, h2, btn, primary, inp, muted, isMobile, isAdmin, items, cats, filter, setFilter, changeQty, flagLow, clearLow, onEdit, onNew, markOrdered, copyOrderList, lowCount, moves, showMoves, setShowMoves, otherLow = 0, onOther, otherLabel, emptyTitle, emptyText }) {
+function Stock({ T, card, h2, btn, primary, inp, muted, isMobile, isAdmin, items, cats, filter, setFilter, changeQty, flagLow, clearLow, onEdit, onNew, markOrdered, copyOrderList, lowCount, moves, showMoves, setShowMoves, otherLow = 0, onOther, otherLabel, emptyTitle, emptyText, focusId, onFocusDone }) {
+  // Article ouvert depuis l'Accueil : on le fait défiler à l'écran et on l'entoure quelques secondes
+  useEffect(() => {
+    if (!focusId) return;
+    const t1 = setTimeout(() => document.getElementById(`item-${focusId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 60);
+    const t2 = setTimeout(() => onFocusDone?.(), 3500);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [focusId]); // eslint-disable-line react-hooks/exhaustive-deps
   const q = filter.q.trim().toLowerCase();
   const shown = items.filter(it =>
     (!filter.cat || it.category === filter.cat) &&
@@ -786,7 +802,8 @@ function Stock({ T, card, h2, btn, primary, inp, muted, isMobile, isAdmin, items
             const st = stockState(it);
             const pct = Math.min(100, num(it.threshold) > 0 ? (num(it.qty) / (num(it.threshold) * 3)) * 100 : 100);
             return (
-              <div key={it.id} style={{ ...card, padding: 12, display: "flex", flexDirection: "column", gap: 8, borderColor: st.label === "OK" ? T.borderLight : rgba(st.color, .45) }}>
+              <div key={it.id} id={`item-${it.id}`} style={{ ...card, padding: 12, display: "flex", flexDirection: "column", gap: 8, borderColor: st.label === "OK" ? T.borderLight : rgba(st.color, .45),
+                ...(focusId === it.id ? { outline: `3px solid ${T.accent}`, outlineOffset: 2, boxShadow: T.shadowHover, transition: "outline-color .3s" } : {}) }}>
                 <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
                   {it.image && <Thumb T={T} src={it.image} size={40} radius={8} />}
                   <div style={{ flex: 1, minWidth: 0 }}>
