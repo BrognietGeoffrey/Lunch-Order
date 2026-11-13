@@ -1,39 +1,30 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import QRCode from "qrcode";
-import JsBarcode from "jsbarcode";
 import { Icon } from "./brand.jsx";
 import { ChoiceInput } from "./fields.jsx";
-import { CameraScanner, Thumb } from "./Scanner.jsx";
+import { Thumb } from "./Scanner.jsx";
 import { normCode, genCode, scanUrl, parseScan, compressImage, svgToDataUrl } from "./codes.js";
 
 // ── Étiquettes (admin) : relier un code à un article, image, impression ──────
 // Champs ajoutés aux articles (stock_items) :
 //   codes[]     codes reconnus au scan (code généré « MB… » et/ou code-barres du produit)
-//   codeFormat  "qr" | "barcode"  format imprimé sur l'étiquette (sur codes[0])
+//   codeFormat  "qr" (seul format : les étiquettes sont toujours des QR codes)
 //   scanQty     quantité retirée à chaque scan (1 par défaut)
 //   image       data URL (photo JPEG réduite ou pictogramme SVG généré par l'IA), imageKind "photo" | "ai"
 
-// Graphique du code : QR (lien vers le scanner de l'app) ou code-barres Code 128
-export function CodeGraphic({ code, format, size = 120 }) {
+// Graphique du code : QR code (lien vers le scanner de l'app)
+export function CodeGraphic({ code, size = 120 }) {
   const [qr, setQr] = useState({ key: "", url: "" });
-  const svgRef = useRef(null);
-  const key = format + ":" + code;
   useEffect(() => {
-    if (format !== "qr" || !code) return;
+    if (!code) return;
     let alive = true;
     QRCode.toDataURL(scanUrl(code), { margin: 1, width: 360, errorCorrectionLevel: "M" })
-      .then(url => { if (alive) setQr({ key: "qr:" + code, url }); })
-      .catch(() => { if (alive) setQr({ key: "qr:" + code, url: "" }); });
+      .then(url => { if (alive) setQr({ key: code, url }); })
+      .catch(() => { if (alive) setQr({ key: code, url: "" }); });
     return () => { alive = false; };
-  }, [code, format]);
-  useEffect(() => {
-    if (format !== "barcode" || !code || !svgRef.current) return;
-    try { JsBarcode(svgRef.current, code, { format: "CODE128", displayValue: false, margin: 0, height: 70, width: 2, background: "transparent" }); }
-    catch { /* code non encodable */ }
-  }, [code, format]);
+  }, [code]);
   if (!code) return null;
-  if (format === "barcode") return <svg ref={svgRef} role="img" aria-label={`Code-barres ${code}`} style={{ display: "block", width: "100%", maxWidth: size * 2.2, height: size * 0.5 }} preserveAspectRatio="none" />;
-  return qr.key === key && qr.url
+  return qr.key === code && qr.url
     ? <img src={qr.url} alt={`QR code ${code}`} style={{ display: "block", width: size, height: size, imageRendering: "pixelated" }} />
     : <div style={{ width: size, height: size }} />;
 }
@@ -41,7 +32,6 @@ export function CodeGraphic({ code, format, size = 120 }) {
 // Une étiquette (aperçu et impression) — toujours noir sur blanc
 export function LabelCard({ item, big }) {
   const code = (item.codes || [])[0] || "";
-  const format = item.codeFormat || "qr";
   const qrSize = big ? 150 : 104;
   return (
     <div className="lb-card" style={{ background: "#fff", color: "#111", border: "1px dashed #b9b9b9", borderRadius: 6, padding: big ? 14 : 10, display: "flex", flexDirection: "column", gap: big ? 10 : 7, breakInside: "avoid", fontFamily: "'DM Sans',sans-serif" }}>
@@ -52,7 +42,7 @@ export function LabelCard({ item, big }) {
           {(item.category || item.location) && <div style={{ fontSize: big ? 12 : 10.5, color: "#555", marginTop: 2 }}>{[item.category, item.location].filter(Boolean).join(" · ")}</div>}
         </div>
       </div>
-      <div style={{ display: "flex", justifyContent: "center" }}><CodeGraphic code={code} format={format} size={qrSize} /></div>
+      <div style={{ display: "flex", justifyContent: "center" }}><CodeGraphic code={code} size={qrSize} /></div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 6, fontSize: big ? 11.5 : 9.5, color: "#444" }}>
         <span style={{ fontFamily: "ui-monospace,Menlo,monospace", letterSpacing: "0.08em", color: "#111" }}>{code}</span>
         <span>{item.trackMode === "visual" ? "Scanner = stock bas" : `Scanner = −${Math.max(1, Number(item.scanQty) || 1)} ${item.unit || ""}`}</span>
@@ -128,7 +118,7 @@ export function LabelsTab({ T, card, btn, primary, inp, muted, isMobile, items, 
                     <div style={{ fontSize: 12, color: T.textSub, display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                       <span style={{ fontFamily: "ui-monospace,Menlo,monospace" }}>{codes[0]}</span>
                       {codes.length > 1 && <span>+{codes.length - 1}</span>}
-                      <span style={{ color: T.textFaint }}>· {it.codeFormat === "barcode" ? "Code-barres" : "QR code"} · {it.trackMode === "visual" ? "seuil visuel" : `−${Math.max(1, Number(it.scanQty) || 1)} par scan`}</span>
+                      <span style={{ color: T.textFaint }}>· QR code · {it.trackMode === "visual" ? "seuil visuel" : `−${Math.max(1, Number(it.scanQty) || 1)} par scan`}</span>
                     </div>
                   ) : <div style={{ fontSize: 12, color: T.orange }}>Pas encore de code</div>}
                 </div>
@@ -150,12 +140,11 @@ export function LabelModal({ T, btn, primary, inp, lbl, muted, isMobile, Sheet, 
       mode: value.mode || (it ? "existing" : "new"), itemId: it?.id || "",
       name: "", category: cfg.stockCategories[0] || "", unit: cfg.units[0] || "", qty: 0, threshold: 2,
       codes: [...(it?.codes || []), ...(value.codes || [])].map(normCode).filter((c, i, a) => c && a.indexOf(c) === i),
-      codeFormat: it?.codeFormat || "qr", scanQty: it?.scanQty || 1, image: it?.image || "", imageKind: it?.imageKind || "",
+      codeFormat: "qr", scanQty: it?.scanQty || 1, image: it?.image || "", imageKind: it?.imageKind || "",
       trackMode: it?.trackMode || "count",
     };
   });
   const [typed, setTyped] = useState("");
-  const [scanning, setScanning] = useState(false);
   const [busy, setBusy] = useState("");
   const [msg, setMsg] = useState("");
   const set = patch => setV(o => ({ ...o, ...patch }));
@@ -165,7 +154,7 @@ export function LabelModal({ T, btn, primary, inp, lbl, muted, isMobile, Sheet, 
   const pickItem = id => {
     const it = items.find(x => x.id === id);
     setV(o => ({ ...o, itemId: id, codes: [...(it?.codes || []), ...o.codes.filter(c => !(items.find(x => x.id === o.itemId)?.codes || []).includes(c))].filter((c, i, a) => a.indexOf(c) === i),
-      codeFormat: it?.codeFormat || o.codeFormat, scanQty: it?.scanQty || 1, image: it?.image || "", imageKind: it?.imageKind || "", trackMode: it?.trackMode || "count" }));
+      codeFormat: "qr", scanQty: it?.scanQty || 1, image: it?.image || "", imageKind: it?.imageKind || "", trackMode: it?.trackMode || "count" }));
   };
   const owner = c => items.find(x => x.id !== v.itemId && (x.codes || []).map(normCode).includes(c));
   const addCode = raw => {
@@ -192,7 +181,7 @@ export function LabelModal({ T, btn, primary, inp, lbl, muted, isMobile, Sheet, 
     setBusy("");
   };
   const ok = name && v.codes.length > 0 && !busy;
-  const preview = { ...(item || {}), trackMode: v.trackMode, name, category: v.mode === "new" ? v.category : item?.category, unit: v.mode === "new" ? v.unit : item?.unit, codes: v.codes, codeFormat: v.codeFormat, scanQty: v.scanQty, image: v.image };
+  const preview = { ...(item || {}), trackMode: v.trackMode, name, category: v.mode === "new" ? v.category : item?.category, unit: v.mode === "new" ? v.unit : item?.unit, codes: v.codes, codeFormat: "qr", scanQty: v.scanQty, image: v.image };
   const seg = (on) => ({ ...btn, padding: "7px 12px", fontSize: 13, background: on ? T.text : T.bgCard, borderColor: on ? T.text : T.border, color: on ? T.bg : T.text, display: "inline-flex", alignItems: "center", gap: 6 });
   const grid = { display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr 1fr", gap: 10 };
   const section = { fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textFaint, marginTop: 4 };
@@ -235,7 +224,7 @@ export function LabelModal({ T, btn, primary, inp, lbl, muted, isMobile, Sheet, 
 
       <div style={section}>2 · Code</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-        {v.codes.length === 0 && <span style={{ ...muted, fontSize: 13 }}>Aucun code. Génère-en un, ou scanne le code-barres déjà imprimé sur le produit.</span>}
+        {v.codes.length === 0 && <span style={{ ...muted, fontSize: 13 }}>Aucun code. Génère-en un : il sera imprimé en QR code.</span>}
         {v.codes.map((c, i) => (
           <span key={c} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: T.bgTag, borderRadius: 999, padding: "5px 6px 5px 12px", fontSize: 13 }}>
             <span style={{ fontFamily: "ui-monospace,Menlo,monospace" }}>{c}</span>{i === 0 && <span style={{ fontSize: 10.5, color: T.textFaint }}>imprimé</span>}
@@ -245,27 +234,19 @@ export function LabelModal({ T, btn, primary, inp, lbl, muted, isMobile, Sheet, 
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <button style={{ ...btn, display: "inline-flex", alignItems: "center", gap: 6 }} onClick={generate}><Icon name="plus" size={15} />Générer un code</button>
-        <button style={{ ...btn, display: "inline-flex", alignItems: "center", gap: 6 }} onClick={() => setScanning(s => !s)}><Icon name="scan" size={15} />{scanning ? "Fermer le scanner" : "Scanner un code existant"}</button>
       </div>
-      {scanning && <CameraScanner T={T} height={220} label="Scanner le code du produit" onDetect={t => { addCode(t); setScanning(false); }} />}
       <div style={{ display: "flex", gap: 8 }}>
-        <input id="lb-typed" style={{ ...inp, flex: 1 }} value={typed} onChange={e => setTyped(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { addCode(typed); setTyped(""); } }} placeholder="Ou tape un code (ex. EAN du produit)" autoComplete="off" />
+        <input id="lb-typed" style={{ ...inp, flex: 1 }} value={typed} onChange={e => setTyped(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { addCode(typed); setTyped(""); } }} placeholder="Ou tape le code d'une étiquette existante" autoComplete="off" />
         <button style={btn} disabled={!typed.trim()} onClick={() => { addCode(typed); setTyped(""); }}>Ajouter</button>
       </div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
-        <div style={{ ...lbl, gap: 6 }}>Format de l'étiquette
-          <div style={{ display: "flex", gap: 6 }}>
-            <button style={seg(v.codeFormat === "qr")} onClick={() => set({ codeFormat: "qr" })}>QR code</button>
-            <button style={seg(v.codeFormat === "barcode")} onClick={() => set({ codeFormat: "barcode" })}>Code-barres</button>
-          </div>
-        </div>
         {v.trackMode !== "visual" && (
-          <label style={{ ...lbl, width: 170 }}>Retirer à chaque scan
+          <label style={{ ...lbl, width: 170 }}>Proposé à chaque scan
             <input id="lb-scanqty" type="number" min="1" inputMode="numeric" style={inp} value={v.scanQty} onChange={e => set({ scanQty: e.target.value })} />
           </label>
         )}
       </div>
-      <div style={{ ...muted, fontSize: 12 }}>{v.codeFormat === "qr" ? "Le QR code se lit avec le scanner de l'app ou directement avec l'appareil photo du téléphone (il ouvre l'app sur le scanner)." : "Le code-barres se lit avec le scanner de l'app ou une douchette USB."}</div>
+      <div style={{ ...muted, fontSize: 12 }}>Le QR code se lit avec le scanner de l'app ou directement avec l'appareil photo du téléphone (il ouvre l'app sur le scanner). Chaque scan demande une validation avant de toucher au stock.</div>
 
       <div style={section}>3 · Image</div>
       <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>

@@ -7,7 +7,7 @@ import Planning from "./Planning.jsx";
 import { accessOf } from "./access.js";
 import { BrandLogo, Icon } from "./brand.jsx";
 import { ChoiceInput } from "./fields.jsx";
-import { ScanTab, Thumb } from "./Scanner.jsx";
+import { ScanTab, ConfirmSheet, Thumb } from "./Scanner.jsx";
 import { LabelsTab, LabelModal, LabelPrintSheet } from "./Labels.jsx";
 import { normCode, parseScan, findByCode } from "./codes.js";
 import { num, isLow, isVisual } from "./stockRules.js";
@@ -108,9 +108,10 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
   const [printLabels, setPrintLabels] = useState(null); // { ids, size, copies }
   const [moreOpen, setMoreOpen] = useState(false);
   const itemsRef = useRef([]);
-  const lastScan = useRef({ code: "", t: 0 });
   const lastSeen = useRef({ code: "", t: 0 });
   const scanSeq = useRef(0);
+  const [confirmScan, setConfirmScan] = useState(null);
+  const confirmRef = useRef(null);
   const pendingRef = useRef(pendingScan);
   const handleRef = useRef(null);
   const doneRef = useRef(onPendingDone);
@@ -232,35 +233,49 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
   };
 
   // ── Scanner ──
-  // source "camera" : la caméra relit le code à chaque image ; on ne compte à nouveau le même code
-  // que s'il a quitté le champ de la caméra (non vu depuis 1,5 s). Saisie / douchette : chaque validation compte.
-  const handleCode = async (raw, source = "manual") => {
+  // Chaque scan ouvre une validation : rien ne change dans le stock avant « Valider ».
+  // source "camera" : la caméra relit le code à chaque image ; on ne le propose à nouveau
+  // que s'il a quitté le champ (non vu depuis 1,5 s). Pendant une validation, la caméra est ignorée.
+  const handleCode = (raw, source = "manual") => {
     const code = parseScan(raw);
-    if (!code) return;
+    if (!code) return "";
     const t = nowTs();
     if (source === "camera") {
       const seen = lastSeen.current;
       lastSeen.current = { code, t };
-      if (seen.code === code && t - seen.t < 1500) return;
-      if (lastScan.current.code === code && t - lastScan.current.t < 2500) return;
+      if (confirmRef.current) return "";
+      if (seen.code === code && t - seen.t < 1500) return "";
     }
-    lastScan.current = { code, t };
-    const entry = { id: t + "-" + (++scanSeq.current), code, ts: t };
+    if (confirmRef.current) return "";
+    const id = t + "-" + (++scanSeq.current);
     const it = findByCode(itemsRef.current, code);
-    if (!it) { setScanLog(l => [{ ...entry, status: "unknown" }, ...l].slice(0, 40)); buzz([80, 60, 80]); return; }
-    if (isVisual(it)) {
-      const base = { ...entry, itemId: it.id, name: it.name, image: it.image };
-      if (it.lowFlag) { setScanLog(l => [{ ...base, status: "already", lowAt: it.lowAt, lowBy: it.lowBy, orderedAt: it.orderedAt }, ...l].slice(0, 40)); buzz(60); return; }
-      setScanLog(l => [{ ...base, status: "flagged" }, ...l].slice(0, 40)); buzz(60);
-      await flagLow(it, "Scan : stock bas");
-      return;
+    let c;
+    if (!it) c = { id, kind: "unknown", code };
+    else if (isVisual(it)) c = { id, kind: "visual", code, item: it };
+    else if (num(it.qty) <= 0) c = { id, kind: "empty", code, item: it };
+    else c = { id, kind: "count", code, item: it, qty: Math.min(Math.max(1, num(it.scanQty) || 1), num(it.qty)) };
+    const res = c.kind === "unknown" || c.kind === "empty" ? "bad" : "ok";
+    if (source !== "camera") buzz(res === "bad" ? [80, 60, 80] : 60); // la caméra fait son propre retour (cadre, bip, vibration)
+    confirmRef.current = c; setConfirmScan(c);
+    return res;
+  };
+  const closeConfirm = () => { confirmRef.current = null; setConfirmScan(null); };
+  const confirmScanNow = async qty => {
+    const c = confirmRef.current; if (!c?.item) return closeConfirm();
+    const it = itemsRef.current.find(x => x.id === c.item.id) || c.item; // état le plus récent
+    const entry = { id: c.id, code: c.code, ts: nowTs(), itemId: it.id, name: it.name, image: it.image };
+    if (c.kind === "visual") {
+      if (!it.lowFlag) { setScanLog(l => [{ ...entry, status: "flagged" }, ...l].slice(0, 40)); await flagLow(it, "Scan : stock bas"); }
+    } else if (c.kind === "count") {
+      const before = num(it.qty);
+      const take = Math.min(Math.max(1, num(qty) || 1), before);
+      if (take > 0) {
+        setScanLog(l => [{ ...entry, status: "ok", unit: it.unit, take, after: before - take, threshold: num(it.threshold) }, ...l].slice(0, 40));
+        await changeQty(it, -take, "Scan");
+      }
     }
-    const before = num(it.qty);
-    if (before <= 0) { setScanLog(l => [{ ...entry, status: "empty", itemId: it.id, name: it.name, image: it.image }, ...l].slice(0, 40)); buzz([80, 60, 80]); return; }
-    const take = Math.min(Math.max(1, num(it.scanQty) || 1), before);
-    setScanLog(l => [{ ...entry, status: "ok", itemId: it.id, name: it.name, image: it.image, unit: it.unit, take, after: before - take, threshold: num(it.threshold) }, ...l].slice(0, 40));
     buzz(60);
-    await changeQty(it, -take, "Scan");
+    closeConfirm();
   };
   useEffect(() => { handleRef.current = handleCode; doneRef.current = onPendingDone; });
   const undoScan = async e => {
@@ -281,7 +296,7 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
   const saveLabel = async v => {
     if (v.mode === "new") remember({ stockCategories: v.category, units: v.unit });
     const codes = v.codes.map(normCode).filter(Boolean);
-    const data = { codes, codeFormat: v.codeFormat === "barcode" ? "barcode" : "qr", scanQty: Math.max(1, num(v.scanQty) || 1), image: v.image || "", imageKind: v.imageKind || "", trackMode: v.trackMode === "visual" ? "visual" : "count", updatedAt: nowTs() };
+    const data = { codes, codeFormat: "qr", scanQty: Math.max(1, num(v.scanQty) || 1), image: v.image || "", imageKind: v.imageKind || "", trackMode: v.trackMode === "visual" ? "visual" : "count", updatedAt: nowTs() };
     try {
       if (v.mode === "new") {
         const qty = data.trackMode === "visual" ? 0 : Math.max(0, num(v.qty));
@@ -526,7 +541,7 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
         )}
 
         {current === "scan" && (
-          <ScanTab {...ctx} isAdmin={isAdmin} log={scanLog} onCode={handleCode} onUndo={undoScan} onAssociate={code => setLabelModal({ mode: "existing", codes: [code] })} />
+          <ScanTab {...ctx} log={scanLog} confirm={confirmScan} onCode={handleCode} onUndo={undoScan} />
         )}
 
         {current === "labels" && isAdmin && (
@@ -536,6 +551,7 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
         {current === "settings" && isAdmin && <Settings {...ctx} cfg={cfg} saveCfg={saveCfg} members={members} showToast={showToast} />}
       </main>
 
+      {confirmScan && <ConfirmSheet key={confirmScan.id} {...ctx} isAdmin={isAdmin} confirm={confirmScan} onConfirm={confirmScanNow} onCancel={closeConfirm} onAssociate={code => setLabelModal({ mode: "existing", codes: [code] })} />}
       {labelModal && <LabelModal {...ctx} Sheet={Sheet} TrackModeField={TrackModeField} value={labelModal} items={items} cfg={cfg} onClose={() => setLabelModal(null)} onSave={saveLabel} onGenerateImage={generateImage} />}
       {printLabels && <LabelPrintSheet items={printLabels.ids.map(id => items.find(x => x.id === id)).filter(Boolean)} size={printLabels.size} copies={printLabels.copies} />}
       {itemModal && <ItemModal {...ctx} value={itemModal} cfg={cfg} onClose={() => setItemModal(null)} onSave={saveItem} onDelete={deleteItem} />}
