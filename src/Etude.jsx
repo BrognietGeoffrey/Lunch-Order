@@ -60,7 +60,11 @@ const STARTER_CFG = {
   ticketCategories: ["Fournitures", "Informatique", "Matériel", "Bâtiment", "Autre"],
   assetTypes: ["PC portable", "PC fixe", "Écran", "Imprimante", "Téléphone", "Autre"],
   alertEmails: [],
+  itCategories: ["Informatique"],
 };
+// Les articles de ces catégories sont rangés dans Matériel → Stock informatique (les alertes restent les mêmes)
+const normCat = c => (c || "").trim().toLowerCase();
+const isITItem = (it, cfg) => (cfg.itCategories || []).some(c => normCat(c) === normCat(it.category));
 // Demande au serveur d'envoyer l'alerte mail (il vérifie lui-même le seuil et n'envoie qu'une fois)
 const notifyLow = itemId => fetch("/api/stock-alert", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "item", itemId }) }).catch(() => {});
 const LIST_FIELDS = [
@@ -69,6 +73,7 @@ const LIST_FIELDS = [
   { key: "locations", label: "Emplacements", hint: "Ex. Armoire accueil, Cave" },
   { key: "ticketCategories", label: "Catégories de demandes", hint: "Ex. Informatique" },
   { key: "assetTypes", label: "Types de matériel", hint: "Ex. PC portable" },
+  { key: "itCategories", label: "Catégories de stock rangées dans Matériel", hint: "Ex. Informatique — ces articles s'affichent dans Matériel → Stock informatique" },
 ];
 
 const nowTs = () => new Date().getTime(); // horodatage des écritures
@@ -95,6 +100,8 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
   const [cfgDoc, setCfgDoc] = useState(null); // null = pas encore chargé
   const [toast, setToast] = useState(null);
   const [stockFilter, setStockFilter] = useState({ q: "", cat: "", low: false });
+  const [itFilter, setItFilter] = useState({ q: "", cat: "", low: false });
+  const [assetView, setAssetView] = useState("park"); // park | stock (stock informatique)
   const [ticketFilter, setTicketFilter] = useState("open");
   const [assetFilter, setAssetFilter] = useState({ q: "", type: "", status: "" });
   const [itemModal, setItemModal] = useState(null);   // {…item} ou {} pour nouveau
@@ -151,6 +158,17 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
   // ── Dérivés ──
   const low = items.filter(isLow);
   const lowToOrder = low.filter(it => !it.orderedAt);
+  // Séparation : fournitures (onglet Stock) / informatique (onglet Matériel). Les alertes portent toujours sur tout.
+  const itItems = items.filter(it => isITItem(it, cfg)), supplyItems = items.filter(it => !isITItem(it, cfg));
+  const lowIT = itItems.filter(isLow), lowSupply = supplyItems.filter(isLow);
+  const toOrderIT = lowToOrder.filter(it => isITItem(it, cfg)), toOrderSupply = lowToOrder.filter(it => !isITItem(it, cfg));
+  const itCats = [...new Set([...cfg.stockCategories.filter(c => isITItem({ category: c }, cfg)), ...itItems.map(i => i.category).filter(Boolean)])];
+  const supplyCats = [...new Set([...cfg.stockCategories.filter(c => !isITItem({ category: c }, cfg)), ...supplyItems.map(i => i.category).filter(Boolean)])];
+  const itemIdsIT = new Set(itItems.map(i => i.id));
+  const openLow = () => {
+    if (toOrderSupply.length || !toOrderIT.length) { setStockFilter({ q: "", cat: "", low: true }); setTab("stock"); }
+    else { setItFilter({ q: "", cat: "", low: true }); setAssetView("stock"); setTab("assets"); }
+  };
   const openTickets = tickets.filter(t => OPEN.includes(t.status));
   const myTickets = tickets.filter(t => t.requester === user);
   const visibleTickets = isAdmin ? tickets : tickets.filter(t => involves(t, user)); // demandeur ou approbateur
@@ -408,10 +426,10 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
 
   const TABS = [
     { id: "home", icon: "home", label: "Accueil" },
-    { id: "stock", icon: "box", label: "Stock", badge: lowToOrder.length },
+    { id: "stock", icon: "box", label: "Stock", badge: toOrderSupply.length },
     { id: "scan", icon: "scan", label: "Scanner" },
     { id: "tickets", icon: "ticket", label: "Demandes", badge: (isAdmin ? newTickets.length : 0) + toApprove.length },
-    { id: "assets", icon: "laptop", label: "Matériel" },
+    { id: "assets", icon: "laptop", label: "Matériel", badge: toOrderIT.length },
     { id: "planning", icon: "calendar", label: "Planning" },
     ...(isAdmin ? [{ id: "labels", icon: "tag", label: "Étiquettes" }, { id: "settings", icon: "settings", label: "Réglages" }] : []),
   ];
@@ -501,8 +519,8 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
             <span style={{ color: T.accent, fontWeight: 600, whiteSpace: "nowrap" }}>Voir →</span>
           </button>
         )}
-        {lowToOrder.length > 0 && !["stock", "planning"].includes(current) && (
-          <button className="no-print" onClick={() => { setStockFilter({ q: "", cat: "", low: true }); setTab("stock"); }}
+        {lowToOrder.length > 0 && !["stock", "planning"].includes(current) && !(current === "assets" && assetView === "stock") && (
+          <button className="no-print" onClick={openLow}
             style={{ textAlign: "left", display: "flex", gap: 10, alignItems: "center", background: rgba("#e8590c", T.isDark ? .18 : .1), border: `1px solid ${rgba("#e8590c", .45)}`, color: T.text, borderRadius: 12, padding: "11px 14px", cursor: "pointer", fontSize: 13.5 }}>
             <Icon name="alert" size={19} style={{ color: T.orange }} />
             <span style={{ flex: 1, minWidth: 0 }}>
@@ -515,14 +533,15 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
 
         {current === "home" && (
           <Home {...ctx} isAdmin={isAdmin} noMail={!recipientsOf(cfg).length} user={user} low={low} openTickets={openTickets} myTickets={myTickets} assets={assets} myAssets={myAssets}
-            warrantySoon={warrantySoon} tickets={tickets} go={setTab} onTicket={id => setOpenTicketId(id)} onNewTicket={() => setTicketModal({ category: cfg.ticketCategories[0] || "", priority: "normal" })}
+            warrantySoon={warrantySoon} tickets={tickets} go={t => t === "stock" ? openLow() : (t === "assets" && setAssetView("park"), setTab(t))} onTicket={id => setOpenTicketId(id)} onNewTicket={() => setTicketModal({ category: cfg.ticketCategories[0] || "", priority: "normal" })}
             markOrdered={markOrdered} clearLow={clearLow} copyOrderList={copyOrderList} />
         )}
 
         {current === "stock" && (
-          <Stock {...ctx} isAdmin={isAdmin} items={items} cfg={cfg} filter={stockFilter} setFilter={setStockFilter} changeQty={changeQty} flagLow={flagLow} clearLow={clearLow}
-            onEdit={it => setItemModal({ ...it })} onNew={() => setItemModal({ unit: cfg.units[0] || "", category: cfg.stockCategories[0] || "", qty: 0, threshold: 2, trackMode: "count" })}
-            markOrdered={markOrdered} copyOrderList={copyOrderList} lowCount={low.length} moves={moves} showMoves={showMoves} setShowMoves={setShowMoves} />
+          <Stock {...ctx} isAdmin={isAdmin} items={supplyItems} cats={supplyCats} cfg={cfg} filter={stockFilter} setFilter={setStockFilter} changeQty={changeQty} flagLow={flagLow} clearLow={clearLow}
+            onEdit={it => setItemModal({ ...it })} onNew={() => setItemModal({ unit: cfg.units[0] || "", category: supplyCats[0] || "", qty: 0, threshold: 2, trackMode: "count" })}
+            markOrdered={markOrdered} copyOrderList={copyOrderList} lowCount={lowSupply.length} moves={moves.filter(m => !itemIdsIT.has(m.itemId))} showMoves={showMoves} setShowMoves={setShowMoves}
+            otherLow={toOrderIT.length} onOther={() => { setItFilter({ q: "", cat: "", low: true }); setAssetView("stock"); setTab("assets"); }} otherLabel="en informatique (Matériel)" />
         )}
 
         {current === "tickets" && (
@@ -531,9 +550,28 @@ export default function Etude({ db, T, user, members, role, canLunch, lunchName 
         )}
 
         {current === "assets" && (
-          <Assets {...ctx} isAdmin={isAdmin} user={user} assets={isAdmin ? assets : myAssets} cfg={cfg} filter={assetFilter} setFilter={setAssetFilter}
-            onEdit={a => setAssetModal({ ...a })} onNew={() => setAssetModal({ type: cfg.assetTypes[0] || "", status: "in_use" })}
-            onReport={a => setTicketModal({ title: `Problème : ${a.type || "matériel"} ${a.tag || ""}`.trim(), category: cfg.ticketCategories.includes("Matériel") ? "Matériel" : (cfg.ticketCategories[0] || ""), priority: "normal", assetId: a.id })} />
+          <>
+            <div role="tablist" aria-label="Matériel" style={{ display: "inline-flex", alignSelf: "flex-start", background: T.bgTag, borderRadius: 11, padding: 3, gap: 2 }}>
+              {[["park", isAdmin ? "Parc matériel" : "Mon matériel", 0], ["stock", "Stock informatique", toOrderIT.length]].map(([id, label, n]) => (
+                <button key={id} role="tab" aria-selected={assetView === id} onClick={() => setAssetView(id)}
+                  style={{ border: "none", borderRadius: 9, padding: "8px 14px", fontSize: 13.5, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 7,
+                    background: assetView === id ? T.bgCard : "transparent", color: assetView === id ? T.text : T.textSub, boxShadow: assetView === id ? T.shadow : "none" }}>
+                  {label}{n > 0 && <span style={{ background: T.orange, color: "#fff", borderRadius: 999, fontSize: 11, padding: "1px 7px" }}>{n}</span>}
+                </button>
+              ))}
+            </div>
+            {assetView === "park" ? (
+              <Assets {...ctx} isAdmin={isAdmin} user={user} assets={isAdmin ? assets : myAssets} cfg={cfg} filter={assetFilter} setFilter={setAssetFilter}
+                onEdit={a => setAssetModal({ ...a })} onNew={() => setAssetModal({ type: cfg.assetTypes[0] || "", status: "in_use" })}
+                onReport={a => setTicketModal({ title: `Problème : ${a.type || "matériel"} ${a.tag || ""}`.trim(), category: cfg.ticketCategories.includes("Matériel") ? "Matériel" : (cfg.ticketCategories[0] || ""), priority: "normal", assetId: a.id })} />
+            ) : (
+              <Stock {...ctx} isAdmin={isAdmin} items={itItems} cats={itCats} cfg={cfg} filter={itFilter} setFilter={setItFilter} changeQty={changeQty} flagLow={flagLow} clearLow={clearLow}
+                onEdit={it => setItemModal({ ...it })} onNew={() => setItemModal({ unit: cfg.units[0] || "", category: itCats[0] || "Informatique", qty: 0, threshold: 2, trackMode: "count" })}
+                markOrdered={markOrdered} copyOrderList={copyOrderList} lowCount={lowIT.length} moves={moves.filter(m => itemIdsIT.has(m.itemId))} showMoves={showMoves} setShowMoves={setShowMoves}
+                otherLow={toOrderSupply.length} onOther={() => { setStockFilter({ q: "", cat: "", low: true }); setTab("stock"); }} otherLabel="en fournitures (Stock)"
+                emptyTitle="Aucun article informatique" emptyText={`Les articles des catégories ${(cfg.itCategories || []).join(", ") || "Informatique"} (toners, câbles, souris…) s'affichent ici, avec les mêmes alertes que le stock.`} />
+            )}
+          </>
         )}
 
         {current === "planning" && (
@@ -710,13 +748,12 @@ function Home({ T, card, h2, btn, primary, muted, isMobile, isAdmin, noMail, use
 }
 
 // ── Stock ─────────────────────────────────────────────────────────────────────
-function Stock({ T, card, h2, btn, primary, inp, muted, isMobile, isAdmin, items, cfg, filter, setFilter, changeQty, flagLow, clearLow, onEdit, onNew, markOrdered, copyOrderList, lowCount, moves, showMoves, setShowMoves }) {
+function Stock({ T, card, h2, btn, primary, inp, muted, isMobile, isAdmin, items, cats, filter, setFilter, changeQty, flagLow, clearLow, onEdit, onNew, markOrdered, copyOrderList, lowCount, moves, showMoves, setShowMoves, otherLow = 0, onOther, otherLabel, emptyTitle, emptyText }) {
   const q = filter.q.trim().toLowerCase();
   const shown = items.filter(it =>
     (!filter.cat || it.category === filter.cat) &&
     (!filter.low || isLow(it)) &&
     (!q || [it.name, it.category, it.location, it.supplier].some(v => (v || "").toLowerCase().includes(q))));
-  const cats = [...new Set([...cfg.stockCategories, ...items.map(i => i.category).filter(Boolean)])];
   const qtyBtn = { width: 36, height: 36, borderRadius: 10, border: `1px solid ${T.border}`, background: T.bgCard, color: T.text, fontSize: 18, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 };
   return (
     <>
@@ -732,9 +769,14 @@ function Stock({ T, card, h2, btn, primary, inp, muted, isMobile, isAdmin, items
         {lowCount > 0 && <button style={btn} onClick={copyOrderList}><Icon name="copy" size={15} /> Copier la liste</button>}
         {isAdmin && <button style={primary} onClick={onNew}>+ Article</button>}
       </div>
+      {filter.low && otherLow > 0 && (
+        <button onClick={onOther} style={{ alignSelf: "flex-start", background: "transparent", border: "none", padding: 0, color: T.accent, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+          + {otherLow} article{otherLow > 1 ? "s" : ""} à commander {otherLabel} →
+        </button>
+      )}
 
       {items.length === 0 ? (
-        <Empty T={T} icon="box" title="Aucun article en stock" text={isAdmin ? "Ajoute les fournitures de l'étude avec leur seuil : une alerte apparaît dès que la quantité l'atteint." : "Un admin doit d'abord ajouter les articles."}
+        <Empty T={T} icon="box" title={emptyTitle || "Aucun article en stock"} text={emptyText || (isAdmin ? "Ajoute les fournitures de l'étude avec leur seuil : une alerte apparaît dès que la quantité l'atteint." : "Un admin doit d'abord ajouter les articles.")}
           action={isAdmin && <button style={primary} onClick={onNew}>+ Ajouter un article</button>} />
       ) : shown.length === 0 ? (
         <div style={{ ...muted, textAlign: "center", padding: 24, fontSize: 13 }}>Aucun article ne correspond à ces filtres.</div>
