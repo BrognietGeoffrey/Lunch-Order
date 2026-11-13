@@ -54,11 +54,18 @@ export function LabelCard({ item, big }) {
 // ── Onglet Étiquettes ─────────────────────────────────────────────────────────
 export function LabelsTab({ T, card, btn, primary, inp, muted, isMobile, items, onEdit, onNew, onPrint }) {
   const [filter, setFilter] = useState("all");
+  const [cat, setCat] = useState("");
   const [sel, setSel] = useState([]);
   const [size, setSize] = useState("small");
   const [copies, setCopies] = useState(1);
   const withCode = items.filter(it => (it.codes || []).length);
-  const shown = filter === "nocode" ? items.filter(it => !(it.codes || []).length) : filter === "code" ? withCode : items;
+  const cats = [...new Set(items.map(it => it.category || "Sans catégorie"))].sort((a, b) => a.localeCompare(b, "fr"));
+  const inCat = it => !cat || (it.category || "Sans catégorie") === cat;
+  const shown = (filter === "nocode" ? items.filter(it => !(it.codes || []).length) : filter === "code" ? withCode : items).filter(inCat);
+  // « Tout sélectionner » : tous les articles avec un QR code de la vue actuelle (catégorie choisie ou tout)
+  const selectable = shown.filter(it => (it.codes || []).length).map(it => it.id);
+  const allOn = selectable.length > 0 && selectable.every(id => sel.includes(id));
+  const toggleAll = () => setSel(s => allOn ? s.filter(id => !selectable.includes(id)) : [...new Set([...s, ...selectable])]);
   const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
   const printable = sel.filter(id => withCode.some(it => it.id === id));
   const chip = (id, label, n) => {
@@ -70,7 +77,7 @@ export function LabelsTab({ T, card, btn, primary, inp, muted, isMobile, items, 
       <div style={{ display: "flex", alignItems: "flex-end", gap: 10, flexWrap: "wrap" }}>
         <div style={{ flex: 1, minWidth: 200 }}>
           <h1 style={{ fontFamily: "'Jost',sans-serif", fontWeight: 500, fontSize: 22, margin: 0 }}>Étiquettes</h1>
-          <div style={muted}>Relie un QR code ou un code-barres à chaque article : le scanner retirera l'article du stock.</div>
+          <div style={muted}>Relie un QR code à chaque article, puis imprime les étiquettes : tout, une catégorie ou une sélection.</div>
         </div>
         <button style={{ ...primary, display: "inline-flex", alignItems: "center", gap: 7 }} onClick={onNew}><Icon name="plus" size={16} />Nouvelle étiquette</button>
       </div>
@@ -80,6 +87,19 @@ export function LabelsTab({ T, card, btn, primary, inp, muted, isMobile, items, 
         {chip("code", "Avec code", withCode.length)}
         {chip("nocode", "Sans code", items.length - withCode.length)}
       </div>
+
+      {withCode.length > 0 && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <select id="lb-cat" aria-label="Catégorie" value={cat} onChange={e => setCat(e.target.value)} style={{ ...inp, width: "auto", flex: "0 1 220px", padding: "8px 10px" }}>
+            <option value="">Toutes les catégories</option>
+            {cats.map(c => <option key={c} value={c}>{c} ({withCode.filter(it => (it.category || "Sans catégorie") === c).length})</option>)}
+          </select>
+          <button style={{ ...btn, display: "inline-flex", alignItems: "center", gap: 7, opacity: selectable.length ? 1 : .5 }} disabled={!selectable.length} onClick={toggleAll}>
+            <span aria-hidden="true" style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${allOn ? T.text : T.border}`, background: allOn ? T.text : "transparent", color: T.bg, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{allOn && <Icon name="check" size={11} stroke={3} />}</span>
+            {allOn ? "Tout désélectionner" : "Tout sélectionner"}{cat ? ` · ${cat}` : ""} ({selectable.length})
+          </button>
+        </div>
+      )}
 
       {printable.length > 0 && (
         <div style={{ ...card, padding: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", position: "sticky", top: isMobile ? 64 : 104, zIndex: 5 }}>
@@ -105,6 +125,7 @@ export function LabelsTab({ T, card, btn, primary, inp, muted, isMobile, items, 
           <button style={primary} onClick={onNew}>Nouvelle étiquette</button>
         </div>
       ) : (
+        shown.length === 0 ? <div style={{ ...muted, textAlign: "center", padding: 24, fontSize: 13 }}>Aucun article ne correspond à ces filtres.</div> :
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill,minmax(330px,1fr))", gap: 10 }}>
           {shown.map(it => {
             const codes = it.codes || [], has = codes.length > 0, on = sel.includes(it.id);
